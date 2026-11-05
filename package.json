@@ -1,0 +1,15 @@
+{
+  "name": "hsr-companion",
+  "private": true,
+  "version": "1.0.0",
+  "description": "HSR Companion — application de bureau (Tauri)",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon icon.svg"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

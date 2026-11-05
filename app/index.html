@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HSR Companion</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✦</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 1 L18.6 13.4 L31 16 L18.6 18.6 L16 31 L13.4 18.6 L1 16 L13.4 13.4 Z" fill="currentColor"/>
+        <circle cx="16" cy="16" r="9" fill="none" stroke="currentColor" stroke-width=".8" opacity=".55"/>
+      </svg>
+      <div><h1>HSR Companion</h1><small data-i18n="tagline"></small></div>
+    </div>
+    <nav id="tabs"></nav>
+    <select id="langSelect" aria-label="Language">
+      <option value="fr">Français</option>
+      <option value="en">English</option>
+    </select>
+  </header>
+  <main id="view"></main>
+  <footer data-i18n="footer"></footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
