@@ -209,6 +209,18 @@ const DEFAULT_RATES = { exp: 24000, credits: 24000, crimson: 6, shadow: 4, echo:
 
 /* ---------- Vœux ---------- */
 const JADE_PER_PULL = 160;
+
+/* Revenus réguliers (estimation des vœux d'une version, js/estimate.js) : le MAXIMUM possible,
+   tout terminé à 100 %. Valeurs communautaires usuelles (Honkai: Star Rail Wiki / guides),
+   relevées le 06/11/2026 — à revérifier si le jeu change ses récompenses. */
+const PULL_INCOME = {
+  dailyJades: 60,            // Entraînement quotidien : 60 jades par jour
+  expressJades: 90,          // Passe de ravitaillement Express : 90 jades par jour (si coché dans l'onglet Vœux)
+  weeklyJades: 225,          // Univers (simulé / divergent) : récompense hebdomadaire complète
+  endgameJadesPerCycle: 800, // Mémoire du chaos, Fiction pure, Ombre apocalyptique : 800 jades par mode terminé
+  endgameCycleDays: 14,      // les trois modes se renouvellent en alternance : un renouvellement toutes les 2 semaines
+  embersPassesPerMonth: 5    // Boutique de Flammes immortelles : 5 Passes stellaires spéciaux par mois
+};
 const charRate = n => n <= 73 ? 0.006 : Math.min(1, 0.006 + 0.06 * (n - 73));  // pity max 90
 const lcRate = n => n <= 65 ? 0.008 : Math.min(1, 0.008 + 0.07 * (n - 65));    // pity max 80
 
