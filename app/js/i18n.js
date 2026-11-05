@@ -2,6 +2,9 @@
 const I18N = {
   fr: {
     tagline: 'Boîte à outils du Pionnier', footer: 'Outil de fan non officiel · données sauvegardées sur ce PC',
+    gamedata_updated: 'Les données du jeu ont été mises à jour. Relancer l’app maintenant pour les charger ?',
+    gamedata_new_chars: 'Nouveaux persos disponibles : {names}. Relancer l’app maintenant pour les charger ?',
+    merge_custom: '« {name} » existe maintenant dans les données officielles. Reporter ta progression et tes plans de ton perso personnalisé sur le perso officiel (le perso personnalisé sera supprimé) ?',
     tab_roster: 'Personnages', tab_planner: 'Farm', tab_warps: 'Vœux', tab_relics: 'Reliques', tab_teams: 'Équipes', tab_settings: 'Paramètres',
 
     roster_title: 'Mes personnages', roster_hint: 'Ajoute les personnages que tu possèdes : ils sont utilisés par les équipes, les reliques et le planificateur. Le profil de reliques sert à noter les reliques.',
@@ -131,6 +134,9 @@ const I18N = {
 
   en: {
     tagline: "Trailblazer's toolbox", footer: 'Unofficial fan tool · data saved on this PC',
+    gamedata_updated: 'Game data has been updated. Restart the app now to load it?',
+    gamedata_new_chars: 'New characters available: {names}. Restart the app now to load them?',
+    merge_custom: '“{name}” now exists in the official data. Move your progress and plans from your custom character to the official one (the custom character will be deleted)?',
     tab_roster: 'Characters', tab_planner: 'Farming', tab_warps: 'Warps', tab_relics: 'Relics', tab_teams: 'Teams', tab_settings: 'Settings',
 
     roster_title: 'My characters', roster_hint: 'Add the characters you own: they are used by teams, relics and the planner. The relic profile is used to rate relics.',

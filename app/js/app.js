@@ -80,12 +80,15 @@
   const locale = () => S.lang === 'fr' ? 'fr-FR' : 'en-US';
   const fmt = n => Math.round(n).toLocaleString(locale()).replace(/ /g, ' ');  // la police n'a pas l'espace fine
   const pct = (n, d = 1) => (n * 100).toLocaleString(locale(), { maximumFractionDigits: d }) + ' %';
-  const allChars = () => CHARACTERS.concat(S.custom);
-  const charById = id => CHARACTERS.find(c => c.id === id) || S.custom.find(c => c.id === id);
+  const allChars = () => BASE_CHARS.concat(S.custom);
+  const charById = id => BASE_CHARS.find(c => c.id === id) || S.custom.find(c => c.id === id);
   const ownedChars = () => allChars().filter(c => S.owned[c.id]);
 
   /* ---- images & données du jeu (js/assets.js intégré, ou version téléchargée : src-tauri/src/gamedata) ---- */
-  const G = typeof GAME !== 'undefined' ? GAME : { chars: [], elements: {}, paths: {}, pathMats: {}, items: {}, relicSets: {}, special: {} };
+  // données téléchargées par l'app (injectées par src-tauri/src/lib.rs) ou, à défaut, celles intégrées à l'exe
+  const G = window.__HSR_GAME__ || (typeof GAME !== 'undefined' ? GAME : { chars: [], elements: {}, paths: {}, pathMats: {}, items: {}, relicSets: {}, special: {}, aliases: {} });
+  // liste écrite à la main + persos sortis depuis (js/gamechars.js)
+  const BASE_CHARS = mergeGameChars(CHARACTERS, G.chars, DEFAULT_PROFILE_BY_PATH);
   const norm = s => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   const gameIndex = new Map(G.chars.map(g => [g.key, g]));
   const findGameChar = c => gameIndex.get(norm(c.name) + '|' + c.element) || gameIndex.get(norm(c.fr) + '|' + c.element)
@@ -910,18 +913,24 @@
   }
 
   /* ================================================================== FICHE PERSO */
-  /* Les textes (compétences, traces, eidolons) sont dans js/details/<langue>.js, chargé à la demande. */
+  /* Les textes (compétences, traces, eidolons) sont chargés à la demande : version téléchargée par l'app
+     si elle existe (commande game_details), sinon js/details/<langue>.js intégré. */
   const detailsLoading = {};
   function loadDetails(lang) {
     if (window.HSR_DETAILS && HSR_DETAILS[lang]) return Promise.resolve(HSR_DETAILS[lang]);
-    if (!detailsLoading[lang]) detailsLoading[lang] = new Promise((resolve, reject) => {
+    if (!detailsLoading[lang]) detailsLoading[lang] = invoke('game_details', { lang }).catch(() => null).then(json => json
+      ? ((window.HSR_DETAILS = window.HSR_DETAILS || {})[lang] = JSON.parse(json))
+      : loadDetailsScript(lang));
+    return detailsLoading[lang];
+  }
+  function loadDetailsScript(lang) {
+    return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = `js/details/${lang}.js`;
       s.onload = () => resolve(window.HSR_DETAILS && HSR_DETAILS[lang]);
       s.onerror = () => { delete detailsLoading[lang]; s.remove(); reject(new Error('details')); };
       document.head.appendChild(s);
     });
-    return detailsLoading[lang];
   }
 
   let sheet = null;   // { id, tab, lv: { indexCompétence: niveau }, err }
@@ -1420,4 +1429,18 @@
   });
 
   render();
+
+  /* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord) */
+  for (const d of findCustomDuplicates(S.custom, BASE_CHARS)) {
+    const cu = S.custom.find(c => c.id === d.customId);
+    if (cu && confirm(t('merge_custom', { name: cu.name }))) { mergeCustomInto(S, d.customId, d.officialId); save(); render(); }
+  }
+
+  /* Données du jeu : vérification en arrière-plan (au plus toutes les 6 h, voir gamedata/update.rs) ;
+     les nouvelles données sont chargées au prochain lancement */
+  invoke('game_data_update').then(u => {
+    if (!u || !u.updated) return;
+    const names = u.newChars.join(', ');
+    if (confirm(t(names ? 'gamedata_new_chars' : 'gamedata_updated', { names }))) { flushSave(); invoke('restart_app'); }
+  }).catch(() => { /* hors ligne : on garde les données actuelles */ });
 })();
