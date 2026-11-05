@@ -2,13 +2,11 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
 
-const UA: &str = "HSR-Companion/1.0 (local fan tool)";
 const GACHA_HOSTS: [&str; 2] = ["hoyoverse.com", "mihoyo.com"];
 const DEFAULT_GACHA_API: &str =
     "https://public-operation-hkrpg-sg.hoyoverse.com/common/gacha_record/api/getGachaLog";
@@ -138,11 +136,7 @@ pub async fn gacha_fetch(url: String, lang: Option<String>) -> Result<GachaResul
     set_param(&mut params, "lang", lang);
     set_param(&mut params, "size", &PAGE_SIZE.to_string());
 
-    let client = reqwest::Client::builder()
-        .user_agent(UA)
-        .timeout(Duration::from_secs(25))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = crate::net::client()?;
     let endpoint_re = Regex::new(r"get(Ld)?GachaLog$").unwrap();
 
     let mut items: Vec<Value> = Vec::new();
@@ -190,7 +184,7 @@ pub async fn gacha_fetch(url: String, lang: Option<String>) -> Result<GachaResul
                 break;
             }
             page += 1;
-            tokio::time::sleep(Duration::from_millis(250)).await; // politesse envers l'API
+            tokio::time::sleep(crate::net::POLITE_DELAY).await; // politesse envers l'API
         }
     }
     Ok(GachaResult { items, warnings })

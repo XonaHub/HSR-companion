@@ -44,7 +44,7 @@ const I18N = {
     all_slots: 'Tous les emplacements', sort_recent: 'Plus récentes', sort_score: 'Meilleures notes', sort_worst: 'Pires notes',
     show_more: 'Afficher plus ({n} sur {total})',
     err_unknown: 'Erreur inconnue.',
-    unknown_chars: 'Persos inconnus de la base (lance « python tools/build_assets.py ») : {ids}',
+    unknown_chars: 'Persos pas encore connus de l’app (ses données du jeu se mettent à jour toutes seules) : {ids}',
     gacha_import_title: 'Importer depuis le jeu',
     gacha_step2: 'Dans le jeu, sur ce PC, ouvre <b>Vœux › Historique</b> juste avant d’importer.',
     gacha_step3: 'Clique sur <b>Détection auto</b>. Sur un autre appareil, colle plutôt le lien de l’historique.',
@@ -124,7 +124,7 @@ const I18N = {
     rate_shadow: 'Mat. de boss par 30 d’énergie', rate_echo: 'Mat. hebdo par écho (30 d’énergie)', reset_rates: 'Valeurs par défaut',
     data_title: 'Données', data_hint: 'Tout est sauvegardé sur ce PC. Exporte un fichier pour faire une sauvegarde ou changer d’appareil.',
     export: 'Exporter', import: 'Importer', reset_all: 'Tout effacer',
-    about_title: 'À propos', about_text: 'Application de fan non officielle, non affiliée à HoYoverse. Coûts de matériaux, noms et images viennent des données du jeu (dépôt communautaire StarRailRes) ; l’EXP par palier, les rendements de farm et le modèle de pity restent des estimations. Après une mise à jour du jeu, lance « python tools/build_assets.py » puis « npm run build » pour rafraîchir les données.',
+    about_title: 'À propos', about_text: 'Application de fan non officielle, non affiliée à HoYoverse. Coûts de matériaux, noms et images viennent des données du jeu (dépôt communautaire StarRailRes) ; l’EXP par palier, les rendements de farm et le modèle de pity restent des estimations. Après une mise à jour du jeu, l’app télécharge toute seule les nouvelles données.',
     err_name: 'Indique un nom.', added: 'Ajouté', err_subs: 'Ajoute au moins une sous-stat.',
     confirm_reset: 'Effacer toutes tes données ? Cette action est irréversible.', import_ok: 'Données importées', import_err: 'Fichier invalide.'
   },
@@ -173,7 +173,7 @@ const I18N = {
     all_slots: 'All slots', sort_recent: 'Most recent', sort_score: 'Best grades', sort_worst: 'Worst grades',
     show_more: 'Show more ({n} of {total})',
     err_unknown: 'Unknown error.',
-    unknown_chars: 'Characters missing from the database (run “python tools/build_assets.py”): {ids}',
+    unknown_chars: 'Characters the app does not know yet (its game data updates on its own): {ids}',
     gacha_import_title: 'Import from the game',
     gacha_step2: 'In the game, on this PC, open <b>Warp › History</b> right before importing.',
     gacha_step3: 'Click <b>Auto-detect</b>. On another device, paste the history link instead.',
@@ -253,7 +253,7 @@ const I18N = {
     rate_shadow: 'Boss mats per 30 TP', rate_echo: 'Weekly mats per Echo (30 TP)', reset_rates: 'Defaults',
     data_title: 'Data', data_hint: 'Everything is saved on this PC. Export a file to back up or move to another device.',
     export: 'Export', import: 'Import', reset_all: 'Erase everything',
-    about_title: 'About', about_text: 'Unofficial fan app, not affiliated with HoYoverse. Material costs, names and images come from game data (community StarRailRes repository); EXP per level tier, farming yields and the pity model remain estimates. After a game update, run “python tools/build_assets.py” then “npm run build” to refresh the data.',
+    about_title: 'About', about_text: 'Unofficial fan app, not affiliated with HoYoverse. Material costs, names and images come from game data (community StarRailRes repository); EXP per level tier, farming yields and the pity model remain estimates. After a game update, the app downloads the new data on its own.',
     err_name: 'Enter a name.', added: 'Added', err_subs: 'Add at least one substat.',
     confirm_reset: 'Erase all your data? This cannot be undone.', import_ok: 'Data imported', import_err: 'Invalid file.'
   }

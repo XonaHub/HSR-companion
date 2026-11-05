@@ -2,7 +2,7 @@
    HSR Companion — base de données intégrée
    -------------------------------------------------------------------------
    Les coûts EXACTS des ascensions et traces de chaque perso viennent de
-   js/assets.js (généré par tools/build_assets.py depuis les données du jeu).
+   js/assets.js (données du jeu, voir src-tauri/src/gamedata).
    Les tables ASCENSION / ABILITY_COST / BASIC_COST / BONUS_TRACES ci-dessous
    ne servent qu'en repli, pour un perso personnalisé absent de ces données.
    Seule l'EXP par palier de niveau (LEVEL_EXP) reste une estimation.

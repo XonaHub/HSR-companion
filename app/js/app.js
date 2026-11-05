@@ -84,7 +84,7 @@
   const charById = id => CHARACTERS.find(c => c.id === id) || S.custom.find(c => c.id === id);
   const ownedChars = () => allChars().filter(c => S.owned[c.id]);
 
-  /* ---- images & données du jeu (js/assets.js, généré par tools/build_assets.py) ---- */
+  /* ---- images & données du jeu (js/assets.js intégré, ou version téléchargée : src-tauri/src/gamedata) ---- */
   const G = typeof GAME !== 'undefined' ? GAME : { chars: [], elements: {}, paths: {}, pathMats: {}, items: {}, relicSets: {}, special: {} };
   const norm = s => String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   const gameIndex = new Map(G.chars.map(g => [g.key, g]));
