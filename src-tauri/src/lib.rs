@@ -9,6 +9,7 @@
 mod gacha;
 pub mod gamedata;
 pub mod net;
+mod news;
 mod storage;
 
 use tauri::{WebviewUrl, WebviewWindowBuilder};
