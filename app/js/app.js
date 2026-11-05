@@ -37,45 +37,13 @@
     }
     return base;
   }
-  /* ------------------------------------------------------------------ plateforme
-     Tout ce qui diffère entre la page web (servie par tools/serve.py) et l'app de bureau (Tauri,
-     backend dans src-tauri/src) est regroupé ici : le reste du code ne teste jamais la plateforme. */
-  class OfflineError extends Error {}   // page web ouverte sans serve.py
-  async function serverCall(path, body) {
-    let res;
-    try {
-      res = await fetch(path, body && { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    } catch (e) { throw new OfflineError(); }
-    if (!(res.headers.get('content-type') || '').includes('json')) throw new OfflineError();
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data || data.error) throw new Error((data && data.error) || '');
-    return data;
-  }
-  const TAURI = window.__TAURI__ && window.__TAURI__.core;
-  const platform = TAURI ? {
-    saved: () => window.__HSR_STATE__,   // data.json, injecté avant le chargement (src-tauri/src/lib.rs)
-    persist: json => TAURI.invoke('save_state', { json }).catch(() => { /* localStorage reste à jour */ }),
-    findGachaUrl: () => TAURI.invoke('gacha_find'),
-    fetchGacha: (url, lang) => TAURI.invoke('gacha_fetch', { url, lang }),
-    exportFile: (name, content) => TAURI.invoke('export_data', { name, content }).then(p => p && toast(p))   // « Enregistrer sous… »
-  } : {
-    saved: () => null,
-    persist: () => {},
-    findGachaUrl: () => serverCall('/api/gacha/find').then(d => d.url),
-    fetchGacha: (url, lang) => serverCall('/api/gacha/fetch', { url, lang }),
-    exportFile: (name, content) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([content], { type: 'application/json' })); a.download = name; a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }
-  };
-  // textes propres à l'app de bureau : la clé « xxx_app » remplace « xxx » (une chaîne vide masque le texte)
-  if (TAURI) for (const dict of Object.values(I18N)) for (const k in dict) if (k.endsWith('_app')) dict[k.slice(0, -4)] = dict[k];
+  /* Backend Rust de l'app de bureau (src-tauri/src) : système de fichiers, réseau, import des vœux */
+  const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args);
 
   /* ------------------------------------------------------------------ sauvegarde */
   function load() {
-    // localStorage et, sous Tauri, data.json : on garde la copie la plus récente
-    const found = [platform.saved()];
+    // localStorage et data.json (injecté avant le chargement par src-tauri/src/lib.rs) : on garde la copie la plus récente
+    const found = [window.__HSR_STATE__];
     try { const raw = localStorage.getItem(KEY); if (raw) found.push(JSON.parse(raw)); } catch (e) { /* stockage indisponible */ }
     let best = null;
     for (const d of found) if (d && typeof d === 'object' && (!best || (d.savedAt || 0) > (best.savedAt || 0))) best = d;
@@ -93,7 +61,7 @@
     S.savedAt = Date.now();
     const json = JSON.stringify(S);
     try { localStorage.setItem(KEY, json); } catch (e) { /* ignore */ }
-    platform.persist(json);
+    invoke('save_state', { json }).catch(() => { /* localStorage reste à jour */ });
   }
   function save() {
     resetCaches();   // l'état a changé (persos possédés, profils, reliques, langue…)
@@ -509,7 +477,8 @@
       <div class="import-box">
         <b>${t('gacha_import_title')}</b>
         <ol class="steps">
-          ${['gacha_step1', 'gacha_step2', 'gacha_step3'].map(k => t(k)).filter(Boolean).map(s => `<li>${s}</li>`).join('')}
+          <li>${t('gacha_step2')}</li>
+          <li>${t('gacha_step3')}</li>
         </ol>
         <p class="hint small">${t('gacha_import_hint')}</p>
         <div class="form-row">
@@ -1044,7 +1013,7 @@
   }
 
   /* ================================================================== IMPORTS */
-  /* ---- historique des vœux (platform.findGachaUrl / fetchGacha) ---- */
+  /* ---- historique des vœux (commandes gacha_find / gacha_fetch, src-tauri/src/gacha.rs) ---- */
   // 5★ du pool standard : les obtenir sur une bannière limitée = 50/50 (ou 75/25) perdu
   const STANDARD_5 = new Set(['1003', '1004', '1101', '1104', '1107', '1209', '1211',
     '23000', '23002', '23003', '23004', '23005', '23012', '23013']);
@@ -1054,18 +1023,16 @@
     try {
       if (!url) {
         out.innerHTML = `<p class="hint">${t('gacha_finding')}</p>`;
-        url = await platform.findGachaUrl();
+        url = await invoke('gacha_find');
       }
       out.innerHTML = `<p class="hint">${t('gacha_loading')}</p>`;
-      const r = await platform.fetchGacha(url, S.lang);
+      const r = await invoke('gacha_fetch', { url, lang: S.lang });
       const n = applyGacha(r.items || []);
       save(); render(); toast(t('gacha_done', { n }));
       // bannières secondaires (collab…) qui n'ont pas pu être lues : on le signale sans bloquer
       if (r.warnings && r.warnings.length) $('#gachaOut').innerHTML = `<p class="note warn">${esc(r.warnings.join(' · '))}</p>`;
     } catch (e) {
-      // Tauri rejette avec une chaîne, serve.py avec une Error
-      const msg = e instanceof OfflineError ? t('server_needed') : esc((e && e.message !== undefined ? e.message : String(e)) || t('err_unknown'));
-      out.innerHTML = `<p class="note warn">${msg}</p>`;
+      out.innerHTML = `<p class="note warn">${esc(String(e) || t('err_unknown'))}</p>`;   // le backend rejette avec un message
     }
   }
 
@@ -1393,8 +1360,8 @@
       toast(t('team_sent', { mode: t('mode_' + mode), n: +side + 1 }));
     },
     resetRates: () => { S.rates = { ...DEFAULT_RATES }; save(); render(); },
-    exportData: () => Promise.resolve(platform.exportFile(`hsr-companion-${today()}.json`, JSON.stringify(S, null, 2)))
-      .catch(e => toast(String(e))),
+    exportData: () => invoke('export_data', { name: `hsr-companion-${today()}.json`, content: JSON.stringify(S, null, 2) })   // « Enregistrer sous… »
+      .then(p => p && toast(p)).catch(e => toast(String(e))),
     resetData: () => {
       if (!confirm(t('confirm_reset'))) return;
       const lang = S.lang; S = defaultState(); S.lang = lang; S.tab = 'settings'; save(); render();

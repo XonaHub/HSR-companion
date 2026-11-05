@@ -1,8 +1,7 @@
 /* HSR Companion — traductions FR / EN */
 const I18N = {
   fr: {
-    tagline: 'Boîte à outils du Pionnier', footer: 'Outil de fan non officiel · données sauvegardées localement dans ton navigateur',
-    footer_app: 'Outil de fan non officiel · données sauvegardées sur ce PC',
+    tagline: 'Boîte à outils du Pionnier', footer: 'Outil de fan non officiel · données sauvegardées sur ce PC',
     tab_roster: 'Personnages', tab_planner: 'Farm', tab_warps: 'Vœux', tab_relics: 'Reliques', tab_teams: 'Équipes', tab_settings: 'Paramètres',
 
     roster_title: 'Mes personnages', roster_hint: 'Ajoute les personnages que tu possèdes : ils sont utilisés par les équipes, les reliques et le planificateur. Le profil de reliques sert à noter les reliques.',
@@ -46,10 +45,7 @@ const I18N = {
     show_more: 'Afficher plus ({n} sur {total})',
     err_unknown: 'Erreur inconnue.',
     unknown_chars: 'Persos inconnus de la base (lance « python tools/build_assets.py ») : {ids}',
-    server_needed: 'Cette fonction a besoin que l’app soit lancée avec <b>HSR Companion.bat</b>. Ferme cette page, double-clique sur <b>HSR Companion.bat</b> dans le dossier de l’app, puis utilise la page qui s’ouvre (http://localhost:8765).',
     gacha_import_title: 'Importer depuis le jeu',
-    gacha_step1: 'Lance l’app avec <b>HSR Companion.bat</b> (l’import ne marche pas si tu ouvres directement la page).',
-    gacha_step1_app: '',   // l'app de bureau n'a rien à lancer
     gacha_step2: 'Dans le jeu, sur ce PC, ouvre <b>Vœux › Historique</b> juste avant d’importer.',
     gacha_step3: 'Clique sur <b>Détection auto</b>. Sur un autre appareil, colle plutôt le lien de l’historique.',
     gacha_import_hint: 'Le lien d’historique expire au bout d’environ 24 h : si l’app affiche « Lien expiré », rouvre simplement l’historique en jeu et recommence. Le lien sert uniquement à interroger l’API officielle HoYoverse.',
@@ -126,18 +122,15 @@ const I18N = {
     rates_hint: 'Valeurs moyennes par passage, utilisées pour estimer l’énergie. Ajuste-les selon ton niveau d’équilibre.',
     rate_exp: 'EXP par 10 d’énergie (calice doré)', rate_credits: 'Crédits par 10 d’énergie', rate_crimson: 'Mat. de Voie (équiv. T1) par 10 d’énergie',
     rate_shadow: 'Mat. de boss par 30 d’énergie', rate_echo: 'Mat. hebdo par écho (30 d’énergie)', reset_rates: 'Valeurs par défaut',
-    data_title: 'Données', data_hint: 'Tout est sauvegardé dans ton navigateur. Exporte un fichier pour faire une sauvegarde ou changer d’appareil.',
-    data_hint_app: 'Tout est sauvegardé sur ce PC. Exporte un fichier pour faire une sauvegarde ou changer d’appareil.',
+    data_title: 'Données', data_hint: 'Tout est sauvegardé sur ce PC. Exporte un fichier pour faire une sauvegarde ou changer d’appareil.',
     export: 'Exporter', import: 'Importer', reset_all: 'Tout effacer',
-    about_title: 'À propos', about_text: 'Application de fan non officielle, non affiliée à HoYoverse. Lance-la avec HSR Companion.bat. Coûts de matériaux, noms et images viennent des données du jeu (dépôt communautaire StarRailRes) ; l’EXP par palier, les rendements de farm et le modèle de pity restent des estimations. Après une mise à jour du jeu, lance « python tools/build_assets.py » pour rafraîchir les données.',
-    about_text_app: 'Application de fan non officielle, non affiliée à HoYoverse. Coûts de matériaux, noms et images viennent des données du jeu (dépôt communautaire StarRailRes) ; l’EXP par palier, les rendements de farm et le modèle de pity restent des estimations. Après une mise à jour du jeu, lance « python tools/build_assets.py » puis « npm run build » pour rafraîchir les données.',
+    about_title: 'À propos', about_text: 'Application de fan non officielle, non affiliée à HoYoverse. Coûts de matériaux, noms et images viennent des données du jeu (dépôt communautaire StarRailRes) ; l’EXP par palier, les rendements de farm et le modèle de pity restent des estimations. Après une mise à jour du jeu, lance « python tools/build_assets.py » puis « npm run build » pour rafraîchir les données.',
     err_name: 'Indique un nom.', added: 'Ajouté', err_subs: 'Ajoute au moins une sous-stat.',
     confirm_reset: 'Effacer toutes tes données ? Cette action est irréversible.', import_ok: 'Données importées', import_err: 'Fichier invalide.'
   },
 
   en: {
-    tagline: "Trailblazer's toolbox", footer: 'Unofficial fan tool · data saved locally in your browser',
-    footer_app: 'Unofficial fan tool · data saved on this PC',
+    tagline: "Trailblazer's toolbox", footer: 'Unofficial fan tool · data saved on this PC',
     tab_roster: 'Characters', tab_planner: 'Farming', tab_warps: 'Warps', tab_relics: 'Relics', tab_teams: 'Teams', tab_settings: 'Settings',
 
     roster_title: 'My characters', roster_hint: 'Add the characters you own: they are used by teams, relics and the planner. The relic profile is used to rate relics.',
@@ -181,10 +174,7 @@ const I18N = {
     show_more: 'Show more ({n} of {total})',
     err_unknown: 'Unknown error.',
     unknown_chars: 'Characters missing from the database (run “python tools/build_assets.py”): {ids}',
-    server_needed: 'This feature needs the app to be started with <b>HSR Companion.bat</b>. Close this page, double-click <b>HSR Companion.bat</b> in the app folder, then use the page that opens (http://localhost:8765).',
     gacha_import_title: 'Import from the game',
-    gacha_step1: 'Start the app with <b>HSR Companion.bat</b> (importing does not work if you open the page directly).',
-    gacha_step1_app: '',   // the desktop app has nothing to start
     gacha_step2: 'In the game, on this PC, open <b>Warp › History</b> right before importing.',
     gacha_step3: 'Click <b>Auto-detect</b>. On another device, paste the history link instead.',
     gacha_import_hint: 'The history link expires after about 24 hours: if the app says “Link expired”, just reopen the history in game and try again. The link is only used to query the official HoYoverse API.',
@@ -261,11 +251,9 @@ const I18N = {
     rates_hint: 'Average values per run, used to estimate Trailblaze Power. Adjust them to your equilibrium level.',
     rate_exp: 'EXP per 10 TP (Golden Calyx)', rate_credits: 'Credits per 10 TP', rate_crimson: 'Path mats (T1 equiv.) per 10 TP',
     rate_shadow: 'Boss mats per 30 TP', rate_echo: 'Weekly mats per Echo (30 TP)', reset_rates: 'Defaults',
-    data_title: 'Data', data_hint: 'Everything is saved in your browser. Export a file to back up or move to another device.',
-    data_hint_app: 'Everything is saved on this PC. Export a file to back up or move to another device.',
+    data_title: 'Data', data_hint: 'Everything is saved on this PC. Export a file to back up or move to another device.',
     export: 'Export', import: 'Import', reset_all: 'Erase everything',
-    about_title: 'About', about_text: 'Unofficial fan app, not affiliated with HoYoverse. Start it with HSR Companion.bat. Material costs, names and images come from game data (community StarRailRes repository); EXP per level tier, farming yields and the pity model remain estimates. After a game update, run “python tools/build_assets.py” to refresh the data.',
-    about_text_app: 'Unofficial fan app, not affiliated with HoYoverse. Material costs, names and images come from game data (community StarRailRes repository); EXP per level tier, farming yields and the pity model remain estimates. After a game update, run “python tools/build_assets.py” then “npm run build” to refresh the data.',
+    about_title: 'About', about_text: 'Unofficial fan app, not affiliated with HoYoverse. Material costs, names and images come from game data (community StarRailRes repository); EXP per level tier, farming yields and the pity model remain estimates. After a game update, run “python tools/build_assets.py” then “npm run build” to refresh the data.',
     err_name: 'Enter a name.', added: 'Added', err_subs: 'Add at least one substat.',
     confirm_reset: 'Erase all your data? This cannot be undone.', import_ok: 'Data imported', import_err: 'Invalid file.'
   }
