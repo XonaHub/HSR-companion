@@ -4,7 +4,8 @@
 //! passe par des commandes Tauri :
 //!   * `gacha_find` / `gacha_fetch` : import de l'historique des vœux (API officielle HoYoverse) ;
 //!   * `save_state` / `export_data` : sauvegarde dans %APPDATA%\fr.hsrcompanion.desktop\ et export ;
-//!   * `game_data_update` / `game_details` / `restart_app` : données du jeu à jour (StarRailRes).
+//!   * `game_data_update` / `game_details` / `restart_app` : données du jeu à jour (StarRailRes) ;
+//!   * `news_feed` : actus officielles HoYoLAB regroupées par version.
 
 mod gacha;
 pub mod gamedata;
@@ -24,7 +25,8 @@ pub fn run() {
             storage::export_data,
             gamedata::update::game_data_update,
             gamedata::update::game_details,
-            gamedata::update::restart_app
+            gamedata::update::restart_app,
+            news::news_feed
         ])
         .setup(|app| {
             // Données injectées avant le chargement de la page, pour qu'app.js les lise de façon

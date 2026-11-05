@@ -26,6 +26,7 @@ const POSTS = [
   '47307963', // présentation d'Aiôn (ne cite pas de version)
   '47210911', // programme spécial 4.7
   '47310096', // aperçu de cône de lumière 4.7
+  '46439490', // Sauts événements 4.5 partie 1 (format avec les persos dans les lignes « ● »)
 ];
 
 async function save(rel, data) {

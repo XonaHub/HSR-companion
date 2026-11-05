@@ -2,7 +2,7 @@
 //! dans tests/fixtures/hoyolab). Les posts sont reconnus par leur titre anglais, puis lus dans la
 //! langue de l'app (français ou anglais).
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,21 +13,21 @@ pub enum PostKind {
     CharacterPreview,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct NoteItem {
     pub title: String,
     pub text: String,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct NoteSection {
     pub title: String,
     pub items: Vec<NoteItem>,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct GameEvent {
     pub name: String,
@@ -36,7 +36,7 @@ pub struct GameEvent {
     pub passes: u32,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Reward {
     pub label: String,
@@ -45,7 +45,7 @@ pub struct Reward {
 }
 
 /// Élément d'une bannière ; `kind` = "char" ou "lc" ; élément et Voie avec les clés de l'app.
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct WarpItem {
     pub name: String,
@@ -58,7 +58,7 @@ pub struct WarpItem {
     pub end: Option<String>,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct WarpPhase {
     pub phase: u8,
@@ -67,7 +67,7 @@ pub struct WarpPhase {
     pub items: Vec<WarpItem>,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Announced {
     pub name: String,
@@ -75,7 +75,7 @@ pub struct Announced {
     pub path: Option<String>,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PatchNote {
     pub start: Option<String>,
@@ -97,12 +97,22 @@ macro_rules! re {
 /// Reconnaît un post utile à partir de son titre anglais (les titres anglais sont les plus réguliers).
 pub fn classify(title_en: &str) -> Option<PostKind> {
     let t = title_en.trim();
+    // le passe de combat (« Version 4.6 "Nameless Honor" Update ») a la forme d'un ancien patch note
+    if t.contains("\"Nameless Honor\"") {
+        return None;
+    }
     let caps = |re: &regex::Regex| re.captures(t);
-    if let Some(c) = caps(re!(r#"^Version (\d+\.\d+) "(.+)" Update Details$"#)) {
+    // patch notes : « Version 4.6 "…" Update Details », et les anciens « Version 3.7 "…" Update » / « "…" Version 3.8 Update »
+    if let Some(c) = caps(re!(r#"^Version (\d+\.\d+) "(.+)" Update(?: Details)?$"#)) {
         return Some(PostKind::PatchNotes { version: c[1].into(), name: c[2].into() });
     }
-    if let Some(c) = caps(re!(r"^Version (\d+\.\d+) Event Warp: Phase (I{1,3})$")) {
-        return Some(PostKind::Warp { version: c[1].into(), phase: c[2].len() as u8 });
+    if let Some(c) = caps(re!(r#"^"(.+)" Version (\d+\.\d+) Update(?: Details)?$"#)) {
+        return Some(PostKind::PatchNotes { version: c[2].into(), name: c[1].into() });
+    }
+    // bannières : « Event Warp: Phase II », et les anciens « Event Warp: Part I » / « Event Warp (II) »
+    if let Some(c) = caps(re!(r"^Version (\d+\.\d+) Event Warp(?:: (?:Phase|Part) (I{1,3})| \((I{1,3})\))$")) {
+        let phase = c.get(2).or(c.get(3)).map_or(1, |m| m.as_str().len() as u8);
+        return Some(PostKind::Warp { version: c[1].into(), phase });
     }
     let announce = |version: &str, name: Option<&str>| {
         Some(PostKind::VersionAnnounce { version: version.into(), name: name.map(str::to_string) })
@@ -187,7 +197,7 @@ fn passes_in(line: &str) -> u32 {
 
 /// Voie (clé de l'app) à partir de son nom français ou anglais
 fn path_key(s: &str) -> Option<String> {
-    let s = re!(r"(?i)^\s*(la |le |l'|l’)").replace(s, "");
+    let s = re!(r"(?i)^\s*(la |le |l'|l’|the )").replace(s, "");
     let k = match crate::gamedata::norm(&s).as_str() {
         "destruction" => "destruction",
         "chasse" | "hunt" => "hunt",
@@ -298,46 +308,83 @@ pub fn parse_patch_note(lines: &[String]) -> PatchNote {
 /// Nom nettoyé d'un élément de bannière (« et Micha » → « Micha »)
 fn clean_name(s: &str) -> String {
     let s = s.trim().trim_matches(',').trim();
-    re!(r"(?i)^(?:(?:et|and|ainsi que|as well as|the|les?)\s+)+").replace(s, "").trim().to_string()
+    // pas « the » ni « le » : ils font partie de certains noms (The Dahlia, Le Dahlia)
+    re!(r"(?i)^(?:(?:et|and|ainsi que|as well as)\s+)+").replace(s, "").trim().to_string()
 }
 
-/// Bannières d'une annonce « Sauts événements » : les paragraphes d'introduction (avant le premier « ▌ »)
-/// listent les persos et cônes 5★ / 4★ avec leurs dates ; « seront de retour » / « will return » = rerun.
+/// Ajoute les persos et cônes cités dans `text` (« personnage 5 étoiles exclusif X (Voie : élément) et les
+/// personnages 4 étoiles … »). Un élément déjà présent (même nom, même type) n'est pas repris, mais il
+/// devient un rerun si cette mention-ci l'indique. `dates` : début et fin, quand le post les donne.
+fn collect_warp_items(text: &str, rerun: bool, dates: Option<(&Date, &Date)>, items: &mut Vec<WarpItem>) {
+    let markers: Vec<_> = re!(r"(?i)(personnages?|cônes? de lumière) (\d) étoiles(?: exclusifs?)?|(\d)-star (characters?|light cones?)")
+        .captures_iter(text).collect();
+    for (i, m) in markers.iter().enumerate() {
+        let (kind, rarity): (&str, u8) = match (m.get(1), m.get(3)) {
+            (Some(k), _) => (if k.as_str().to_lowercase().starts_with("personnage") { "char" } else { "lc" }, m[2].parse().unwrap_or(0)),
+            (_, Some(r)) => (if m[4].to_lowercase().starts_with("character") { "char" } else { "lc" }, r.as_str().parse().unwrap_or(0)),
+            _ => continue,
+        };
+        let stop = markers.get(i + 1).map_or(text.len(), |n| n.get(0).unwrap().start());
+        let mut seg = &text[m.get(0).unwrap().end()..stop];
+        // fin de phrase (« Niv. 999 » ou « LV.999 » dans un nom ne coupent pas)
+        if let Some(cut) = re!(r" seront | will |\.\s+[A-ZÀ-ÖØ-Þ]|\.$").find(seg) {
+            seg = &seg[..cut.start()];
+        }
+        let found: Vec<(String, String)> = if seg.contains('"') {
+            re!(r#""([^"]+?) \(([^()]+)\),?""#).captures_iter(seg).map(|c| (c[1].to_string(), c[2].to_string())).collect()
+        } else {
+            re!(r"([^,()]+?) \(([^()]+)\)").captures_iter(seg).map(|c| (c[1].to_string(), c[2].to_string())).collect()
+        };
+        for (name, paren) in found {
+            let name = clean_name(&name);
+            if name.is_empty() {
+                continue;
+            }
+            if let Some(existing) = items.iter_mut().find(|it| it.name == name && it.kind == kind) {
+                existing.rerun |= rerun;
+                continue;
+            }
+            let (path, element) = path_element(&paren);
+            items.push(WarpItem {
+                name, kind: kind.into(), rarity, element, path, rerun,
+                start: dates.map(|d| iso_day(d.0)), end: dates.map(|d| iso_day(d.1)),
+            });
+        }
+    }
+}
+
+/// Bannières d'une annonce « Sauts événements ». Les formats ont varié selon les versions :
+/// - les paragraphes d'introduction (avant le premier « ▌ ») listent les persos et cônes avec leurs dates ;
+///   « seront de retour » / « will return » = rerun ;
+/// - les persos sont dans les lignes « ● » des sections « ▌ » ; les dates viennent de l'introduction ou d'un
+///   titre de section daté (« ▌ Durée des Sauts hyperespaces : … »), et parfois d'aucun des deux ;
+///   une section « Résurgence du passé », « Figures indélébiles » (ou leurs titres anglais) = reruns.
 pub fn parse_warp(lines: &[String], phase: u8) -> WarpPhase {
     let mut items: Vec<WarpItem> = Vec::new();
-    for para in lines.iter().take_while(|l| !l.starts_with('▌')) {
+    let intro: Vec<&String> = lines.iter().take_while(|l| !l.starts_with('▌')).collect();
+    for para in &intro {
         let ds = dates(para);
-        let (Some(first), Some(last)) = (ds.first(), ds.last()) else { continue };
-        let rerun = re!(r"(?i)seront de retour|will return").is_match(para);
-        let markers: Vec<_> = re!(r"(?i)(personnages?|cônes? de lumière) (\d) étoiles(?: exclusifs?)?|(\d)-star (characters?|light cones?)")
-            .captures_iter(para).collect();
-        for (i, m) in markers.iter().enumerate() {
-            let (kind, rarity): (&str, u8) = match (m.get(1), m.get(3)) {
-                (Some(k), _) => (if k.as_str().to_lowercase().starts_with("personnage") { "char" } else { "lc" }, m[2].parse().unwrap_or(0)),
-                (_, Some(r)) => (if m[4].to_lowercase().starts_with("character") { "char" } else { "lc" }, r.as_str().parse().unwrap_or(0)),
-                _ => continue,
-            };
-            let stop = markers.get(i + 1).map_or(para.len(), |n| n.get(0).unwrap().start());
-            let mut seg = &para[m.get(0).unwrap().end()..stop];
-            if let Some(cut) = re!(r" seront | will |\. ").find(seg) {
-                seg = &seg[..cut.start()];
+        if let (Some(first), Some(last)) = (ds.first(), ds.last()) {
+            let rerun = re!(r"(?i)seront de retour|will return").is_match(para);
+            collect_warp_items(para, rerun, Some((first, last)), &mut items);
+        }
+    }
+    let mut span: Vec<Date> = intro.iter().flat_map(|p| dates(p)).collect();
+    let mut rerun = false;
+    for l in &lines[intro.len()..] {
+        if let Some(title) = l.strip_prefix('▌') {
+            // fin des bannières : règles détaillées, événement d'essai…
+            if re!(r"(?i)règles|details|essai|trial").is_match(title) {
+                break;
             }
-            let found: Vec<(String, String)> = if seg.contains('"') {
-                re!(r#""([^"]+?) \(([^()]+)\),?""#).captures_iter(seg).map(|c| (c[1].to_string(), c[2].to_string())).collect()
-            } else {
-                re!(r"([^,()]+?) \(([^()]+)\)").captures_iter(seg).map(|c| (c[1].to_string(), c[2].to_string())).collect()
-            };
-            for (name, paren) in found {
-                let name = clean_name(&name);
-                if name.is_empty() || items.iter().any(|it| it.name == name && it.kind == kind) {
-                    continue;
-                }
-                let (path, element) = path_element(&paren);
-                items.push(WarpItem {
-                    name, kind: kind.into(), rarity, element, path, rerun,
-                    start: Some(iso_day(first)), end: Some(iso_day(last)),
-                });
+            let ds = dates(title);
+            if !ds.is_empty() {
+                span = ds;
             }
+            rerun = re!(r"(?i)résurgence du passé|bygone reminiscence|figures indélébiles|indelible coterie").is_match(title);
+        } else if l.starts_with('●') {
+            let range = span.first().zip(span.last());
+            collect_warp_items(l, rerun, range, &mut items);
         }
     }
     let start = items.iter().filter_map(|i| i.start.clone()).min();
@@ -393,6 +440,17 @@ pub(crate) mod tests {
         assert!(matches!(classify(r#"Version 4.7 Trailer: "Now, Lay Laughter to All Stars" | Honkai: Star Rail"#), Some(PostKind::VersionAnnounce { .. })));
         assert_eq!(classify("Aeon Preview | Aeon ★ Aha"), Some(PostKind::CharacterPreview));
         assert_eq!(classify(r#"Pearl Character Trailer: "The Way to Paint a Form of Hope" | Honkai: Star Rail"#), Some(PostKind::CharacterPreview));
+        // anciens formats de titres (versions 3.x)
+        assert_eq!(classify(r#"Version 3.7 "As Tomorrow Became Yesterday" Update"#),
+            Some(PostKind::PatchNotes { version: "3.7".into(), name: "As Tomorrow Became Yesterday".into() }));
+        assert_eq!(classify(r#""Memories are the Prelude to Dreams" Version 3.8 Update"#),
+            Some(PostKind::PatchNotes { version: "3.8".into(), name: "Memories are the Prelude to Dreams".into() }));
+        assert_eq!(classify("Version 3.4 Event Warp (II)"), Some(PostKind::Warp { version: "3.4".into(), phase: 2 }));
+        assert_eq!(classify("Version 3.3 Event Warp: Part I"), Some(PostKind::Warp { version: "3.3".into(), phase: 1 }));
+        assert_eq!(classify("Version 3.8 Event Warp: Phase III"), Some(PostKind::Warp { version: "3.8".into(), phase: 3 }));
+        assert_eq!(classify("Version 3.8 Nameless Honor & Store Update"), None);
+        // le passe de combat a la même forme qu'un ancien patch note
+        assert_eq!(classify(r#"Version 4.6 "Nameless Honor" Update"#), None);
         assert_eq!(classify("Version 4.7 Store Update"), None);
         assert_eq!(classify("Version 4.6 Update and Maintenance Notice"), None);
     }
@@ -496,6 +554,40 @@ pub(crate) mod tests {
         let blade = find(&w.items, "Blade Mortenax");
         assert!(blade.rerun);
         assert_eq!((blade.start.as_deref(), blade.end.as_deref()), (Some("2026-10-21"), Some("2026-11-10")));
+    }
+
+    #[test]
+    fn warp_45_items_listed_in_bullet_lines() {
+        for (name, robin, dan_heng) in [("46439490.fr-fr", "Robin • Estivaria", "Dan Heng"), ("46439490.en-us", "Robin • Summeretto", "Dan Heng")] {
+            let w = parse_warp(&lines(name), 1);
+            let r = find(&w.items, robin);
+            assert_eq!((r.kind.as_str(), r.rarity, r.rerun, r.path.as_deref(), r.element.as_deref()), ("char", 5, false, Some("remembrance"), Some("wind")), "{name}");
+            assert_eq!((r.start.as_deref(), r.end.as_deref()), (Some("2026-08-26"), Some("2026-09-12")), "{name}");
+            assert!(find(&w.items, "Hyacine").rerun, "{name} : Hyacine est dans la section « Résurgence du passé »");
+            assert_eq!(find(&w.items, dan_heng).path.as_deref(), Some("hunt"), "{name}");
+            assert_eq!(w.items.iter().filter(|i| i.kind == "lc" && i.rarity == 5).count(), 2, "{name}");
+            assert_eq!(w.items.len(), 10, "{name}");
+        }
+    }
+
+    #[test]
+    fn warp_44_without_dates_and_indelible_reruns() {
+        for (name, himeko, sparxie) in [("45842578.fr-fr", "Himeko • Nova", "Sparxie"), ("45842578.en-us", "Himeko • Nova", "Sparxie")] {
+            let w = parse_warp(&lines(name), 1);
+            let h = find(&w.items, himeko);
+            assert_eq!((h.rarity, h.rerun, h.start.as_deref()), (5, false, None), "{name} : pas de date de bannière dans ce post");
+            assert!(find(&w.items, sparxie).rerun, "{name} : section « Figures indélébiles » / « Indelible Coterie »");
+        }
+    }
+
+    #[test]
+    fn warp_42_dates_in_section_title_and_names_with_dots() {
+        let en = parse_warp(&lines("44733121.en-us"), 1);
+        let sw = find(&en.items, "Silver Wolf LV.999");
+        assert_eq!((sw.rarity, sw.start.as_deref(), sw.end.as_deref()), (5, Some("2026-04-22"), Some("2026-05-13")));
+        assert!(find(&en.items, "The Dahlia").rerun);
+        let fr = parse_warp(&lines("44733121.fr-fr"), 1);
+        assert_eq!(find(&fr.items, "Louve d'argent Niv. 999").element.as_deref(), Some("imaginary"));
     }
 
     #[test]

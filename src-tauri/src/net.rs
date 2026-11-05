@@ -13,3 +13,12 @@ pub fn client() -> Result<reqwest::Client, String> {
         .build()
         .map_err(|e| e.to_string())
 }
+
+/// Client bloquant, pour le travail fait hors du fil principal (spawn_blocking)
+pub fn blocking_client() -> Result<reqwest::blocking::Client, String> {
+    reqwest::blocking::Client::builder()
+        .user_agent(UA)
+        .timeout(Duration::from_secs(25))
+        .build()
+        .map_err(|e| e.to_string())
+}
