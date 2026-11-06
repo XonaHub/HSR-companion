@@ -93,10 +93,11 @@ pub fn ranking_with(dir: &Path, name_en: &str, force: bool, now: i64, fetch: imp
         .ok_or("introuvable")?;
     let path = dir.join(format!("{slug}.json"));
     let cached: Option<Ranking> = read(&path);
-    // un cache sans conseils de reliques (enregistré avant leur lecture) est redemandé une fois,
-    // même si la page a déjà été demandée dans les 24 h : tentative comptée à part (« relics:<adresse> »)
-    let relics_key = format!("relics:{slug}");
-    let upgrade = cached.as_ref().is_some_and(|c| c.relics.is_none()) && !attempted_recently(dir, &relics_key, now);
+    // un cache lu par une version plus ancienne de la lecture (`format`) est redemandé une fois, même si la page
+    // a déjà été demandée dans les 24 h : tentative comptée à part (« format<N>:<adresse> »)
+    let old_format = cached.as_ref().is_some_and(|c| c.format < parse::FORMAT);
+    let format_key = format!("format{}:{slug}", parse::FORMAT);
+    let upgrade = old_format && !attempted_recently(dir, &format_key, now);
     if let Some(c) = cached.as_ref().filter(|c| !force && !upgrade && now - c.fetched_at < FRESH_MS) {
         return Ok(c.clone());
     }
@@ -104,8 +105,8 @@ pub fn ranking_with(dir: &Path, name_en: &str, force: bool, now: i64, fetch: imp
         return cached.map(|c| Ranking { stale: true, ..c }).ok_or_else(|| "classement indisponible".to_string());
     }
     record_attempt(dir, &slug, now);
-    if cached.as_ref().is_some_and(|c| c.relics.is_none()) {
-        record_attempt(dir, &relics_key, now);
+    if old_format {
+        record_attempt(dir, &format_key, now);
     }
     let fresh = fetch(&format!("{BASE}/{slug}")).and_then(|html| {
         parse::parse_ranking(&html).map(|r| Ranking { fetched_at: now, ..r }).ok_or_else(|| "page Prydwen illisible".to_string())
@@ -181,7 +182,7 @@ mod tests {
     fn seeded(name: &str, fetched_at: i64) -> PathBuf {
         let dir = tempdir(name);
         write_list(&dir, 2 * DAY);
-        let r = Ranking { updated: "2026-11-04".into(), fetched_at, stale: false, cones: vec![RankedCone { name: "Incessant Rain".into(), rank: 1, score: None, sup: 1 }], relics: Some(Default::default()) };
+        let r = Ranking { updated: "2026-11-04".into(), fetched_at, stale: false, cones: vec![RankedCone { name: "Incessant Rain".into(), rank: 1, score: None, sup: 1 }], relics: Some(Default::default()), format: parse::FORMAT };
         fs::write(dir.join("acheron.json"), serde_json::to_string(&r).unwrap()).unwrap();
         dir
     }
@@ -277,7 +278,7 @@ mod tests {
         let dir = seeded("norelics", 2 * DAY - 60 * 60 * 1000);
         // cache enregistré avant la lecture des reliques
         let mut old: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("acheron.json")).unwrap()).unwrap();
-        old.as_object_mut().unwrap().remove("relics");
+        old.as_object_mut().unwrap().remove("relics"); old.as_object_mut().unwrap().remove("format");
         fs::write(dir.join("acheron.json"), old.to_string()).unwrap();
         let calls = std::cell::Cell::new(0);
         let fetch = |_: &str| -> Result<String, String> { calls.set(calls.get() + 1); Ok(fixture("acheron.html")) };
@@ -292,7 +293,7 @@ mod tests {
         // cas réel : la page a été demandée il y a une heure par une version qui ne lisait pas les reliques
         let dir = seeded("norelics-attempted", 2 * DAY - 60 * 60 * 1000);
         let mut old: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("acheron.json")).unwrap()).unwrap();
-        old.as_object_mut().unwrap().remove("relics");
+        old.as_object_mut().unwrap().remove("relics"); old.as_object_mut().unwrap().remove("format");
         fs::write(dir.join("acheron.json"), old.to_string()).unwrap();
         record_attempt(&dir, "acheron", 2 * DAY - 60 * 60 * 1000);
         let calls = std::cell::Cell::new(0);
@@ -303,7 +304,7 @@ mod tests {
         // une page sans conseils de reliques n'est pas redemandée en boucle
         let dir = seeded("norelics-page", 2 * DAY - 60 * 60 * 1000);
         let mut old: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("acheron.json")).unwrap()).unwrap();
-        old.as_object_mut().unwrap().remove("relics");
+        old.as_object_mut().unwrap().remove("relics"); old.as_object_mut().unwrap().remove("format");
         fs::write(dir.join("acheron.json"), old.to_string()).unwrap();
         let without = fixture("acheron.html").replace("Best Relic Sets", "X").replace("Best Planetary Sets", "Y").replace("Best Stats", "Z");
         calls.set(0);

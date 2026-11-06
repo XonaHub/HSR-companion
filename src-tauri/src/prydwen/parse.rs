@@ -27,7 +27,14 @@ pub struct Ranking {
     /// Conseils de reliques de la même page (absent des caches d'avant les reliques)
     #[serde(default)]
     pub relics: Option<RelicAdvice>,
+    /// Version de la lecture qui a produit ce classement (0 : avant les reliques)
+    #[serde(default)]
+    pub format: u32,
 }
+
+/// Version de la lecture de la page : 1 = conseils de reliques, 2 = stats visées.
+/// Un cache plus ancien est redemandé une fois (voir `ranking_with`).
+pub const FORMAT: u32 = 2;
 
 /// Un set d'une entrée conseillée et son nombre de pièces (4, ou 2)
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -47,6 +54,33 @@ pub struct RelicAdvice {
     pub planars: Vec<String>,
     /// body / feet / sphere / rope → clés de stats de l'app, dans l'ordre de Prydwen
     pub main: std::collections::BTreeMap<String, Vec<String>>,
+    /// « Recommended endgame stats » (absent des caches d'avant leur lecture)
+    #[serde(default)]
+    pub targets: Vec<StatTarget>,
+}
+
+/// Stat visée : clé de stat totale de l'app (`hp`, `atk`, `spd`, `cr`…), plus petite valeur de la ligne
+/// (ratio pour les pourcentages : 0.8 = 80 %) et les valeurs telles qu'affichées (« 80-90%+ »).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct StatTarget {
+    pub key: String,
+    pub min: f64,
+    pub text: String,
+}
+
+/// Ligne de « Recommended endgame stats » → stat visée (`None` si la stat ou la valeur est illisible)
+fn stat_target(label: &str, value: &str) -> Option<StatTarget> {
+    let key = match unescape(label).to_lowercase().trim() {
+        "hp" => "hp".to_string(),
+        "atk" => "atk".to_string(),
+        "def" => "def".to_string(),
+        "effect res" | "effect resistance" => "res".to_string(),
+        other => stat_key(other).filter(|k| !k.ends_with("_pct"))?,
+    };
+    let text = unescape(value);
+    let first: f64 = Regex::new(r"\d+(?:\.\d+)?").unwrap().find(&text)?.as_str().parse().ok()?;
+    let pct = text.contains('%') || ["cr", "cd", "be", "ehr", "res", "err", "heal"].contains(&key.as_str());
+    Some(StatTarget { key, min: if pct { first / 100.0 } else { first }, text })
 }
 
 fn unescape(s: &str) -> String {
@@ -85,7 +119,7 @@ pub fn parse_ranking(html: &str) -> Option<Ranking> {
     if cones.is_empty() {
         return None;
     }
-    Some(Ranking { updated, fetched_at: 0, stale: false, cones, relics: parse_relics(html) })
+    Some(Ranking { updated, fetched_at: 0, stale: false, cones, relics: parse_relics(html), format: FORMAT })
 }
 
 /// Stat principale de Prydwen → clé de l'app (`None` si inconnue)
@@ -163,6 +197,11 @@ pub fn parse_relics(html: &str) -> Option<RelicAdvice> {
             }
         }
     }
+    if let Some(rest) = after("Recommended endgame stats") {
+        let section = &rest[..rest.find("</ul>").unwrap_or(rest.len())];
+        let line = Regex::new(r"<li><p>([^<:]+):\s*<b>([^<]+)</b>").unwrap();
+        advice.targets = line.captures_iter(section).filter_map(|c| stat_target(&c[1], &c[2])).collect();
+    }
     (!advice.sets.is_empty() || !advice.planars.is_empty() || !advice.main.is_empty()).then_some(advice)
 }
 
@@ -218,6 +257,10 @@ mod tests {
         assert_eq!(main("feet"), ["atk_pct", "spd"]);
         assert_eq!(main("sphere"), ["atk_pct", "dmg_lightning"]);
         assert_eq!(main("rope"), ["atk_pct"]);
+        // HP 2800-3000+, DEF 800+, ATK 2900-3200+, CRIT RATE 80-90%+, CRIT DMG 160-180%+, SPD 101 or 134+
+        let t: Vec<(&str, f64)> = a.targets.iter().map(|t| (t.key.as_str(), t.min)).collect();
+        assert_eq!(t, [("hp", 2800.0), ("def", 800.0), ("atk", 2900.0), ("cr", 0.8), ("cd", 1.6), ("spd", 101.0)]);
+        assert_eq!(a.targets[3].text, "80-90%+");
     }
 
     #[test]

@@ -23,6 +23,7 @@
     history: [],
     relics: [],
     cones: [],            // cônes de lumière importés : { uid, id, name, level, asc, sup, owner }
+    builds: {},           // builds gardés du simulateur : id de perso -> { emplacement: id de relique }
     relicOwnerFilter: '',
     teams: emptyTeams(),
     myTeams: [],          // équipes personnelles : { id, name, type, members[4], main, note }
@@ -1386,6 +1387,93 @@
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec((r && r.updated) || '');
     return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(locale()) : ((r && r.updated) || '');
   };
+  /* ---- simulateur : reliques telles que l'essai les place (sheet.trial : emplacement -> id de relique) ---- */
+  const trialOf = () => (sheet && sheet.trial) || {};
+  function trialRelics(charId) {
+    const tr = trialOf(), ids = new Set(Object.values(tr));
+    if (!ids.size) return S.relics;
+    return S.relics.map(r => ids.has(r.id) ? { ...r, owner: charId, from: r.owner }
+      : r.owner === charId && tr[r.slot] ? { ...r, owner: null } : r);
+  }
+  const STAT_ROWS = ['hp', 'atk', 'def', 'spd', 'cr', 'cd', 'be', 'heal', 'err', 'ehr', 'res', 'dmg'];
+  function statsFor(c, relics) {
+    const g = gameChar(c), o = S.owned[c.id] || {};
+    const eq = S.cones.find(x => x.owner === c.id), lc = eq && coneOf(G.lightCones, eq.id);
+    const points = o.pts || (o.bonusAll && g && g.trStats ? Object.keys(g.trStats) : []);
+    return charStats({
+      char: { stats: g && g.stats, trStats: g && g.trStats, element: c.element, path: c.path },
+      level: o.lvl || 80, promo: o.lvl ? o.promo || 0 : 6, points,
+      cone: lc && lc.stats ? { stats: lc.stats, passive: lc.passive, path: lc.path, level: eq.level, promo: eq.asc, sup: eq.sup } : null,
+      relics: relics.filter(r => r.owner === c.id), relicMain: G.relicMain, setBonus: G.relicSetBonus,
+      setIdOf: name => (G.relicSets[norm(name)] || [])[1] ?? null
+    });
+  }
+  // comme l'écran du jeu : PV/ATQ/DÉF entiers, VIT au dixième, pourcentages au dixième (régén. d'énergie = 100 % + bonus) ;
+  // `diff` : un écart (pas de 100 % ajouté)
+  const fmtTotal = (k, v, diff) => ['hp', 'atk', 'def'].includes(k) ? Math.floor(v + 1e-9).toLocaleString(locale())
+    : k === 'spd' ? (Math.floor(v * 10 + 1e-9) / 10).toLocaleString(locale(), { maximumFractionDigits: 1 })
+    : ((Math.floor(v * 1000 + 1e-9) / 10) + (k === 'err' && !diff ? 100 : 0)).toLocaleString(locale(), { maximumFractionDigits: 1 }) + ' %';
+  const rowLabel = (k, c) => k === 'dmg' ? statLabel('dmg_' + c.element) : t('stat_' + k);
+  function simulator(c, advice) {
+    const g = gameChar(c), o = S.owned[c.id] || {};
+    if (!g || !g.stats || !G.relicMain) return `<h3>${t('sim_title')}</h3><p class="hint small">${t('sim_no_data')}</p>`;
+    const tr = trialOf(), trying = Object.keys(tr).length > 0;
+    const cur = statsFor(c, S.relics), tri = trying ? statsFor(c, trialRelics(c.id)) : null;
+    const targets = new Map(((advice && advice.targets) || []).map(x => [x.key, x]));
+    const warn = [];
+    if (!o.lvl) warn.push(t('sim_warn_level'));
+    if (!o.pts) warn.push(t('sim_warn_traces'));
+    if (S.relics.some(r => r.owner === c.id && !r.exact)) warn.push(t('sim_warn_rounded'));
+    if (cur.missing.length) warn.push(t('sim_no_data'));
+    const rows = STAT_ROWS.map(k => {
+      const a = cur.total[k], b = tri ? tri.total[k] : null, tg = targets.get(k);
+      // écart entre les valeurs affichées (arrondies comme dans le jeu), pas entre les valeurs exactes
+      const q = ['hp', 'atk', 'def'].includes(k) ? x => Math.floor(x + 1e-9) : k === 'spd' ? x => Math.floor(x * 10 + 1e-9) / 10 : x => Math.floor(x * 1000 + 1e-9) / 1000;
+      const d = b == null ? 0 : q(b) - q(a), eps = ['hp', 'atk', 'def'].includes(k) ? 0.5 : k === 'spd' ? 0.05 : 0.0005;
+      const val = tri ? b : a, reached = tg ? val + 1e-9 >= tg.min : null;
+      return `<tr><th>${esc(rowLabel(k, c))}</th><td>${fmtTotal(k, a)}</td>
+        ${trying ? `<td class="${d > eps ? 'up' : d < -eps ? 'down' : ''}">${fmtTotal(k, b)}${Math.abs(d) > eps ? ` <small>(${d > 0 ? '+' : '−'}${fmtTotal(k, Math.abs(d), true)})</small>` : ''}</td>` : ''}
+        <td class="tgt ${reached === true ? 'ok' : reached === false ? 'bad' : ''}">${tg ? `${reached ? '✓' : '✗'} ${esc(tg.text)}` : ''}</td></tr>`;
+    }).join('');
+    const prof = profileOf(c), score = x => relicScore(x, prof).ratio;
+    const picks = SLOTS.map(slot => {
+      const list = S.relics.filter(r => r.slot === slot).sort((a, b) => score(b) - score(a)).slice(0, 40);
+      const eq = S.relics.find(r => r.owner === c.id && r.slot === slot);
+      const label = r => `${r.set || t('unknown_set')} · ${statLabel(r.main)} +${r.level} · ${gradeOf(score(r))}${r.owner && r.owner !== c.id ? ' · ' + t('cone_carried', { name: charName(charById(r.owner)) }) : r.owner === c.id ? ' · ' + t('cone_tag_equipped') : ''}`;
+      return `<label class="field">${t('slot_' + slot)}<select data-action="trySlot" data-slot="${slot}">
+        ${opt('', eq ? label(eq) : t('rl_empty'), tr[slot] || '')}
+        ${list.filter(r => r !== eq).map(r => opt(r.id, label(r), tr[slot] || '')).join('')}</select></label>`;
+    }).join('');
+    const build = S.builds[c.id];
+    const buildList = build ? SLOTS.filter(slot => build[slot]).map(slot => {
+      const r = S.relics.find(x => x.id === build[slot]);
+      if (!r) return '';
+      const where = r.owner === c.id ? t('cone_tag_equipped') : r.owner ? t('sim_now_on', { name: charName(charById(r.owner)) }) : t('cone_free');
+      return `<li class="${r.owner === c.id ? 'ok' : ''}"><span>${t('slot_' + slot)}</span><b>${esc(r.set)} · ${statLabel(r.main)} +${r.level}</b><small>${esc(where)}</small></li>`;
+    }).join('') : '';
+    return `<h3>${t('sim_title')}</h3>
+      ${warn.map(w => `<p class="warn-txt small">${esc(w)}</p>`).join('')}
+      <table class="sim-stats"><thead><tr><th></th><th>${t('sim_current')}</th>${trying ? `<th>${t('sim_trial')}</th>` : ''}<th>${t('sim_target')}</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="hint small">${t('sim_scope')}</p>
+      <h4>${t('sim_try')}</h4>
+      <div class="sim-picks">${picks}</div>
+      <div class="sim-actions">
+        <button class="btn" data-action="resetTrial" ${trying ? '' : 'disabled'}>${t('sim_reset')}</button>
+        <button class="btn primary" data-action="keepBuild" data-id="${c.id}" ${trying ? '' : 'disabled'}>${t('sim_keep')}</button>
+      </div>
+      ${buildList ? `<h4>${t('sim_kept')}</h4><ul class="rl-check">${buildList}</ul>
+        <button class="btn sm" data-action="dropBuild" data-id="${c.id}">${t('sim_drop')}</button>` : ''}`;
+  }
+  /* Un build gardé disparaît dès que le jeu l'a appliqué (toutes ses pièces portées par le perso) */
+  function pruneBuilds() {
+    let changed = false;
+    for (const [id, b] of Object.entries(S.builds || {})) {
+      const done = Object.values(b).every(rid => { const r = S.relics.find(x => x.id === rid); return !r || r.owner === id; });
+      if (done) { delete S.builds[id]; changed = true; }
+    }
+    return changed;
+  }
+
   function sheetRelics(c) {
     if (!S.relics.length) return `<p class="empty">${t('rl_none_imported')}</p>`;
     const r = rankings.get(c.id);
@@ -1393,7 +1481,7 @@
     const advice = r !== 'error' && r.relics ? r.relics : null;
     const prof = profileOf(c);
     const score = x => relicScore(x, prof).ratio;
-    const rev = relicReview(advice, S.relics, c.id, { element: c.element, profileMain: PROFILES[prof].main, score, grade: x => gradeOf(score(x)) });
+    const rev = relicReview(advice, trialRelics(c.id), c.id, { element: c.element, profileMain: PROFILES[prof].main, score, grade: x => gradeOf(score(x)) });
     const line = (ok, label, text) => `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : ''}"><span>${label}</span><b>${esc(text)}</b></li>`;
     const setText = st => st.kind === 'rec' ? t('rl_set_rec', { rank: st.rank, set: st.target.join(' + ') })
       : st.kind === 'mix' ? t('rl_set_mix', { a: st.target[0], b: st.target[1] })
@@ -1413,12 +1501,15 @@
       return `<div class="rl-prio">
         <div><b>${short(p.relic)}</b> <span class="grade-pill grade-${gradeOf(score(p.relic))}"><span>${gradeOf(score(p.relic))}</span></span>
           <small class="rl-why">${why.map(esc).join(' · ')}</small></div>
-        ${b ? `<div class="rl-better"><small>${t('rl_better')}</small> ${short(b)} <span class="grade-pill grade-${gradeOf(score(b))}"><span>${gradeOf(score(b))}</span></span>${esc(by)}</div>`
+        ${b ? `<div class="rl-better"><small>${t('rl_better')}</small> ${short(b)} <span class="grade-pill grade-${gradeOf(score(b))}"><span>${gradeOf(score(b))}</span></span>${esc(by)}
+            <button class="btn sm" data-action="tryRelic" data-slot="${b.slot}" data-id="${b.id}">${t('sim_try_it')}</button></div>`
           : `<small class="rl-none">${t('rl_no_better')}</small>`}
       </div>`;
     }).join('');
     const equippedCount = SLOTS.length - empty.length;
-    return `<h3>${t('rl_review')}</h3>
+    const trying = Object.keys(trialOf()).length > 0;
+    return `${trying ? `<p class="sim-banner">${t('sim_banner')} <button class="btn sm" data-action="resetTrial">${t('sim_reset')}</button></p>` : ''}
+      <h3>${t('rl_review')}</h3>
       ${equippedCount ? '' : `<p class="hint small">${t('rl_none_equipped')}</p>`}
       <ul class="rl-check">
         ${line(setOk(rev.cavern), t('rl_cavern'), setText(rev.cavern))}
@@ -1426,6 +1517,7 @@
       </ul>
       <h4>${t('rl_main')}</h4><ul class="rl-check">${mains}</ul>
       ${equippedCount ? `<h3>${t('rl_priority')}</h3>${prio || `<p class="hint small">${t('rl_all_good')}</p>`}` : ''}
+      ${simulator(c, advice)}
       <h3>${t('rl_pieces')}</h3><div class="relic-grid">${pieces}</div>
       <p class="lc-src">${advice ? esc(t('rl_source', { date: prydwenDate(r) })) + (r.stale ? ' · ' + esc(t('cones_offline')) : '') : esc(t('rl_no_advice', { profile: t('prof_' + prof) }))}</p>`;
   }
@@ -1602,6 +1694,7 @@
         if (ch.memosprite) { o.tr.Point19 = ch.memosprite.skill; o.tr.Point20 = ch.memosprite.talent; }
         const tr = ch.traces || {};   // 3 traces majeures + 10 bonus de stats
         o.bonusAll = [1, 2, 3].every(i => tr['ability_' + i]) && range(1, 10).every(i => tr['stat_' + i]);
+        o.pts = archiveTracePoints(tr);   // traces débloquées, une par une (calcul des stats)
       }
     }
     const relics = [];
@@ -1613,11 +1706,14 @@
       relics.push({
         id: 'a' + r._uid, src: 'archive', slot, main, level: r.level || 0, owner, lock: !!r.lock,
         set: G.relicSetNames[String(r.set_id)] || r.name || '',
-        subs: (r.substats || []).filter(x => ARCH_SUB[x.key]).slice(0, 4).map(x => ({ stat: ARCH_SUB[x.key], val: Math.round(x.value * 10) / 10 }))
+        // valeurs sans arrondi (`exact`) : elles servent au calcul des stats ; l'affichage arrondit
+        subs: (r.substats || []).filter(x => ARCH_SUB[x.key]).slice(0, 4).map(x => ({ stat: ARCH_SUB[x.key], val: +x.value || 0 })),
+        exact: true
       });
     }
     // l'export contient tout : il remplace les reliques importées avant (vitrine ou export)
     S.relics = S.relics.filter(r => r.src !== 'archive' && r.src !== 'uid').concat(relics);   // 'uid' : ancien import par vitrine
+    pruneBuilds();   // builds gardés que le jeu a appliqués
     if (Array.isArray(ex.light_cones)) S.cones = importCones(ex.light_cones, G.lightCones || [], id => (charByGameId(id) || {}).id || null);
     if (ex.gacha && ex.gacha.stellar_jade != null) S.warp.jades = ex.gacha.stellar_jade;
     if (Array.isArray(ex.materials) && ex.materials.length) {
@@ -1766,6 +1862,17 @@
     openSheet: b => openSheet(b.dataset.id),
     closeSheet: () => closeSheet(),
     sheetTab: b => { sheet.tab = b.dataset.tab; renderSheet(); },
+    // simulateur de build (onglet Reliques) : l'essai ne change rien d'autre que l'affichage
+    trySlot: el => { sheet.trial = { ...trialOf() }; if (el.value) sheet.trial[el.dataset.slot] = el.value; else delete sheet.trial[el.dataset.slot]; renderSheet(); },
+    tryRelic: b => { sheet.trial = { ...trialOf(), [b.dataset.slot]: b.dataset.id }; renderSheet(); },
+    resetTrial: () => { sheet.trial = {}; renderSheet(); },
+    keepBuild: b => {
+      const id = b.dataset.id, cur = {};
+      for (const r of S.relics) if (r.owner === id) cur[r.slot] = r.id;
+      S.builds[id] = { ...cur, ...trialOf() };
+      sheet.trial = {}; save(); renderSheet(); toast(t('sim_kept_toast'));
+    },
+    dropBuild: b => { delete S.builds[b.dataset.id]; save(); renderSheet(); },
     skillLv: el => { sheet.lv[+el.dataset.i] = +el.value; renderSheet(); },
     planFromSheet: b => {
       const c = charById(b.dataset.id);

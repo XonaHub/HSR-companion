@@ -736,6 +736,23 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
 .rl-better { color: var(--ok); }
 .rl-better small { color: var(--muted); }
 .rl-none { color: var(--dim); }
+/* simulateur de build */
+.sim-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; background: rgba(178, 150, 242, .1); border: 1px solid var(--violet); color: var(--violet); font-size: 13px; margin: 0; }
+.sim-stats { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sim-stats th, .sim-stats td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sim-stats th:first-child { text-align: left; color: var(--muted); font-weight: 500; }
+.sim-stats thead th { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 500; }
+.sim-stats td.up { color: var(--ok); }
+.sim-stats td.down { color: var(--bad); }
+.sim-stats td small { color: inherit; opacity: .85; }
+.sim-stats td.tgt { color: var(--muted); font-size: 12px; }
+.sim-stats td.tgt.ok { color: var(--ok); }
+.sim-stats td.tgt.bad { color: var(--warn); }
+.sim-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.sim-picks select { width: 100%; }
+.sim-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.rl-check li small { margin-left: auto; color: var(--muted); }
+.rl-better .btn { margin-left: 8px; }
 .relic-card.rl-empty { justify-content: center; align-items: center; min-height: 80px; color: var(--muted); opacity: .6; }
 
 /* Onglet Persos : sélecteur Personnages / Cônes et inventaire des cônes */

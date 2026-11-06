@@ -18,6 +18,7 @@ pub const SOURCE_FILES: &[(&str, &str)] = &[
     ("en", "elements"), ("en", "paths"), ("en", "relic_sets"), ("en", "properties"),
     ("en", "character_skills"), ("en", "character_ranks"),
     ("en", "light_cones"), ("en", "light_cone_promotions"), ("fr", "light_cones"),
+    ("en", "relic_main_affixes"), ("en", "light_cone_ranks"),
     ("fr", "characters"), ("fr", "items"), ("fr", "character_skills"), ("fr", "character_ranks"),
     ("fr", "character_skill_trees"), ("fr", "properties"),
 ];
@@ -57,6 +58,42 @@ const STAT_PROPS: &[(&str, &str)] = &[
     ("ehr", "StatusProbability"), ("res", "StatusResistance"), ("be", "BreakDamageAddedRatio"),
     ("heal", "HealRatio"), ("err", "SPRatio"),
 ];
+/// propriété du jeu → clé de stat de l'app, pour le calcul des stats (valeurs en ratios du jeu : 0.04 = 4 %).
+/// Les bonus de DGT d'un élément (`<Élément>AddedRatio`) donnent `dmg_<élément>` (voir `stat_of`).
+const PROP_KEYS: &[(&str, &str)] = &[
+    ("HPDelta", "hp"), ("BaseHP", "hp"), ("AttackDelta", "atk"), ("DefenceDelta", "def"),
+    ("HPAddedRatio", "hp_pct"), ("AttackAddedRatio", "atk_pct"), ("DefenceAddedRatio", "def_pct"),
+    ("SpeedDelta", "spd"), ("SpeedAddedRatio", "spd_pct"),
+    ("CriticalChanceBase", "cr"), ("CriticalDamageBase", "cd"),
+    ("StatusProbabilityBase", "ehr"), ("StatusResistanceBase", "res"),
+    ("BreakDamageAddedRatioBase", "be"), ("HealRatioBase", "heal"), ("SPRatioBase", "err"),
+    ("AllDamageTypeAddedRatio", "dmg_all"),
+];
+/// Clé de stat de l'app pour une propriété du jeu (`None` : propriété qui ne s'affiche pas sur l'écran de stats)
+fn stat_of(prop: &str) -> Option<String> {
+    if let Some(k) = lookup(PROP_KEYS, prop) {
+        return Some(k.to_string());
+    }
+    let el = prop.strip_suffix("AddedRatio")?;
+    lookup(ELEMENT_MAP, el).map(|e| format!("dmg_{e}"))
+}
+/// `[[clé, valeur], …]` à partir d'une liste de propriétés `{type, value}` (les propriétés inconnues sont ignorées)
+fn stat_pairs(props: &[Value]) -> Value {
+    Value::Array(props.iter().filter_map(|p| {
+        let k = stat_of(p["type"].as_str()?)?;
+        Some(json!([k, num(round6(p["value"].as_f64()?))]))
+    }).collect())
+}
+/// Stats de base par élévation (`character_promotions` ou `light_cone_promotions`) : `[base, pas]` de chaque stat de `keys`
+fn promo_stats(promo: Option<&Value>, keys: &[&str]) -> Value {
+    Value::Array(arr(promo.and_then(|p| p.get("values"))).iter().map(|v| {
+        Value::Array(keys.iter().flat_map(|k| match *k {
+            "spd" | "crit_rate" | "crit_dmg" => vec![num(round6(v[*k]["base"].as_f64().unwrap_or(0.0)))],
+            _ => vec![num(round6(v[*k]["base"].as_f64().unwrap_or(0.0))), num(round6(v[*k]["step"].as_f64().unwrap_or(0.0)))],
+        }).collect())
+    }).collect())
+}
+
 /// l'« Attaque » générique hors combat
 const SKIP_SKILL_TYPES: &[&str] = &["MazeNormal"];
 
@@ -132,6 +169,8 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
     let cones_en = get("en", "light_cones")?;
     let cones_fr = get("fr", "light_cones")?;
     let cone_promos = get("en", "light_cone_promotions")?;
+    let main_affixes = get("en", "relic_main_affixes")?;
+    let cone_ranks = get("en", "light_cone_ranks")?;
 
     let mut used_items: BTreeSet<String> = [CREDIT, EXP_BOOK, TRACKS].iter().map(|s| s.to_string()).collect();
     let mut chars: Vec<Value> = Vec::new();
@@ -167,6 +206,7 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
         let mut pts = Map::new();
         let mut bonus: BTreeMap<String, f64> = BTreeMap::new();
         let mut n_bonus = 0;
+        let mut tr_stats = Map::new(); // ancre (« Point09 ») → bonus de stats de la trace
         for tid in arr(c.get("skill_trees")) {
             let tid = id_str(tid);
             let Some(node) = trees.get(&tid) else { continue };
@@ -178,6 +218,10 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
             } else {
                 if levels.iter().any(|l| truthy(l.get("materials"))) {
                     n_bonus += 1;
+                }
+                let stats = stat_pairs(arr(levels.first().and_then(|l| l.get("properties"))));
+                if let Some(anchor) = node["anchor"].as_str().filter(|_| truthy(Some(&stats))) {
+                    tr_stats.insert(anchor.to_string(), stats);
                 }
                 for l in levels {
                     for m in arr(l.get("materials")) {
@@ -207,6 +251,9 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
             "boss": boss, "weekly": weekly, "common": common, "pathMats": path_mats,
             "asc": asc, "tr": tr, "bonus": bonus.iter().map(|(i, n)| json!([i, num(*n)])).collect::<Vec<_>>(),
             "pts": pts, "nBonus": n_bonus,
+            // par élévation : [pvBase, pvPas, atqBase, atqPas, défBase, défPas, vit, tauxCrit, dgtCrit]
+            "stats": promo_stats(promos.get(cid), &["hp", "atk", "def", "spd", "crit_rate", "crit_dmg"]),
+            "trStats": tr_stats,
         });
         used_items.extend(all_ids.iter().cloned());
         chars.push(entry);
@@ -228,6 +275,10 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
         light_cones.push(json!({
             "id": lid, "en": en, "fr": fr, "rarity": l["rarity"], "path": path, "icon": l["icon"],
             "preview": l.get("preview").cloned().unwrap_or(Value::Null), "asc": asc,
+            // par élévation : [pvBase, pvPas, atqBase, atqPas, défBase, défPas]
+            "stats": promo_stats(cone_promos.get(lid), &["hp", "atk", "def"]),
+            // par superposition : bonus fixes du cône (les effets sous condition n'ont pas de « properties »)
+            "passive": Value::Array(arr(cone_ranks.get(lid).and_then(|r| r.get("properties"))).iter().map(|p| stat_pairs(arr(Some(p)))).collect()),
         }));
     }
 
@@ -252,9 +303,24 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
     };
     let mut relic_sets = Map::new();
     let mut relic_set_names = Map::new();
+    let mut relic_set_bonus = Map::new();
     for v in obj(&sets_en, "relic_sets")?.values() {
         relic_sets.insert(norm(v["name"].as_str().unwrap_or_default()), json!([v["icon"], v["id"]]));
         relic_set_names.insert(id_str(&v["id"]), v["name"].clone());
+        // [bonus 2 pièces, bonus 4 pièces] : bonus fixes seulement
+        let props = arr(v.get("properties"));
+        relic_set_bonus.insert(id_str(&v["id"]), json!([stat_pairs(arr(props.first())), stat_pairs(arr(props.get(1)))]));
+    }
+    // stat principale des reliques 5★ : emplacement → stat → [base, pas] ; valeur = base + pas × niveau
+    let mut relic_main = Map::new();
+    for (group, slot) in [("51", "head"), ("52", "hands"), ("53", "body"), ("54", "feet"), ("55", "sphere"), ("56", "rope")] {
+        let mut m = Map::new();
+        for a in main_affixes.get(group).and_then(|g| g.get("affixes")).and_then(Value::as_object).into_iter().flat_map(|o| o.values()) {
+            if let Some(k) = a["property"].as_str().and_then(stat_of) {
+                m.insert(k, json!([num(round6(a["base"].as_f64().unwrap_or(0.0))), num(round6(a["step"].as_f64().unwrap_or(0.0)))]));
+            }
+        }
+        relic_main.insert(slot.to_string(), Value::Object(m));
     }
     let mut stats = Map::new();
     let dmg: Vec<(String, String)> = ELEMENT_MAP.iter().map(|(k, v)| (format!("dmg_{v}"), format!("{k}AddedRatio"))).collect();
@@ -280,6 +346,8 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
         // set → [icône du set, id] ; pièce = icon/relic/{id}_{index}.png
         "relicSets": relic_sets,
         "relicSetNames": relic_set_names, // id (vitrine) → nom EN
+        "relicSetBonus": relic_set_bonus,
+        "relicMain": relic_main,
         "aliases": aliases,
         "stats": stats,
         "special": { "credits": CREDIT, "exp": EXP_BOOK, "td": TRACKS },
@@ -424,6 +492,37 @@ pub(crate) mod tests {
             assert_json_eq(&b.details[lang], &details, &format!("details.{lang}"));
         }
         assert_eq!(b.game["chars"].as_array().unwrap().len(), 93);
+    }
+
+    /// Régénère app/js/assets.js et details/*.js depuis les fichiers enregistrés (même commit StarRailRes),
+    /// après un ajout au format des données : `cargo test regenerate_bundled_data -- --ignored`
+    #[test]
+    #[ignore]
+    fn regenerate_bundled_data() {
+        let b = build(fixture_getter()).unwrap();
+        let sha = js_value("assets.js", "const GAME_SHA = ");
+        let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("app").join("js");
+        write_js(&b, sha.as_str().unwrap(), &out).unwrap();
+    }
+
+    #[test]
+    fn build_includes_stat_data() {
+        let b = build(fixture_getter()).unwrap();
+        let g = &b.game;
+        let acheron = g["chars"].as_array().unwrap().iter().find(|c| c["en"] == "Acheron").unwrap();
+        // élévation 0 : PV 153.12 + 7.656/niv, ATQ 95.04, DÉF 59.4, VIT 101, taux CRIT 5 %, DGT CRIT 50 %
+        assert_json_eq(&acheron["stats"][0], &json!([153.12, 7.656, 95.04, 4.752, 59.4, 2.97, 101, 0.05, 0.5]), "stats[0]");
+        assert_eq!(acheron["stats"].as_array().unwrap().len(), 7);
+        assert_json_eq(&acheron["trStats"]["Point09"], &json!([["atk_pct", 0.04]]), "Point09");
+        let shore = g["lightCones"].as_array().unwrap().iter().find(|c| c["en"] == "Along the Passing Shore").unwrap();
+        assert_json_eq(&shore["stats"][0], &json!([48, 7.2, 28.8, 4.32, 18, 2.7]), "cône stats[0]");
+        assert_json_eq(&shore["passive"], &json!([[["cd", 0.36]], [["cd", 0.42]], [["cd", 0.48]], [["cd", 0.54]], [["cd", 0.6]]]), "passif");
+        assert_json_eq(&g["relicMain"]["head"]["hp"], &json!([112.896, 39.5136]), "tête");
+        assert_json_eq(&g["relicMain"]["body"]["cr"], &json!([0.05184, 0.018144]), "torse");
+        assert!(g["relicMain"]["sphere"]["dmg_lightning"].is_array());
+        assert!(g["relicMain"]["rope"]["err"].is_array() && g["relicMain"]["rope"]["be"].is_array());
+        // Passerby of Wandering Cloud : soins +10 % (2 pièces), rien de fixe en 4 pièces
+        assert_json_eq(&g["relicSetBonus"]["101"], &json!([[["heal", 0.1]], []]), "set 101");
     }
 
     #[test]
