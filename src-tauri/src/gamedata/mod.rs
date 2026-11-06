@@ -17,6 +17,7 @@ pub const SOURCE_FILES: &[(&str, &str)] = &[
     ("en", "characters"), ("en", "items"), ("en", "character_promotions"), ("en", "character_skill_trees"),
     ("en", "elements"), ("en", "paths"), ("en", "relic_sets"), ("en", "properties"),
     ("en", "character_skills"), ("en", "character_ranks"),
+    ("en", "light_cones"), ("en", "light_cone_promotions"), ("fr", "light_cones"),
     ("fr", "characters"), ("fr", "items"), ("fr", "character_skills"), ("fr", "character_ranks"),
     ("fr", "character_skill_trees"), ("fr", "properties"),
 ];
@@ -128,6 +129,9 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
     let paths = get("en", "paths")?;
     let sets_en = get("en", "relic_sets")?;
     let props = get("en", "properties")?;
+    let cones_en = get("en", "light_cones")?;
+    let cones_fr = get("fr", "light_cones")?;
+    let cone_promos = get("en", "light_cone_promotions")?;
 
     let mut used_items: BTreeSet<String> = [CREDIT, EXP_BOOK, TRACKS].iter().map(|s| s.to_string()).collect();
     let mut chars: Vec<Value> = Vec::new();
@@ -208,6 +212,25 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
         chars.push(entry);
     }
 
+    // Cônes de lumière : un cône dont la Voie est inconnue est ignoré
+    let mut light_cones: Vec<Value> = Vec::new();
+    for (lid, l) in obj(&cones_en, "light_cones")? {
+        let Some(path) = l["path"].as_str().and_then(|p| lookup(PATH_MAP, p)) else { continue };
+        let en = l["name"].as_str().unwrap_or_default().to_string();
+        let fr = cones_fr.get(lid).and_then(|f| f["name"].as_str()).map(str::to_string).unwrap_or_else(|| en.clone());
+        let asc: Vec<Value> = arr(cone_promos.get(lid).and_then(|p| p.get("materials")))
+            .iter().filter(|step| truthy(Some(step))).map(|step| pack(arr(Some(step)))).collect();
+        for step in &asc {
+            for pair in arr(Some(step)) {
+                used_items.insert(id_str(&pair[0]));
+            }
+        }
+        light_cones.push(json!({
+            "id": lid, "en": en, "fr": fr, "rarity": l["rarity"], "path": path, "icon": l["icon"],
+            "preview": l.get("preview").cloned().unwrap_or(Value::Null), "asc": asc,
+        }));
+    }
+
     let mut path_mats_by_path = Map::new();
     for c in &chars {
         if c["pathMats"].as_array().is_some_and(|a| a.len() == 3) {
@@ -249,6 +272,7 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
     }
     let game = json!({
         "chars": chars,
+        "lightCones": light_cones,
         "elements": icons_by(&elements, ELEMENT_MAP),
         "paths": icons_by(&paths, PATH_MAP),
         "pathMats": path_mats_by_path,
@@ -389,11 +413,33 @@ pub(crate) mod tests {
     fn build_matches_python_output() {
         let b = build(fixture_getter()).unwrap();
         let game = js_value("assets.js", "const GAME = ");
-        assert_json_eq(&b.game, &game, "GAME");
+        // `lightCones` n'existe pas dans la sortie de référence : on l'écarte avant de comparer
+        let mut built = b.game.clone();
+        built.as_object_mut().unwrap().remove("lightCones");
+        let mut reference = game;
+        reference.as_object_mut().unwrap().remove("lightCones");
+        assert_json_eq(&built, &reference, "GAME");
         for lang in ["fr", "en"] {
             let details = js_value(&format!("details/{lang}.js"), &format!("HSR_DETAILS[\"{lang}\"] = "));
             assert_json_eq(&b.details[lang], &details, &format!("details.{lang}"));
         }
         assert_eq!(b.game["chars"].as_array().unwrap().len(), 93);
+    }
+
+    #[test]
+    fn build_includes_light_cones() {
+        let b = build(fixture_getter()).unwrap();
+        let cones = b.game["lightCones"].as_array().unwrap();
+        let c = cones.iter().find(|c| c["en"] == "Along the Passing Shore").expect("cône absent");
+        assert_eq!(c["rarity"], 5);
+        assert_eq!(c["path"], "nihility");
+        assert_eq!(c["asc"].as_array().unwrap().len(), 6);
+        assert!(!c["fr"].as_str().unwrap().is_empty());
+        let items = b.game["items"].as_object().unwrap();
+        for step in c["asc"].as_array().unwrap() {
+            for pair in step.as_array().unwrap() {
+                assert!(items.contains_key(pair[0].as_str().unwrap()), "objet {} absent", pair[0]);
+            }
+        }
     }
 }

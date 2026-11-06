@@ -14,8 +14,8 @@ const SRR_SHA = 'dbe8cdfcfb0bf657b9fe1cf92d5537f118ccb487';
 // Doit rester aligné sur gamedata::SOURCE_FILES (src-tauri/src/gamedata/mod.rs)
 const SRR_FILES = [
   ...['characters', 'items', 'character_promotions', 'character_skill_trees', 'elements', 'paths',
-    'relic_sets', 'properties', 'character_skills', 'character_ranks'].map(n => ['en', n]),
-  ...['characters', 'items', 'character_skills', 'character_ranks', 'character_skill_trees', 'properties'].map(n => ['fr', n]),
+    'relic_sets', 'properties', 'character_skills', 'character_ranks', 'light_cones', 'light_cone_promotions'].map(n => ['en', n]),
+  ...['characters', 'items', 'character_skills', 'character_ranks', 'character_skill_trees', 'properties', 'light_cones'].map(n => ['fr', n]),
 ];
 
 const POSTS = [
