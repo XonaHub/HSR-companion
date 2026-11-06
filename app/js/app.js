@@ -363,9 +363,11 @@
   function charCard(c) {
     const o = S.owned[c.id];
     const g = gameChar(c);
-    const tip = `${charName(c)} · ${t('el_' + c.element)} · ${t('path_' + c.path)} — ${o ? t('owned') : t('add')}`;
+    // clic sur la carte : fiche du perso ; le bouton en coin marque le perso comme possédé (ou le retire)
+    const tip = `${charName(c)} · ${t('el_' + c.element)} · ${t('path_' + c.path)} — ${t('open_sheet')}`;
+    const own = o ? t('unmark_owned') : t('mark_owned');
     return `<div class="char-card ${o ? 'owned' : ''}" style="--el:${EL_COLORS[c.element]}">
-      <button class="tile r${c.rarity}" data-action="toggleOwned" data-id="${c.id}" title="${esc(tip)}" aria-pressed="${!!o}">
+      <button class="tile r${c.rarity}" data-action="openSheet" data-id="${c.id}" title="${esc(tip)}">
         <div class="tile-art">
           <span class="ini">${esc(initials(c))}</span>
           ${g ? img(g.icon, 'av-img') : ''}
@@ -375,7 +377,7 @@
         </div>
         <div class="tile-name">${esc(charName(c))}</div>
       </button>
-      <button class="tile-info" data-action="openSheet" data-id="${c.id}" title="${esc(t('open_sheet'))}" aria-label="${esc(t('open_sheet'))} — ${esc(charName(c))}">i</button>
+      <button class="tile-info tile-own" data-action="toggleOwned" data-id="${c.id}" title="${esc(own)}" aria-label="${esc(own)} — ${esc(charName(c))}" aria-pressed="${!!o}">${o ? '−' : '+'}</button>
       ${o ? `<div class="char-extra">
         <label>${t('eidolon')}<select data-action="setEidolon" data-id="${c.id}">${range(0, 6).map(i => opt(i, 'E' + i, o.e || 0)).join('')}</select></label>
         <label>${t('relic_profile')}<select data-action="setProfile" data-id="${c.id}">${PROFILE_IDS.map(p => opt(p, t('prof_' + p), profileOf(c))).join('')}</select></label>

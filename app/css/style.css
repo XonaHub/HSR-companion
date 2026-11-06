@@ -239,6 +239,7 @@ select optgroup { color: var(--gold); font-style: normal; }
   transition: background .15s, transform .15s;
 }
 .tile-info:hover { background: var(--light); color: var(--ink); transform: scale(1.08); }
+.tile-own { font: 600 17px/1 system-ui, sans-serif; }
 .tile-stars { position: absolute; left: 0; right: 0; bottom: 4px; z-index: 1; text-align: center; font-size: 11px; letter-spacing: 1px; color: #ffe6a6; text-shadow: 0 1px 2px rgba(0, 0, 0, .7); }
 .tile.r4 .tile-stars { color: #e3d4ff; }
 .tile-name {

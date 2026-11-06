@@ -29,7 +29,8 @@ const I18N = {
     merge_custom: '« {name} » existe maintenant dans les données officielles. Reporter ta progression et tes plans de ton perso personnalisé sur le perso officiel (le perso personnalisé sera supprimé) ?',
     tab_roster: 'Personnages', tab_planner: 'Farm', tab_warps: 'Vœux', tab_relics: 'Reliques', tab_teams: 'Équipes', tab_settings: 'Paramètres',
 
-    roster_title: 'Mes personnages', roster_hint: 'Ajoute les personnages que tu possèdes : ils sont utilisés par les équipes, les reliques et le planificateur. Le profil de reliques sert à noter les reliques.',
+    roster_title: 'Mes personnages', roster_hint: 'Clique sur un personnage pour ouvrir sa fiche. Le bouton + en coin l’ajoute à tes personnages (− pour le retirer) : ils sont utilisés par les équipes, les reliques et le planificateur. Le profil de reliques sert à noter les reliques.',
+    mark_owned: 'Ajouter à mes personnages', unmark_owned: 'Retirer de mes personnages',
     search: 'Rechercher…', all_elements: 'Tous les éléments', all_paths: 'Toutes les voies', all_rarities: 'Toutes raretés', owned_only: 'Possédés uniquement',
     owned_count: '{n} / {total} possédés', no_results: 'Aucun personnage ne correspond.', custom_title: 'Personnage personnalisé',
     custom_hint: 'Un nouveau perso n’est pas dans la base ? Ajoute-le ici.', name: 'Nom', add: 'Ajouter', delete: 'Supprimer', owned: 'Possédé',
@@ -218,7 +219,8 @@ const I18N = {
     merge_custom: '“{name}” now exists in the official data. Move your progress and plans from your custom character to the official one (the custom character will be deleted)?',
     tab_roster: 'Characters', tab_planner: 'Farming', tab_warps: 'Warps', tab_relics: 'Relics', tab_teams: 'Teams', tab_settings: 'Settings',
 
-    roster_title: 'My characters', roster_hint: 'Add the characters you own: they are used by teams, relics and the planner. The relic profile is used to rate relics.',
+    roster_title: 'My characters', roster_hint: 'Click a character to open its profile. The + button in the corner adds it to your characters (− to remove it): they are used by teams, relics and the planner. The relic profile is used to rate relics.',
+    mark_owned: 'Add to my characters', unmark_owned: 'Remove from my characters',
     search: 'Search…', all_elements: 'All elements', all_paths: 'All paths', all_rarities: 'All rarities', owned_only: 'Owned only',
     owned_count: '{n} / {total} owned', no_results: 'No matching character.', custom_title: 'Custom character',
     custom_hint: 'A new character is missing from the database? Add it here.', name: 'Name', add: 'Add', delete: 'Delete', owned: 'Owned',

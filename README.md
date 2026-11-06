@@ -13,7 +13,7 @@ L'app a 8 onglets :
 | Onglet | À quoi il sert |
 |---|---|
 | **Aujourd'hui** | Ouvert à chaque lancement : le perso que tu farmes et le temps qu'il reste, tes vœux disponibles, la bannière en cours, la prochaine version et la dernière actu. |
-| **Personnages** | Tous les persos du jeu, ceux que tu possèdes, et tes cônes de lumière. Chaque perso a une fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. |
+| **Personnages** | Tous les persos du jeu, ceux que tu possèdes, et tes cônes de lumière. Clique sur un perso pour ouvrir sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. Le bouton + en coin l'ajoute à tes persos (− pour le retirer). |
 | **Farm** | Tu choisis un perso et le niveau visé ; l'app dit ce qu'il te manque (en tenant compte de ton inventaire) et combien de jours d'énergie il faut. |
 | **Vœux** | Tes jades, tes passes et ton pity. Un simulateur te donne tes chances d'avoir un perso ou un cône avec ce que tu as. Tu peux importer ton historique de vœux. |
 | **Reliques** | Toutes tes reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
