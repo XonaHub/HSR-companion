@@ -245,8 +245,11 @@ const PULL_INCOME = {
 const charRate = n => n <= 73 ? 0.006 : Math.min(1, 0.006 + 0.06 * (n - 73));  // pity max 90
 const lcRate = n => n <= 65 ? 0.008 : Math.min(1, 0.008 + 0.07 * (n - 65));    // pity max 80
 
+/* ---------- Équipes ---------- */
+const TEAM_TYPES = ['hypercarry', 'dual', 'followup', 'dot', 'break', 'elation', 'other'];
+
 /* ---------- Reliques ---------- */
-const SLOTS = ['head', 'hands', 'body', 'feet', 'sphere', 'rope'];
+const SLOTS =['head', 'hands', 'body', 'feet', 'sphere', 'rope'];
 const MAIN_STATS = {
   head: ['hp'], hands: ['atk'],
   body: ['hp_pct', 'atk_pct', 'def_pct', 'cr', 'cd', 'heal', 'ehr'],

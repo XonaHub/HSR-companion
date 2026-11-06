@@ -96,7 +96,9 @@ pub async fn gacha_find() -> Result<String, String> {
 fn check_gacha_url(raw: &str) -> Option<(url::Url, Vec<(String, String)>)> {
     let u = url::Url::parse(raw).ok()?;
     let host = u.host_str()?;
-    if u.scheme() != "https" || !GACHA_HOSTS.iter().any(|h| host.ends_with(h)) {
+    // le domaine lui-même ou un de ses sous-domaines (« evilhoyoverse.com » est refusé)
+    let allowed = |h: &str| host == h || host.strip_suffix(h).is_some_and(|rest| rest.ends_with('.'));
+    if u.scheme() != "https" || !GACHA_HOSTS.iter().any(|h| allowed(h)) {
         return None;
     }
     // un seul exemplaire par clé (le premier), comme parse_qs()[k][0] en Python
@@ -201,4 +203,24 @@ async fn get_page(client: &reqwest::Client, api: &str, params: &[(String, String
         .error_for_status()?
         .json()
         .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gacha_url_host_must_be_hoyoverse_or_subdomain() {
+        let ok = "https://public-operation-hkrpg-sg.hoyoverse.com/common/gacha_record/api/getGachaLog?authkey=abc";
+        assert!(check_gacha_url(ok).is_some());
+        assert!(check_gacha_url("https://hoyoverse.com/getGachaLog?authkey=abc").is_some());
+        for bad in [
+            "https://evilhoyoverse.com/getGachaLog?authkey=abc",
+            "https://hoyoverse.com.evil.net/getGachaLog?authkey=abc",
+            "http://api.hoyoverse.com/getGachaLog?authkey=abc",
+            "https://api.hoyoverse.com/getGachaLog?authkey=",
+        ] {
+            assert!(check_gacha_url(bad).is_none(), "{bad}");
+        }
+    }
 }

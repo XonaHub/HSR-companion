@@ -10,7 +10,18 @@
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: https://cdn.jsdelivr.net",
+        "font-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost ws://127.0.0.1:23313",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'",
+        "frame-src": "'none'"
+      }
     }
   },
   "bundle": {

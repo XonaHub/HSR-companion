@@ -70,7 +70,7 @@
   function migrate(s) {   // anciennes sauvegardes
     delete s.lastImport;   // import par vitrine (fonction retirée)
     for (const p of s.plans || []) if (!p.lc) p.lc = { on: false, lvTo: 80 };   // cône équipé : pas inclus par défaut
-    return s;
+    return sanitizeState(s, defaultState());   // sauvegarde ou fichier importé : forme garantie (js/sanitize.js)
   }
   let S = load();
   S.tab = 'today';   // l'app s'ouvre toujours sur « Aujourd'hui » (l'onglet choisi reste enregistré, sans effet au lancement suivant)
@@ -121,7 +121,9 @@
     return gameCharCache.get(c);
   };
   const imgUrl = p => (typeof ASSET_BASE !== 'undefined' ? ASSET_BASE : '') + p;
-  const img = (p, cls, alt = '') => p ? `<img class="${cls}" src="${esc(imgUrl(p))}" alt="${esc(alt)}" loading="lazy" onerror="this.remove()">` : '';
+  const img = (p, cls, alt = '') => p ? `<img class="${cls}" src="${esc(imgUrl(p))}" alt="${esc(alt)}" loading="lazy">` : '';
+  // image introuvable : retirée (écouteur global plutôt qu'un onerror en ligne, que la CSP interdit)
+  document.addEventListener('error', e => { if (e.target instanceof HTMLImageElement) e.target.remove(); }, true);
   const itemName = id => G.items[id] ? G.items[id][S.lang === 'fr' ? 1 : 0] : '';
   const itemImg = id => G.items[id] ? img(G.items[id][2], 'item-ico', itemName(id)) : '';
   const elIcon = e => img(G.elements[e], 'ico');
@@ -946,13 +948,12 @@
       notes.push(hit ? ['ok', t('weak_match', { n: hit, total: m.length })] : ['warn', t('warn_no_weak')]);
     }
     const notOwned = m.filter(c => !S.owned[c.id]);
-    if (notOwned.length) notes.push(['info', t('not_owned', { names: notOwned.map(charName).join(', ') })]);
+    if (notOwned.length) notes.push(['info', t('not_owned', { names: esc(notOwned.map(charName).join(', ')) })]);
     if (!notes.some(n => n[0] === 'warn') && m.length === 4) notes.unshift(['ok', t('team_ok')]);
     return notes;
   }
 
   /* ---------- Mes équipes (équipes jouées / créées en jeu) ---------- */
-  const TEAM_TYPES = ['hypercarry', 'dual', 'followup', 'dot', 'break', 'elation', 'other'];
   const ENDGAME_MODES = ['moc', 'pf', 'as'];
   const teamChars = tm => tm.members.map(charById).filter(Boolean);
 
@@ -1134,7 +1135,7 @@
       const dup = used[0].filter(id => used[1].includes(id));
       return `<section class="panel">
         <div class="panel-head"><h3>${t('mode_' + mode)}</h3><button class="btn sm" data-action="clearMode" data-mode="${mode}">${t('clear')}</button></div>
-        ${dup.length ? `<p class="note warn">${t('warn_dup', { names: dup.map(id => charName(charById(id))).join(', ') })}</p>` : ''}
+        ${dup.length ? `<p class="note warn">${t('warn_dup', { names: esc(dup.map(id => charName(charById(id))).join(', ')) })}</p>` : ''}
         <div class="teams-row">${teams.map((tm, ti) => `<div class="team-box">
           <h4>${t('team')} ${ti + 1}</h4>
           <div class="slots">${tm.map((id, si) => slotCell(id, `data-action="setSlot" data-mode="${mode}" data-team="${ti}" data-slot="${si}"`)).join('')}</div>
@@ -1619,6 +1620,7 @@
       out.innerHTML = `<p class="hint">${t('gacha_loading')}</p>`;
       const r = await invoke('gacha_fetch', { url, lang: S.lang });
       const n = applyGacha(r.items || []);
+      S = sanitizeState(S, defaultState());   // réponse du serveur : forme garantie (js/sanitize.js)
       save(); render(); toast(t('gacha_done', { n }));
       // bannières secondaires (collab…) qui n'ont pas pu être lues : on le signale sans bloquer
       if (r.warnings && r.warnings.length) $('#gachaOut').innerHTML = `<p class="note warn">${esc(r.warnings.join(' · '))}</p>`;
@@ -1743,6 +1745,7 @@
   }
   function importArchiveData(ex, isLive) {
     S.lastArchive = { ...applyArchive(ex), live: !!isLive };
+    S = sanitizeState(S, defaultState());   // fichier ou flux live : forme garantie (js/sanitize.js)
     save();
     if (!sheet) render();
   }

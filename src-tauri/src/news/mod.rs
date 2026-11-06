@@ -87,8 +87,15 @@ pub fn listed_from_response(resp: &Value) -> Vec<ListedPost> {
         let p = &item["post"];
         let title = p["subject"].as_str()?;
         parse::classify(title)?;
-        Some(ListedPost { id: id_str(&p["post_id"]), title_en: title.to_string(), created_at: p["created_at"].as_i64().unwrap_or(0) })
+        let id = id_str(&p["post_id"]);
+        is_post_id(&id).then_some(())?;
+        Some(ListedPost { id, title_en: title.to_string(), created_at: p["created_at"].as_i64().unwrap_or(0) })
     }).collect()
+}
+
+/// Un id de post HoYoLAB n'est fait que de chiffres : il sert de nom de fichier dans le cache et d'argument d'URL.
+pub fn is_post_id(id: &str) -> bool {
+    !id.is_empty() && id.len() <= 20 && id.bytes().all(|b| b.is_ascii_digit())
 }
 
 /// Nom de version dans le titre d'un post : entre guillemets (« … », "…" ou “…”) ou, pour certains anciens
@@ -263,6 +270,9 @@ fn refresh(dir: &Path, lang: &str, now: i64, fetch: &impl Fn(&Req) -> Result<Val
     let kept = kept_versions(&list);
     let mut posts: HashMap<String, CachedPost> = HashMap::new();
     for p in needed_posts(&list, &kept) {
+        if !is_post_id(&p.id) {
+            continue;   // cache de liste modifié à la main : jamais utilisé comme chemin
+        }
         let path = dir.join("posts").join(lang_code).join(format!("{}.json", p.id));
         let cached = read::<CachedPost>(&path).or_else(|| {
             // un post indisponible est simplement ignoré (réessayé au prochain rafraîchissement)
@@ -363,6 +373,18 @@ mod tests {
         assert!(l.iter().any(|p| p.id == "46861607"));
         assert!(l.iter().all(|p| parse::classify(&p.title_en).is_some()));
         assert!(!l.iter().any(|p| p.title_en.contains("Store Update")));
+    }
+
+    #[test]
+    fn post_ids_other_than_digits_are_dropped() {
+        let title = fixture_list()[0].title_en.clone();
+        let resp = serde_json::json!({ "data": { "list": [
+            { "post": { "post_id": "123", "subject": title } },
+            { "post": { "post_id": "../../evil", "subject": title } },
+            { "post": { "post_id": 456, "subject": title } }
+        ] } });
+        let ids: Vec<String> = listed_from_response(&resp).into_iter().map(|p| p.id).collect();
+        assert_eq!(ids, ["123", "456"]);
     }
 
     #[test]
