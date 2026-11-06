@@ -29,7 +29,8 @@
     weak: [],
     rates: { ...DEFAULT_RATES },
     rosterFilter: { q: '', el: '', path: '', rar: '', owned: false },
-    newsSeen: ''          // dernière annonce vue dans l'onglet Actus (point rouge sinon)
+    newsSeen: '',         // dernière annonce vue dans l'onglet Actus (point rouge sinon)
+    mergeDeclined: []     // fusions de persos personnalisés refusées (« idPerso>idOfficiel »)
   });
   function merge(base, d) {
     for (const k in d) {
@@ -927,12 +928,16 @@
     $('#tabs').innerHTML = TABS.map(k => `<button class="tab ${S.tab === k ? 'active' : ''}" data-action="tab" data-tab="${k}" title="${esc(t('tab_' + k))}">${TAB_ICONS[k]}<span>${t('tab_' + k)}</span>${k === 'news' && hasUnseenNews() && S.tab !== 'news' ? '<i class="tab-dot" aria-hidden="true"></i>' : ''}</button>`).join('');
   }
 
-  /* force : ignorer le cache récent (bouton « Actualiser ») */
+  /* Affiche d'abord le dernier fil enregistré (sans réseau), puis le rafraîchit.
+     force : ignorer le cache récent (bouton « Actualiser ») */
   function loadNews(force) {
     if (newsLoading) return;
     newsLoading = true; newsError = '';
     const lang = S.lang;
-    invoke('news_feed', { lang, force: !!force }).then(f => { if (lang === S.lang) news = f; })
+    const shown = news ? Promise.resolve() : invoke('news_cached', { lang }).then(f => {
+      if (f && lang === S.lang && !news) { news = f; if (S.tab === 'news') renderNews($('#view')); else renderTabs(); }
+    }).catch(() => { /* pas de cache lisible : on attend le réseau */ });
+    shown.then(() => invoke('news_feed', { lang, force: !!force })).then(f => { if (lang === S.lang) news = f; })
       .catch(e => { newsError = String(e); })
       .finally(() => {
         newsLoading = false;
@@ -1556,9 +1561,12 @@
   loadNews(false);   // en arrière-plan : point rouge sur l'onglet Actus s'il y a du nouveau
 
   /* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord) */
-  for (const d of findCustomDuplicates(S.custom, BASE_CHARS)) {
+  for (const d of findCustomDuplicates(S.custom, BASE_CHARS, S.mergeDeclined)) {
     const cu = S.custom.find(c => c.id === d.customId);
-    if (cu && confirm(t('merge_custom', { name: cu.name }))) { mergeCustomInto(S, d.customId, d.officialId); save(); render(); }
+    if (!cu) continue;
+    if (confirm(t('merge_custom', { name: cu.name }))) mergeCustomInto(S, d.customId, d.officialId);
+    else S.mergeDeclined = (S.mergeDeclined || []).concat(d.customId + '>' + d.officialId);   // ne plus redemander
+    save(); render();
   }
 
   /* Données du jeu : vérification en arrière-plan (au plus toutes les 6 h, voir gamedata/update.rs) ;

@@ -26,7 +26,8 @@ pub fn run() {
             gamedata::update::game_data_update,
             gamedata::update::game_details,
             gamedata::update::restart_app,
-            news::news_feed
+            news::news_feed,
+            news::news_cached
         ])
         .setup(|app| {
             // Données injectées avant le chargement de la page, pour qu'app.js les lise de façon

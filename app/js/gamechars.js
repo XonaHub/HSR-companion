@@ -29,13 +29,14 @@ function mergeGameChars(chars, gameChars, defaultProfileByPath) {
   return added.length ? chars.concat(added) : chars;
 }
 
-/* Persos personnalisés qui correspondent à un perso officiel (même nom EN ou FR, même élément) */
-function findCustomDuplicates(custom, chars) {
+/* Persos personnalisés qui correspondent à un perso officiel (même nom EN ou FR, même élément).
+   `declined` : fusions déjà refusées par le joueur (« idPerso>idOfficiel »), qu'on ne repropose pas. */
+function findCustomDuplicates(custom, chars, declined) {
   const out = [];
   for (const cu of custom || []) {
     const n = normName(cu.name);
     const official = chars.find(c => !c.custom && c.element === cu.element && (normName(c.name) === n || normName(c.fr) === n));
-    if (official) out.push({ customId: cu.id, officialId: official.id });
+    if (official && !(declined || []).includes(cu.id + '>' + official.id)) out.push({ customId: cu.id, officialId: official.id });
   }
   return out;
 }
@@ -51,5 +52,7 @@ function mergeCustomInto(state, customId, officialId) {
   for (const p of state.plans || []) p.charId = swap(p.charId);
   for (const tm of state.myTeams || []) tm.members = tm.members.map(swap);
   for (const sides of Object.values(state.teams || {})) for (const side of sides) side.forEach((id, i) => { side[i] = swap(id); });
+  for (const r of state.relics || []) r.owner = swap(r.owner);
+  if (state.plChar === customId) state.plChar = officialId;
   state.custom = (state.custom || []).filter(c => c.id !== customId);
 }

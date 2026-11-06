@@ -79,11 +79,21 @@ fn read_json(path: &Path) -> Option<String> {
     v.is_object().then(|| v.to_string())
 }
 /// Données du jeu téléchargées, prêtes à être injectées dans la page.
+/// Forme des données produites par `build` : à incrémenter dès qu'elle change, pour qu'une app plus récente
+/// n'utilise jamais des données téléchargées dans un ancien format.
+pub const DATA_FORMAT: u32 = 1;
+
+/// Les données téléchargées ne valent que pour la version de l'app et le format qui les ont écrites ;
+/// sinon on revient aux données intégrées à l'exe (une nouvelle vérification les remplacera).
+fn downloaded_usable(dir: &Path) -> bool {
+    let meta = read_meta(dir);
+    meta["format"].as_u64() == Some(DATA_FORMAT as u64) && meta["appVersion"].as_str() == Some(env!("CARGO_PKG_VERSION"))
+}
 pub fn load_game(dir: &Path) -> Option<String> {
-    read_json(&dir.join("game.json"))
+    downloaded_usable(dir).then(|| read_json(&dir.join("game.json"))).flatten()
 }
 pub fn load_details(dir: &Path, lang: &str) -> Option<String> {
-    read_json(&dir.join(format!("details_{lang}.json")))
+    downloaded_usable(dir).then(|| read_json(&dir.join(format!("details_{lang}.json")))).flatten()
 }
 fn read_meta(dir: &Path) -> Value {
     read_json(&dir.join("meta.json")).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_else(|| json!({}))
@@ -107,7 +117,7 @@ pub fn install(dir: &Path, sha: &str, get: impl Fn(&str, &str) -> Result<Value, 
     let now = now_ms();
     let mut files = vec![
         ("game.json".to_string(), bundle.game.to_string()),
-        ("meta.json".to_string(), json!({ "sha": sha, "checkedAt": now, "updatedAt": now }).to_string()),
+        ("meta.json".to_string(), json!({ "sha": sha, "checkedAt": now, "updatedAt": now, "format": DATA_FORMAT, "appVersion": env!("CARGO_PKG_VERSION") }).to_string()),
     ];
     for (lang, d) in &bundle.details {
         files.push((format!("details_{lang}.json"), d.to_string()));
@@ -137,7 +147,8 @@ pub fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
 pub async fn game_data_update(app: AppHandle) -> Result<GameUpdate, String> {
     let dir = data_dir(&app)?;
     let mut meta = read_meta(&dir);
-    let current = meta["sha"].as_str().map(str::to_string).or_else(embedded_sha);
+    // données téléchargées inutilisables (autre version de l'app) : la référence redevient les données intégrées
+    let current = if load_game(&dir).is_some() { meta["sha"].as_str().map(str::to_string) } else { embedded_sha() };
     if now_ms() - meta["checkedAt"].as_i64().unwrap_or(0) < CHECK_EVERY_MS {
         return Ok(GameUpdate { sha: current.unwrap_or_default(), ..Default::default() });
     }
@@ -213,11 +224,31 @@ mod tests {
     }
 
     #[test]
+    fn downloaded_data_ignored_after_format_or_app_change() {
+        let dir = tempdir("format");
+        install(&dir, "sha2", fixture_getter()).unwrap();
+        assert!(load_game(&dir).is_some());
+        let meta: Value = serde_json::from_str(&fs::read_to_string(dir.join("meta.json")).unwrap()).unwrap();
+        // données écrites par une autre version de l'app (format ou version différents) : on revient aux données intégrées
+        for (key, other) in [("format", json!(DATA_FORMAT + 1)), ("appVersion", json!("0.0.0"))] {
+            let mut m = meta.clone();
+            m[key] = other;
+            fs::write(dir.join("meta.json"), m.to_string()).unwrap();
+            assert!(load_game(&dir).is_none(), "{key}");
+            assert!(load_details(&dir, "fr").is_none(), "{key}");
+        }
+        fs::remove_file(dir.join("meta.json")).unwrap();
+        assert!(load_game(&dir).is_none(), "sans meta.json");
+    }
+
+    #[test]
     fn new_chars_lists_characters_missing_before() {
         let dir = tempdir("new");
         let mut old: Value = serde_json::from_str(&embedded_game_json()).unwrap();
         old["chars"].as_array_mut().unwrap().retain(|c| c["en"] != "Acheron");
         fs::write(dir.join("game.json"), old.to_string()).unwrap();
+        // téléchargement précédent valide (même format, même version de l'app)
+        fs::write(dir.join("meta.json"), json!({ "sha": "sha2", "format": DATA_FORMAT, "appVersion": env!("CARGO_PKG_VERSION") }).to_string()).unwrap();
         let r = install(&dir, "sha3", fixture_getter()).unwrap();
         assert_eq!(r.new_chars, vec!["Acheron".to_string()]);
     }

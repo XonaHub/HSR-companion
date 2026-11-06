@@ -103,25 +103,27 @@ fn subject_name(subject: &str) -> Option<String> {
 }
 
 /// Versions affichées : les `VERSIONS_KEPT` plus récentes ayant un patch note, plus celles annoncées après.
+/// Une version passée reste affichée même si le titre de son patch note n'est pas reconnu
+/// (ses bannières ou annonces suffisent).
 fn kept_versions(list: &[ListedPost]) -> Vec<String> {
-    let mut with_patch: Vec<String> = Vec::new();
-    let mut announced: Vec<String> = Vec::new();
+    let mut newest_patch = (0, 0);
+    let mut all: Vec<String> = Vec::new();
     for p in list {
         match parse::classify(&p.title_en) {
-            Some(parse::PostKind::PatchNotes { version, .. }) => with_patch.push(version),
-            Some(parse::PostKind::VersionAnnounce { version, .. } | parse::PostKind::Warp { version, .. }) => announced.push(version),
+            Some(parse::PostKind::PatchNotes { version, .. }) => {
+                newest_patch = newest_patch.max(version_key(&version));
+                all.push(version);
+            }
+            Some(parse::PostKind::VersionAnnounce { version, .. } | parse::PostKind::Warp { version, .. }) => all.push(version),
             _ => {}
         }
     }
-    with_patch.sort_by_key(|v| std::cmp::Reverse(version_key(v)));
-    with_patch.dedup();
-    with_patch.truncate(VERSIONS_KEPT);
-    let newest = with_patch.first().map(|v| version_key(v)).unwrap_or((0, 0));
-    let mut out: Vec<String> = announced.into_iter().filter(|v| version_key(v) > newest).collect();
-    out.extend(with_patch);
-    out.sort_by_key(|v| std::cmp::Reverse(version_key(v)));
-    out.dedup();
-    out
+    all.sort_by_key(|v| std::cmp::Reverse(version_key(v)));
+    all.dedup();
+    // versions annoncées (plus récentes que le dernier patch note), puis la version en cours et les précédentes
+    let upcoming = all.iter().take_while(|v| version_key(v) > newest_patch).count();
+    all.truncate(upcoming + VERSIONS_KEPT);
+    all
 }
 
 /// Posts dont le contenu est nécessaire : ceux des versions affichées, et les présentations de persos
@@ -207,11 +209,16 @@ fn ok_response(resp: Value) -> Result<Value, String> {
     }
 }
 
+/// Dernier fil enregistré, quel que soit son âge, sans aucun accès réseau (affichage immédiat de l'onglet).
+pub fn cached_feed(dir: &Path, lang: &str) -> Option<NewsFeed> {
+    read(&dir.join(format!("feed_{lang}.json")))
+}
+
 /// Fil d'actus : le cache s'il a moins de 30 min (sauf `force`), sinon rafraîchi depuis HoYoLAB.
 /// Hors ligne, le dernier fil en cache est renvoyé avec `stale = true`.
 pub fn news_feed_with(dir: &Path, lang: &str, force: bool, now: i64, fetch: impl Fn(&Req) -> Result<Value, String>) -> Result<NewsFeed, String> {
     let feed_path = dir.join(format!("feed_{lang}.json"));
-    let cached: Option<NewsFeed> = read(&feed_path);
+    let cached = cached_feed(dir, lang);
     if let Some(c) = cached.as_ref().filter(|c| !force && now - c.fetched_at < FRESH_MS) {
         return Ok(c.clone());
     }
@@ -294,6 +301,15 @@ pub async fn news_feed(app: tauri::AppHandle, lang: String, force: bool) -> Resu
     }).await.map_err(|e| e.to_string())?
 }
 
+/// Dernier fil enregistré (None s'il n'y en a pas encore), sans réseau : l'onglet l'affiche
+/// immédiatement puis appelle `news_feed` pour le rafraîchir.
+#[tauri::command]
+pub fn news_cached(app: tauri::AppHandle, lang: String) -> Result<Option<NewsFeed>, String> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("news");
+    Ok(cached_feed(&dir, if lang == "en" { "en" } else { "fr" }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -363,6 +379,16 @@ mod tests {
     }
 
     #[test]
+    fn version_kept_when_patch_note_title_not_recognised() {
+        // le patch note 4.4 (titre reformulé) n'est plus reconnu, mais ses bannières le sont encore
+        let list: Vec<ListedPost> = fixture_list().into_iter().filter(|p| p.id != "45851903").collect();
+        let f = assemble(&list, &fixture_posts("fr-fr"), "fr");
+        assert!(f.versions.iter().any(|v| v.version == "4.4"), "{:?}", f.versions.iter().map(|v| &v.version).collect::<Vec<_>>());
+        // toujours au plus la version annoncée + 11 versions
+        assert!(f.versions.len() <= VERSIONS_KEPT + 1);
+    }
+
+    #[test]
     fn aeon_preview_is_unattached() {
         let f = assemble(&fixture_list(), &fixture_posts("fr-fr"), "fr");
         assert!(f.unattached.iter().any(|a| a.name == "Aiôn ★ Aha"), "{:?}", f.unattached);
@@ -376,6 +402,15 @@ mod tests {
         fs::write(dir.join("feed_fr.json"), serde_json::to_string(&cached).unwrap()).unwrap();
         let f = news_feed_with(&dir, "fr", false, 1_000 + 60_000, |_| panic!("pas de réseau attendu")).unwrap();
         assert_eq!(f, cached);
+    }
+
+    #[test]
+    fn cached_feed_is_read_without_network_even_when_old() {
+        let dir = tempdir("cacheonly");
+        assert_eq!(cached_feed(&dir, "fr"), None);
+        let cached = NewsFeed { fetched_at: 1_000, latest_id: "1".into(), ..Default::default() };
+        fs::write(dir.join("feed_fr.json"), serde_json::to_string(&cached).unwrap()).unwrap();
+        assert_eq!(cached_feed(&dir, "fr"), Some(cached));
     }
 
     #[test]

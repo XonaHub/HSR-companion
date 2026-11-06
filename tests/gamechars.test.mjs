@@ -35,7 +35,9 @@ test('merge_moves_owned_and_plans', () => {
       owned: { 'custom-x': { e: 1, lvl: 60 } },
       plans: [{ id: 'p1', charId: 'custom-x' }],
       myTeams: [{ id: 't1', members: ['custom-x', null, null, null] }],
-      teams: { moc: [['custom-x', null, null, null], [null, null, null, null]] }
+      teams: { moc: [['custom-x', null, null, null], [null, null, null, null]] },
+      relics: [{ id: 'r1', owner: 'custom-x' }, { id: 'r2', owner: 'kafka' }],
+      plChar: 'custom-x'
     };
     const dups = findCustomDuplicates(state.custom, chars);
     for (const d of dups) mergeCustomInto(state, d.customId, d.officialId);
@@ -46,7 +48,17 @@ test('merge_moves_owned_and_plans', () => {
   assert.equal(r.state.plans[0].charId, 'aeon');
   assert.equal(r.state.myTeams[0].members[0], 'aeon');
   assert.equal(r.state.teams.moc[0][0], 'aeon');
+  assert.deepEqual(r.state.relics.map(x => x.owner), ['aeon', 'kafka']);
+  assert.equal(r.state.plChar, 'aeon');
   assert.deepEqual(r.state.custom, []);
+});
+
+test('declined_merge_is_not_proposed_again', () => {
+  const dups = ev(`findCustomDuplicates(
+    [{ id: 'custom-x', name: 'Aiôn', element: 'quantum', path: 'elation' }],
+    mergeGameChars(CHARACTERS, GAME.chars.concat([${JSON.stringify(AEON)}]), DEFAULT_PROFILE_BY_PATH),
+    ['custom-x>aeon'])`);
+  assert.deepEqual(dups, []);
 });
 
 test('merge_keeps_existing_official_owned', () => {
