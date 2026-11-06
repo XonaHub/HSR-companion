@@ -112,6 +112,20 @@ pub fn ranking_with(dir: &Path, name_en: &str, force: bool, now: i64, fetch: imp
     }
 }
 
+/// Instant de la dernière requête réelle, pour espacer toutes les requêtes du processus (appels `invoke` en file d'attente compris).
+static LAST_REQUEST: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+/// Attend que `POLITE_DELAY` se soit écoulé depuis la requête précédente, puis réserve le créneau.
+fn polite_wait() {
+    let mut last = LAST_REQUEST.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(t) = *last {
+        let elapsed = t.elapsed();
+        if elapsed < crate::net::POLITE_DELAY {
+            std::thread::sleep(crate::net::POLITE_DELAY - elapsed);
+        }
+    }
+    *last = Some(std::time::Instant::now());
+}
+
 /// Requête réelle (bloquante)
 fn http_fetch(client: &reqwest::blocking::Client, url: &str) -> Result<String, String> {
     client.get(url).header("Accept", "text/html").send()
