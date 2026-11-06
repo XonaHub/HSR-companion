@@ -54,7 +54,8 @@ function endgameStatus(cycles, now) {
   const out = {};
   for (const m of ENDGAME_MODES) {
     const all = chainUntil((cycles && cycles[m]) || [], now + ENDGAME_CYCLE_MS);
-    const current = all.find(c => c.startMs <= now && now <= c.endMs) || null;
+    // la fin « 03:59 » couvre toute sa minute : le cycle suivant commence à 04:00
+    const current = all.find(c => c.startMs <= now && now < c.endMs + 60000) || null;
     const next = all.find(c => c.startMs > now) || null;
     out[m] = { current, next };
   }

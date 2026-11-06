@@ -50,6 +50,8 @@ test('status_switches_at_reset', () => {
   assert.equal(before.as.current.name, "Domination de l'oubli");
   assert.equal(before.as.next.deduced, true);
   assert.equal(before.as.next.startMs, at('2026-11-16T04:00'));
+  // pendant la dernière minute (03:59:30), le cycle se termine encore : il reste « en cours »
+  assert.equal(status(at('2026-11-16T03:59') + 30000).as.current.name, "Domination de l'oubli");
   const after = status(at('2026-11-16T04:00'));
   assert.equal(after.as.current.deduced, true);
   assert.equal(after.as.current.startMs, at('2026-11-16T04:00'));
