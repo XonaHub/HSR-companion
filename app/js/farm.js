@@ -169,7 +169,7 @@ function farmTimes(missingInOrder, rates, today, items) {
     for (const id in m.items || {}) sum.items[id] = (sum.items[id] || 0) + m.items[id];
     for (const k in m.gen || {}) sum.gen[k] = (sum.gen[k] || 0) + m.gen[k];
     const cum = farmTp(sum, rates, items), cd = farmDays(cum.total, cum.weeklyRuns);
-    return { tp: own.total, weeklyRuns: own.weeklyRuns, days: d.days, limitedByWeekly: d.limitedByWeekly, cumDays: cd.days, cumDate: addDays(today, cd.days) };
+    return { tp: own.total, weeklyRuns: own.weeklyRuns, days: d.days, limitedByWeekly: d.limitedByWeekly, cumDays: cd.days, cumDate: addDays(today, cd.days), cumWeeklyRuns: cum.weeklyRuns, cumLimitedByWeekly: cd.limitedByWeekly };
   });
   const all = farmTp(sum, rates, items), d = farmDays(all.total, all.weeklyRuns);
   return { perPlan, total: { tp: all.total, weeklyRuns: all.weeklyRuns, days: d.days, date: addDays(today, d.days), limitedByWeekly: d.limitedByWeekly } };

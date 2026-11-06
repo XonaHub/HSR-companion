@@ -387,7 +387,7 @@
   }
 
   /* Regroupe les besoins par objet réel du jeu (ex. deux persos qui partagent le même boss) */
-  function aggregate(plans, useOwned = true) {
+  function aggregate(plans, useOwned = true, results = null) {   // results : besoins déjà calculés (parallèles à plans), p. ex. le manque après les plans précédents
     const tot = { exp: 0, lcExp: 0, credits: 0, pathT1: 0, boss: 0, weekly: 0, rows: new Map() };
     const ORDER = { path: 10, common: 20, boss: 30, weekly: 40, td: 50 };
     const add = (key, n, order, item, sub, emoji, name) => {
@@ -396,8 +396,8 @@
       row.n += n; if (name) row.names.add(name);
       tot.rows.set(key, row);
     };
-    for (const p of plans) {
-      const r = computePlan(p, useOwned); if (!r) continue;
+    for (const [pi, p] of plans.entries()) {
+      const r = results ? results[pi] : computePlan(p, useOwned); if (!r) continue;
       const c = charById(p.charId), nm = charName(c);
       tot.exp += r.exp; tot.lcExp += r.lcExp;
       for (const id in r.items) {
@@ -421,11 +421,11 @@
     return tot;
   }
 
-  function matRows(tot) {
+  function matRows(tot, noStock = false) {   // noStock : tot est déjà un manque, pas de comparaison au stock
     const ico = id => (id && itemImg(id)) || '<span class="emoji">◆</span>';
     const rows = [];
     // stock issu de l'export Reliquary Archiver : affiche ce qu'il manque vraiment
-    const inv = S.inventory;
+    const inv = noStock ? null : S.inventory;
     const have = id => inv && id && inv[id] != null ? inv[id] : (inv ? 0 : null);
     const qty = (need, h) => h == null ? fmt(need)
       : `${fmt(need)}<small class="${h >= need ? 'inv-ok' : 'inv-miss'}">${h >= need ? t('inv_ok', { n: fmt(h) }) : t('inv_missing', { n: fmt(need - h) })}</small>`;
@@ -447,7 +447,7 @@
   function abilityFields(c) {
     const cur = (c && S.owned[c.id] && S.owned[c.id].tr) || {};   // niveaux actuels (import du compte)
     const sel = (a, which, max, v) => `<select id="pl_${a}_${which}" ${which === 'from' ? `data-ab="${a}"` : ''}>${range(1, max).map(l => opt(l, l, v)).join('')}</select>`;
-    return abilitiesOf(c).map(([a, max]) => `<label class="field">${abLabel(a)}<span class="range-sel">${sel(a, 'from', max, clamp(cur[a] || 1, 1, max))}<span>→</span>${sel(a, 'to', max, max)}</span></label>`).join('');
+    return abilitiesOf(c).map(([a, max]) => `<label class="field">${abLabel(a)}${cur[a] ? `<span class="cur-tag">${t('current_tag')}</span>` : ''}<span class="range-sel">${sel(a, 'from', max, clamp(cur[a] || 1, 1, max))}<span>→</span>${sel(a, 'to', max, max)}</span></label>`).join('');
   }
   /* Remplit le formulaire avec l'état actuel du perso (s'il a été importé depuis la vitrine) */
   function setPlannerChar(c) {
@@ -455,6 +455,12 @@
     const o = c && S.owned[c.id];
     $('#plLvFrom').value = o && o.lvl ? Math.max(...LEVELS.filter(L => L <= o.lvl)) : 1;
     $('#plBonus').checked = !(o && o.bonusAll);
+    $('#plLvCur').textContent = o && o.lvl ? t('current_tag') : '';
+    // cône : celui équipé sur le perso (S.cones), avec ses données du jeu
+    const eq = c && equippedCone(c.id), gC = eq && coneOf(G.lightCones || [], eq.id);
+    $('#plLc').disabled = $('#plLcTo').disabled = !gC;
+    if (!gC) $('#plLc').checked = false;
+    $('#plLcHint').textContent = gC ? `${coneName(gC, eq.name)} · ${t('lvl')} ${eq.level}` : t(eq ? 'lc_unknown' : 'lc_no_cone');
   }
 
   function renderPlanner(v) {
@@ -467,31 +473,39 @@
       for (const k in m.gen) a.gen[k] = (a.gen[k] || 0) + m.gen[k];
       return a;
     }, { exp: 0, lcExp: 0, items: {}, gen: {} }));
+    const ft = farmTimes(miss, S.rates, new Date(), G.items);   // par plan actif (cumulé) et total : mêmes chiffres partout
+    const info = new Map(active.map((p, i) => [p.id, { ...ft.perPlan[i], miss: miss[i] }]));
     v.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h2>${t('planner_title')}</h2></div>
       <p class="hint">${t('planner_hint')}</p>
       <div class="planner-form">
         <label class="field span2">${t('character')}<select id="plChar" data-action="plChar">${charOptions(S.plChar)}</select></label>
-        <label class="field">${t('level_from')}<select id="plLvFrom">${LEVELS.map(l => opt(l, l, 1)).join('')}</select></label>
+        <label class="field">${t('level_from')}<span id="plLvCur" class="cur-tag"></span><select id="plLvFrom">${LEVELS.map(l => opt(l, l, 1)).join('')}</select></label>
         <label class="field">${t('level_to')}<select id="plLvTo">${LEVELS.map(l => opt(l, l, 80)).join('')}</select></label>
         <div id="plAbilities" class="planner-abilities"></div>
         <label class="check"><input type="checkbox" id="plBonus" checked> ${t('bonus_traces')}</label>
+        <div class="lc-opt">
+          <label class="check"><input type="checkbox" id="plLc"> ${t('include_lc')}</label>
+          <label class="field">${t('lc_to')}<select id="plLcTo">${LEVELS.map(l => opt(l, l, 80)).join('')}</select></label>
+          <small id="plLcHint" class="hint small"></small>
+        </div>
         <button class="btn primary" data-action="addPlan">${t('add_plan')}</button>
       </div>
     </section>
     <div class="cols">
       <section class="panel">
         <h3>${t('plans')} <span class="badge">${S.plans.length}</span></h3>
-        ${S.plans.length ? S.plans.map(planCard).join('') : `<p class="empty">${t('no_plans')}</p>`}
+        ${S.plans.length ? `<p class="hint small">${t('drag_hint')}</p>${S.plans.map(p => planCard(p, info.get(p.id))).join('')}` : `<p class="empty">${t('no_plans')}</p>`}
       </section>
       <section class="panel">
         <h3>${t('totals')}</h3>
         ${matTable(matRows(tot))}
         ${active.length ? `<div class="tp-box">
-          <div class="tp-main"><span>${t('tp_total')}</span><b>${fmt(tp.total)}</b><small>≈ ${t('days', { n: Math.ceil(tp.days) })} ${t('at_240')}</small></div>
+          <div class="tp-main"><span>${t('tp_total')}</span><b>${fmt(ft.total.tp)}</b><small>${etaText(ft.total.days, ft.total.date)}</small></div>
+          <p class="hint small">${ft.total.limitedByWeekly ? t('limited_weekly', { n: Math.ceil(ft.total.weeklyRuns / 3) }) : t('at_240')}${S.inventory ? '' : ' · ' + t('no_inventory')}</p>
           <ul class="tp-detail">
-            <li>${t('tp_exp')} : ${fmt(tp.expTP)}</li><li>${t('tp_credits')} : ${fmt(tp.crTP)}</li>
+            <li>${t('tp_exp')} : ${fmt(tp.expTP)}</li><li>${t('tp_lc_exp')} : ${fmt(tp.lcExpTP)}</li><li>${t('tp_credits')} : ${fmt(tp.crTP)}</li>
             <li>${t('tp_path')} : ${fmt(tp.pathTP)}</li><li>${t('tp_boss')} : ${fmt(tp.bossTP)}</li>
             <li>${t('tp_echo', { w: tp.echoWeeks })} : ${fmt(tp.echoTP)}</li>
           </ul>
@@ -502,19 +516,51 @@
     setPlannerChar(charById($('#plChar').value));
   }
 
-  function planCard(p) {
+  const fmtDate = d => d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' });
+  const etaText = (days, date) => days > 0 ? t('eta', { days: t('days', { n: Math.ceil(days) }), date: fmtDate(date) }) : t('eta_none');
+
+  /* Déplace le plan from avant ou après le plan to */
+  function movePlan(plans, from, to, after) {
+    if (from === to) return plans;
+    const moved = plans.find(p => p.id === from);
+    if (!moved) return plans;
+    const rest = plans.filter(p => p.id !== from), i = rest.findIndex(p => p.id === to);
+    if (i < 0) return plans;
+    rest.splice(i + (after ? 1 : 0), 0, moved);
+    return rest;
+  }
+
+  /* f : temps et manque de ce plan dans l'ordre des plans actifs (renderPlanner), absent si le plan est désactivé */
+  function planCard(p, f) {
     const c = charById(p.charId);
-    if (!c) return `<div class="plan-card off"><span>${t('unknown_char')}</span><button class="btn sm danger" data-action="delPlan" data-id="${p.id}">${t('delete')}</button></div>`;
-    const tr = Object.entries(planTr(p)).map(([a, [f, to]]) => `${abLabel(a, true)} ${f}→${to}`).join(' · ') + (p.bonus !== false ? ' · ' + t('bonus_short') : '');
-    const tot = aggregate([p]);
-    return `<details class="plan-card ${p.on === false ? 'off' : ''}">
+    if (!c) return `<div class="plan-card off" draggable="true" data-id="${p.id}"><span>${t('unknown_char')}</span><button class="btn sm danger" data-action="delPlan" data-id="${p.id}">${t('delete')}</button></div>`;
+    const st = planStart(p, S.owned[c.id]), res = computePlan(p);
+    const part = (label, from, to) => from >= to ? `${label} ${to} ✓ ${t('done')}` : `${label} ${from}→${to}`;
+    const tr = Object.entries(planTr(p)).map(([a, [fr, to]]) => part(abLabel(a, true), st.tr[a] != null ? st.tr[a] : fr, to)).join(' · ') + (p.bonus !== false ? ' · ' + t('bonus_short') : '');
+    const eq = equippedCone(c.id), gC = eq && coneOf(G.lightCones || [], eq.id), lcOk = !!gC;
+    const lcOn = !!(p.lc && p.lc.on) && lcOk;
+    let time = '';
+    if (f) {
+      if (res && res.done) time = `<b class="plan-done">${t('done')}</b>`;
+      else {
+        const lim = f.cumLimitedByWeekly ? `<small>${t('limited_weekly', { n: Math.ceil(f.cumWeeklyRuns / 3) })}</small>` : '';
+        time = `<span class="plan-tp">${t('plan_energy_left')} : <b>${fmt(f.tp)}</b></span>
+          <span class="plan-eta">${f.tp <= 0 && f.cumDays <= 0 ? t('covered') : etaText(f.cumDays, f.cumDate)} <em>(${t('cumulative')})</em></span>${lim}`;
+      }
+    }
+    const tot = f ? aggregate([p], true, [f.miss]) : aggregate([p]);
+    const lcWhy = t(eq ? 'lc_unknown' : 'lc_no_cone');
+    return `<details class="plan-card ${p.on === false ? 'off' : ''}" draggable="true" data-id="${p.id}">
       <summary>
+        <span class="drag-grip" aria-hidden="true">⋮⋮</span>
         ${avatar(c, 'sm')}
-        <div class="plan-info"><b>${esc(charName(c))}</b><small>${t('lvl')} ${p.lvFrom}→${p.lvTo} · ${tr}</small></div>
+        <div class="plan-info"><b>${esc(charName(c))}</b><small>${part(t('lvl'), st.lvl, p.lvTo)} · ${tr}${lcOn ? ` · ${esc(t('lc_short'))} → ${p.lc.lvTo}` : ''}</small>${time ? `<div class="plan-time">${time}</div>` : ''}</div>
         <label class="check" title="${esc(t('include'))}"><input type="checkbox" data-action="togglePlan" data-id="${p.id}" ${p.on !== false ? 'checked' : ''}></label>
         <button class="btn sm danger" data-action="delPlan" data-id="${p.id}" title="${esc(t('delete'))}">×</button>
       </summary>
-      ${matTable(matRows(tot))}
+      <label class="check lc-card"><input type="checkbox" data-action="togglePlanLc" data-id="${p.id}" ${lcOn ? 'checked' : ''} ${lcOk ? '' : 'disabled'}> ${t('include_lc')} <small>${esc(lcOk ? coneName(gC, eq.name) : lcWhy)}</small></label>
+      ${f ? `<p class="hint small">${t('plan_mats_hint')}</p>` : ''}
+      ${matTable(matRows(tot, !!f))}
     </details>`;
   }
 
@@ -1597,7 +1643,7 @@
         const ab = el.dataset.ab, a = +el.value, b = +$(`#pl_${ab}_to`).value;
         tr[ab] = [a, Math.max(a, b)];
       }
-      S.plans.push({ id: uid(), charId: $('#plChar').value, lvFrom, lvTo: Math.max(lvFrom, lvTo), tr, bonus: $('#plBonus').checked, lc: { on: false, lvTo: 80 }, on: true });
+      S.plans.push({ id: uid(), charId: $('#plChar').value, lvFrom, lvTo: Math.max(lvFrom, lvTo), tr, bonus: $('#plBonus').checked, lc: { on: $('#plLc').checked && !$('#plLc').disabled, lvTo: +$('#plLcTo').value }, on: true });
       save(); render(); toast(t('added'));
     },
     delPlan: (b, e) => { e.preventDefault(); S.plans = S.plans.filter(p => p.id !== b.dataset.id); save(); render(); },
@@ -1608,6 +1654,7 @@
     relicMore: () => { S.relicShow = (S.relicShow || 60) + 120; save(); render(); },
     gachaAuto: () => importGacha(null),
     gachaUrl: () => importGacha($('#gachaUrl').value.trim()),
+    togglePlanLc: el => { const p = S.plans.find(x => x.id === el.dataset.id); if (p) { p.lc = { ...(p.lc || { lvTo: 80 }), on: el.checked }; save(); render(); } },
     togglePlan: el => { const p = S.plans.find(x => x.id === el.dataset.id); if (p) { p.on = el.checked; save(); render(); } },
     simulate: () => { $('#simOut').innerHTML = `<p class="hint">${t('computing')}</p>`; setTimeout(simulate, 20); },
     addWish: () => {
@@ -1703,6 +1750,35 @@
     if (!b || b.tagName === 'SELECT' || b.tagName === 'INPUT') return;
     actions[b.dataset.action] && actions[b.dataset.action](b, e);
   });
+  /* Glisser-déposer des cartes de plan : réordonne S.plans (le premier est prioritaire). Les boutons et cases
+     de la carte gardent leurs clics : seul un déplacement de la carte lance le glisser. */
+  let dragId = null;
+  const planCardOf = e => e.target.closest && e.target.closest('.plan-card[data-id]');
+  const clearDrop = () => $$('.plan-card.drop-before, .plan-card.drop-after, .plan-card.dragging').forEach(x => x.classList.remove('drop-before', 'drop-after', 'dragging'));
+  const dropAfter = (card, e) => { const r = card.getBoundingClientRect(); return e.clientY > r.top + r.height / 2; };
+  document.addEventListener('dragstart', e => {
+    const card = planCardOf(e);
+    if (!card) return;
+    dragId = card.dataset.id; card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId);
+  });
+  document.addEventListener('dragover', e => {
+    const card = planCardOf(e);
+    if (!dragId || !card) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    $$('.plan-card.drop-before, .plan-card.drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+    if (card.dataset.id !== dragId) card.classList.add(dropAfter(card, e) ? 'drop-after' : 'drop-before');
+  });
+  document.addEventListener('drop', e => {
+    const card = planCardOf(e);
+    if (!dragId || !card) return;
+    e.preventDefault();
+    const after = dropAfter(card, e), from = dragId, to = card.dataset.id;
+    dragId = null; clearDrop();
+    S.plans = movePlan(S.plans, from, to, after);
+    save(); render();
+  });
+  document.addEventListener('dragend', () => { dragId = null; clearDrop(); });
   document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'langSelect') return setLang(el.value);

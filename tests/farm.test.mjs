@@ -136,3 +136,32 @@ test('cumulative_dates', () => {
   assert.equal(r.perPlan[1].cumDate, ev('new Date(2026, 10, 10)'));
   assert.equal(r.total.tp, 960); assert.equal(r.total.days, 4); assert.equal(r.total.date, ev('new Date(2026, 10, 10)'));
 });
+
+test('weekly_limited_plan_then_energy_plan', () => {
+  const runs = Math.ceil(9 / ev('DEFAULT_RATES.echo')), weeks = Math.ceil(runs / 3);
+  const exp = 48 * ev('DEFAULT_RATES.exp');   // 480 d'énergie : 2 jours
+  const r = times([{ exp: 0, lcExp: 0, items: { W: 9 } }, { exp, lcExp: 0, items: {} }]);
+  const [a, b] = r.perPlan;
+  assert.equal(a.limitedByWeekly, true); assert.equal(a.days, weeks * 7); assert.equal(a.cumDays, weeks * 7);
+  assert.equal(b.limitedByWeekly, false); assert.equal(b.days, 2);   // seul, le 2e plan est limité par l'énergie
+  assert.equal(b.cumLimitedByWeekly, true); assert.equal(b.cumWeeklyRuns, runs);   // cumulé : les boss hebdo restent le plus long
+  assert.equal(b.cumDays, Math.max((a.tp + b.tp) / 240, weeks * 7));
+  assert.equal(r.total.limitedByWeekly, true); assert.equal(r.total.days, b.cumDays); assert.equal(r.total.tp, a.tp + b.tp);
+});
+
+test('farm_order_changes_plan_times_not_total', () => {
+  const exp = 48 * ev('DEFAULT_RATES.exp');
+  const big = { exp: 3 * exp, lcExp: 0, items: {} }, small = { exp, lcExp: 0, items: {} };
+  const ab = times([big, small]), ba = times([small, big]);
+  assert.equal(ab.total.days, ba.total.days); assert.equal(ab.total.tp, ba.total.tp);
+  assert.equal(ab.perPlan[0].cumDays, 6); assert.equal(ba.perPlan[0].cumDays, 2);
+});
+
+test('disabled_plans_consume_no_stock', () => {
+  // la sélection des plans actifs (on !== false) est faite dans app.js avant allocate : un plan désactivé n'est pas transmis
+  const plans = [{ on: false, items: { A: 5 } }, { on: true, items: { A: 5 } }];
+  const alloc = list => ev(`allocate(${J(list)}, { A: 5 }, [])`).map(x => x.missing.items);
+  const active = alloc(plans.filter(p => p.on !== false));
+  assert.deepEqual(active, [{}]);   // le plan actif reçoit tout le stock
+  assert.deepEqual(alloc(plans), [{}, { A: 5 }]);   // s'il était transmis, il le prendrait au suivant
+});

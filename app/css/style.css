@@ -275,6 +275,20 @@ select optgroup { color: var(--gold); font-style: normal; }
 .plan-info b { font-weight: 600; }
 .plan-info small { font-size: 11px; }
 .plan-card + .plan-card { margin-top: 8px; }
+.plan-card.dragging { opacity: .4; }
+.plan-card.drop-before { box-shadow: 0 -2px 0 var(--gold); }
+.plan-card.drop-after { box-shadow: 0 2px 0 var(--gold); }
+.drag-grip { color: var(--dim); cursor: grab; letter-spacing: -2px; font-size: 14px; user-select: none; }
+.plan-time { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 3px; font-size: 12px; color: var(--muted); }
+.plan-time b { color: var(--gold-hi); font-weight: 600; }
+.plan-time em { font-style: normal; color: var(--dim); }
+.plan-time small { flex-basis: 100%; color: var(--gold); }
+.plan-done { color: var(--gold-hi); letter-spacing: .08em; text-transform: uppercase; }
+.lc-card { margin-bottom: 8px; font-size: 13px; }
+.lc-opt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; grid-column: 1 / -1; }
+.lc-opt .field { flex-direction: row; align-items: center; gap: 8px; }
+.cur-tag { margin-left: 6px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.cur-tag:empty { display: none; }
 .mat-table { width: 100%; border-collapse: collapse; }
 .mat-table tr + tr td { border-top: 1px solid var(--line); }
 .mat-table td { padding: 6px 8px; vertical-align: middle; }
