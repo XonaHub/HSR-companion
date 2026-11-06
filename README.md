@@ -12,14 +12,14 @@ L'app a 8 onglets :
 
 | Onglet | À quoi il sert |
 |---|---|
-| **Aujourd'hui** | Ouvert à chaque lancement : le perso que tu farmes et le temps qu'il reste, tes vœux disponibles, la bannière en cours, la prochaine version et la dernière actu. |
+| **Aujourd'hui** | Ouvert à chaque lancement : le perso que tu farmes et le temps qu'il reste, tes vœux disponibles, la bannière en cours, la prochaine version, le prochain mode d'endgame qui change de cycle et la dernière actu. |
 | **Personnages** | Tous les persos du jeu, ceux que tu possèdes, et tes cônes de lumière. Clique sur un perso pour ouvrir sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. Le bouton + en coin l'ajoute à tes persos (− pour le retirer). |
 | **Farm** | Tu choisis un perso et le niveau visé ; l'app dit ce qu'il te manque (en tenant compte de ton inventaire) et combien de jours d'énergie il faut. |
-| **Vœux** | Tes jades, tes passes et ton pity. Un simulateur te donne tes chances d'avoir un perso ou un cône avec ce que tu as. Tu peux importer ton historique de vœux. |
+| **Vœux** | Tes jades, tes passes et ton pity. Un simulateur te donne tes chances d'avoir un perso ou un cône avec ce que tu as. L'estimation de tes vœux à venir compte les jades des nouveaux cycles d'endgame, selon ce que tu obtiens d'habitude dans chaque mode. Tu peux importer ton historique de vœux. |
 | **Reliques** | Toutes tes reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
 | **Équipes** | Composer des équipes pour la Mémoire du chaos, la Fiction pure et l'Ombre apocalyptique, avec des conseils (pas de soigneur, trop de DPS…). |
-| **Actus** | Les annonces officielles regroupées par version : bannières, événements, et combien de vœux on peut gagner pendant la version. |
-| **Paramètres** | Langue (français / anglais), rendement de farm, sauvegarde et restauration de tes données. |
+| **Actus** | Les annonces officielles regroupées par version : bannières, événements, combien de vœux on peut gagner pendant la version, et le cycle en cours de chaque mode d'endgame (Mémoire du chaos, Fiction pure, Ombre apocalyptique, Arbitre de l'instable) avec la date du suivant. |
+| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après ton UID), rendement de farm, sauvegarde et restauration de tes données. |
 
 ## Remplir l'app avec ton compte
 

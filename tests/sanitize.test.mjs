@@ -80,3 +80,12 @@ test('persos possédés : niveaux bornés, profil inconnu retiré', () => {
   const out = clean({ owned: { ['kafka' + XSS]: { e: 9, lvl: '80', promo: 6, tr: { Point01: '6' }, pts: ['Point08', XSS], profile: XSS } } });
   assert.deepEqual(out.owned, { kafkaimgsrcxonerroralert1: { e: 6, lvl: 80, promo: 6, tr: { Point01: 6 }, pts: ['Point08', 'imgsrcxonerroralert1'] } });
 });
+
+test('endgame : serveur connu ou automatique, jades par cycle entre 0 et 900', () => {
+  ev(`BASE.warp = { ...BASE.warp, egMoc: 800, egPf: 800, egAs: 800 }`);
+  const out = clean({ server: XSS, warp: { egMoc: 5000, egPf: '900', egAs: -4 } });
+  assert.equal(out.server, '');
+  assert.deepEqual([out.warp.egMoc, out.warp.egPf, out.warp.egAs], [900, 900, 0]);
+  assert.equal(clean({ server: 'america' }).server, 'america');
+  assert.equal(clean({}).warp.egMoc, 800);
+});

@@ -120,6 +120,8 @@ function sanitizeState(s, base) {
   const w = isObj(s.warp) ? s.warp : {}, bw = base.warp;
   out.warp = { ...bw };
   for (const k in bw) out.warp[k] = typeof bw[k] === 'boolean' ? !!w[k] : Math.max(0, safeNum(w[k], bw[k]));
+  for (const k of ['egMoc', 'egPf', 'egAs']) if (k in out.warp) out.warp[k] = Math.min(900, out.warp[k]);   // jades d'endgame par cycle
+  out.server = oneOf(s.server, ['', 'europe', 'america', 'asia', 'tw'], '');   // '' : d'après l'UID
   if (s.inventory != null) {
     out.inventory = {};
     for (const k in isObj(s.inventory) ? s.inventory : {}) if (safeId(k)) out.inventory[safeId(k)] = Math.max(0, safeNum(s.inventory[k]));

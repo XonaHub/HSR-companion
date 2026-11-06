@@ -19,7 +19,10 @@
     owned: {},
     custom: [],
     plans: [],
-    warp: { jades: 0, passes: 0, charPity: 0, charGuar: false, lcPity: 0, lcGuar: false, days: 0, express: false, extra: 0, targetChar: 1, targetLc: 0 },
+    // egMoc/egPf/egAs : jades obtenus d'habitude par cycle d'endgame (onglet Vœux)
+    warp: { jades: 0, passes: 0, charPity: 0, charGuar: false, lcPity: 0, lcGuar: false, days: 0, express: false, extra: 0, targetChar: 1, targetLc: 0,
+      egMoc: PULL_INCOME.endgameAllStarsJades, egPf: PULL_INCOME.endgameAllStarsJades, egAs: PULL_INCOME.endgameAllStarsJades },
+    server: '',           // serveur du jeu pour les heures de reset : '' = d'après l'UID (endgame.js)
     history: [],
     relics: [],
     cones: [],            // cônes de lumière importés : { uid, id, name, level, asc, sup, owner }
@@ -579,12 +582,55 @@
       <small>${t('today_pity', { n: w.charPity })}${w.charGuar ? ' · ' + t('today_guaranteed') : ''}</small>`;
   }
 
+  /* ---- Cycles de l'endgame (js/endgame.js) : mêmes fonctions pour Aujourd'hui, Actus et Vœux ---- */
+  const serverKey = () => S.server || serverOfUid(S.uid) || 'europe';
+  const egCycles = () => endgameCycles((news && news.versions) || [], SERVER_OFFSETS[serverKey()]);
+  const egPerMode = () => ({ moc: S.warp.egMoc, pf: S.warp.egPf, as: S.warp.egAs });
+  const EG_KEY = { moc: 'egMoc', pf: 'egPf', as: 'egAs' };
+  const fmtWhen = ms => new Date(ms).toLocaleString(locale(), { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const fmtDay = ms => new Date(ms).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' });
+  const egIn = (ms, now) => { const h = (ms - now) / 3600000; return h < 24 ? t('eg_in_h', { n: Math.max(1, Math.ceil(h)) }) : t('eg_in_d', { n: Math.ceil(h / 24) }); };
+  const egServer = () => t('eg_server', { s: t('server_' + serverKey()) });
+
+  function todayEndgame(card) {
+    const now = Date.now(), n = nextEndgameReset(endgameStatus(egCycles(), now));
+    if (!n) return card('', t('eg_today'), `<small>${t('eg_unavailable')}</small>`);
+    const c = n.cycle;
+    return card('', t('eg_today'), `<p class="today-big">${esc(t('mode_' + n.mode))}</p>
+      <small>${c.deduced ? t('eg_deduced') : esc(c.name)}</small>
+      <small>${esc(fmtWhen(c.startMs))} · ${esc(egIn(c.startMs, now))} · ${t('eg_jades', { n: fmt(egPerMode()[n.mode] || 0) })}</small>
+      <small class="eg-server">${esc(egServer())}</small>`);
+  }
+
+  function newsEndgame() {
+    const now = Date.now(), st = endgameStatus(egCycles(), now);
+    const cur = currentVersion((news && news.versions) || [], now);
+    const theme = cur && cur.arbitration;
+    const span = c => `${fmtDay(c.startMs)} – ${fmtDay(c.endMs)}`;
+    const rows = ENDGAME_MODES.map(m => {
+      const { current: c, next: x } = st[m];
+      if (!c && !x) return '';
+      return `<div class="eg-row">
+        <b class="eg-mode">${esc(t('mode_' + m))}</b>
+        <div>${c ? `<div class="eg-cur"><span>${c.deduced ? esc(t('eg_deduced')) : esc(c.name)}</span> <small>${span(c)} · ${t('eg_ends', { when: esc(egIn(c.endMs + 60000, now)) })}</small></div>
+          ${c.effect ? `<p class="eg-effect">${esc(c.effect).replace(/\n/g, '<br>')}</p>` : ''}` : ''}
+          ${x ? `<div class="eg-next"><small>${t('eg_next')} : ${x.deduced ? esc(t('eg_deduced')) : esc(x.name)} · ${esc(fmtWhen(x.startMs))} · ${esc(egIn(x.startMs, now))}</small></div>` : ''}</div>
+      </div>`;
+    }).join('');
+    if (!rows && !theme) return `<section class="panel"><h3>${t('eg_title')}</h3><p class="hint small">${t('eg_unavailable')}</p></section>`;
+    return `<section class="panel eg-panel"><h3>${t('eg_title')}</h3>
+      ${rows || `<p class="hint small">${t('eg_unavailable')}</p>`}
+      ${theme ? `<div class="eg-row"><b class="eg-mode">${t('eg_arbitration')}</b><div><span>${esc(theme)}</span> <small>${t('eg_no_jades')}</small></div></div>` : ''}
+      <p class="lc-src">${t('eg_source')} · ${esc(egServer())}</p>
+    </section>`;
+  }
+
   /* Cartes tirées d'Actus (bannière, prochaine version, dernière actu) */
   function todayNewsCards() {
     const card = (cls, label, body) => todayCard('news', cls, TAB_ICONS.news, label, body);
     if (!news) {   // pas encore chargé, ou hors ligne sans cache : l'accueil se redessine à l'arrivée (newsArrived)
       const msg = `<small>${newsError ? t('news_error', { e: esc(newsError) }) : t('news_loading')}</small>`;
-      return card('', t('today_banner'), msg) + card('', t('today_next'), msg) + card('wide', t('today_latest'), msg);
+      return card('', t('today_banner'), msg) + card('', t('today_next'), msg) + card('', t('eg_today'), msg) + card('wide', t('today_latest'), msg);
     }
     const now = Date.now(), vers = news.versions || [];
     const cur = currentVersion(vers, now), phase = currentPhase(cur, now);
@@ -602,7 +648,7 @@
     const lastBody = last
       ? `<p><b>${t('news_version', { v: esc(last.version) })}</b>${last.name ? ` « ${esc(last.name)} »` : ''} · ${last.announced ? t('today_latest_five', { n: last.newFive }) : t('today_latest_later')}</p><span class="today-link">${t('today_go_news')}</span>`
       : `<small>${t('news_none')}</small>`;
-    return card('', t('today_banner'), banner) + (next ? card('', t('today_next'), nextBody) : '') + card('wide', t('today_latest'), lastBody);
+    return card('', t('today_banner'), banner) + (next ? card('', t('today_next'), nextBody) : '') + todayEndgame(card) + card('wide', t('today_latest'), lastBody);
   }
 
   function renderToday(v) {
@@ -665,8 +711,10 @@
   /* ================================================================== VŒUX */
   const availablePulls = () => {
     const w = S.warp;
-    const income = w.days * (60 + (w.express ? 90 : 0)) + w.extra;
-    return { pulls: pullsNow({ jades: w.jades + income, passes: w.passes }, JADE_PER_PULL), income };   // même formule que « Aujourd'hui »
+    // nouveaux cycles d'endgame avant la date visée, selon ce que le joueur obtient d'habitude (js/endgame.js)
+    const now = Date.now(), eg = endgameJadesBetween(egCycles(), now, now + w.days * 86400000, egPerMode());
+    const income = w.days * (60 + (w.express ? 90 : 0)) + w.extra + eg.jades;
+    return { pulls: pullsNow({ jades: w.jades + income, passes: w.passes }, JADE_PER_PULL), income, eg };   // même formule que « Aujourd'hui »
   };
 
   function renderWarps(v) {
@@ -684,6 +732,14 @@
           <label class="field">${t('extra_income')}${num('warp.extra', w.extra, 0)}</label>
           <label class="check span2">${chk('warp.express', w.express)} ${t('express_pass')}</label>
         </div>
+        <h4>${t('eg_warp_title')}</h4>
+        <p class="hint small">${t('eg_warp_hint')}</p>
+        <div class="field-grid eg-warp">${ENDGAME_MODES.map(m => {
+          const k = EG_KEY[m], val = w[k], preset = val === 900 ? '900' : val === 800 ? '800' : 'custom';
+          return `<label class="field">${t('mode_' + m)}
+            <select data-action="egPreset" data-key="${k}">${opt('900', t('eg_opt_full'), preset)}${opt('800', t('eg_opt_stars'), preset)}${opt('custom', t('eg_opt_custom'), preset)}</select>
+            ${num('warp.' + k, val, 0, 900, 10)}</label>`;
+        }).join('')}</div>
         <div class="stat-big"><span>${t('pulls_available')}</span><b id="pullsAvail"></b><small id="incomeInfo"></small></div>
       </section>
       <section class="panel">
@@ -762,9 +818,10 @@
 
   function updateWarpDerived() {
     const el = $('#pullsAvail'); if (!el) return;
-    const { pulls, income } = availablePulls();
+    const { pulls, income, eg } = availablePulls();
     el.textContent = fmt(pulls); el.dataset.count = pulls;
-    $('#incomeInfo').textContent = income ? t('income_info', { j: fmt(income) }) : '';
+    $('#incomeInfo').textContent = (income ? t('income_info', { j: fmt(income) }) : '')
+      + (eg.count ? ' · ' + t('income_endgame', { j: fmt(eg.jades), n: eg.count }) : '');
     const w = S.warp;
     const bar = (label, val, max, soft) => `<div class="pity-bar"><div class="pb-label"><span>${label}</span><b>${val} / ${max}</b></div>
       <div class="pb-track"><div class="pb-soft" style="left:${soft / max * 100}%"></div><div class="pb-fill ${val >= soft ? 'soft' : ''}" style="width:${val / max * 100}%"></div></div></div>`;
@@ -1273,6 +1330,7 @@
     const announced = news.unattached.length ? `<div class="news-group"><small>${t('news_announced')}</small>${news.unattached.map(a => warpItemTag({ ...a, rarity: 5, kind: 'char' })).join('')}</div>` : '';
     v.innerHTML = `
     <section class="panel">${head}${!vers.length ? `<p class="empty">${t('news_none')}</p>` : ''}</section>
+    ${newsEndgame()}
     ${soon || announced ? `<section class="panel news-soon">${soon}${announced}</section>` : ''}
     ${current ? `<section class="panel">
       <h3>${t('news_current')} · ${t('news_version', { v: current.version })}${current.end ? ' · ' + t('news_until', { d: dayOf(current.end) }) : ''}</h3>
@@ -1813,6 +1871,10 @@
     <section class="panel">
       <h2>${t('settings_title')}</h2>
       <label class="field">${t('language')}<select id="langSelect2" data-action="lang">${opt('fr', 'Français', S.lang)}${opt('en', 'English', S.lang)}</select></label>
+      <label class="field">${t('server')}<select data-action="setServer">
+        ${opt('', t('server_auto', { s: t('server_' + (serverOfUid(S.uid) || 'europe')) }), S.server)}
+        ${['europe', 'america', 'asia', 'tw'].map(k => opt(k, t('server_' + k), S.server)).join('')}</select></label>
+      <p class="hint small">${t('server_hint')}</p>
     </section>
     <section class="panel">
       <h3>${t('rates_title')}</h3>
@@ -1870,6 +1932,9 @@
     openSheet: b => openSheet(b.dataset.id),
     closeSheet: () => closeSheet(),
     sheetTab: b => { sheet.tab = b.dataset.tab; renderSheet(); },
+    // endgame : préréglage des jades par cycle (onglet Vœux) et serveur du jeu (Paramètres)
+    egPreset: el => { if (el.value !== 'custom') { S.warp[el.dataset.key] = +el.value; save(); render(); } },
+    setServer: el => { S.server = el.value; save(); render(); },
     // simulateur de build (onglet Reliques) : l'essai ne change rien d'autre que l'affichage
     trySlot: el => { sheet.trial = { ...trialOf() }; if (el.value) sheet.trial[el.dataset.slot] = el.value; else delete sheet.trial[el.dataset.slot]; renderSheet(); },
     tryRelic: b => { sheet.trial = { ...trialOf(), [b.dataset.slot]: b.dataset.id }; renderSheet(); },
