@@ -745,6 +745,7 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
 .sim-stats td.up { color: var(--ok); }
 .sim-stats td.down { color: var(--bad); }
 .sim-stats td small { color: inherit; opacity: .85; }
+.sim-stats td small.sim-base { display: block; color: var(--muted); font-size: 11px; opacity: 1; }
 .sim-stats td.tgt { color: var(--muted); font-size: 12px; }
 .sim-stats td.tgt.ok { color: var(--ok); }
 .sim-stats td.tgt.bad { color: var(--warn); }

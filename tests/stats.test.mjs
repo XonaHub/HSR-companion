@@ -43,6 +43,36 @@ test('four_piece_bonus_and_missing_data', () => {
   assert.deepEqual(run({ char: { ...CHAR, stats: [] } }).missing, ['char']);
 });
 
+test('reference_evanescia_matches_game_screen', () => {
+  // Test de référence (spec reliques §5) : Evanescia du joueur, niv. 80, toutes traces, cône « Until the Flowers Bloom
+  // Again » niv. 80 S1, reliques importées de Reliquary Archiver. Valeurs attendues : écran « Détails des stats » du jeu.
+  const ref = loadScripts('assets.js', 'gamechars.js', 'stats.js');
+  const S = (stat, val) => ({ stat, val });
+  const relics = [
+    { slot: 'head', main: 'hp', level: 15, set: 'Ever-Glorious Magical Girl', subs: [S('atk', 38.10379), S('cr', 5.508), S('cd', 16.199999), S('res', 7.7760005)] },
+    { slot: 'hands', main: 'atk', level: 15, set: 'Ever-Glorious Magical Girl', subs: [S('hp', 33.87004), S('spd', 4.3), S('cr', 9.072), S('be', 17.495998)] },
+    { slot: 'body', main: 'cd', level: 15, set: 'Ever-Glorious Magical Girl', subs: [S('def', 35.986916), S('hp_pct', 3.4560003), S('spd', 6.9), S('ehr', 10.800001)] },
+    { slot: 'feet', main: 'atk_pct', level: 15, set: 'Ever-Glorious Magical Girl', subs: [S('cr', 6.48), S('cd', 11.6640005), S('ehr', 8.208), S('atk', 35.986916)] },
+    { slot: 'sphere', main: 'dmg_physical', level: 15, set: 'Punklorde Stage Zero', subs: [S('cr', 2.9160001), S('ehr', 7.7760005), S('be', 17.495998), S('hp_pct', 7.7760005)] },
+    { slot: 'rope', main: 'err', level: 15, set: 'Punklorde Stage Zero', subs: [S('hp', 42.33755), S('def_pct', 24.84), S('spd', 2.3), S('res', 8.64)] }
+  ];
+  const points = ['Point06', 'Point07', 'Point08', 'Point09', 'Point10', 'Point11', 'Point12', 'Point13', 'Point14', 'Point15', 'Point16', 'Point17', 'Point18'];
+  const r = ref(`(() => {
+    const g = GAME.chars.find(c => c.en === 'Evanescia'), lc = GAME.lightCones.find(l => l.en === 'Until the Flowers Bloom Again');
+    return charStats({ char: { stats: g.stats, trStats: g.trStats, element: g.element, path: g.path }, level: 80, promo: 6,
+      points: ${JSON.stringify(points)}, cone: { stats: lc.stats, passive: lc.passive, path: lc.path, level: 80, promo: 6, sup: 1 },
+      relics: ${JSON.stringify(relics)}, relicMain: GAME.relicMain, setBonus: GAME.relicSetBonus,
+      setIdOf: n => (GAME.relicSets[normName(n)] || [])[1] ?? null });
+  })()`);
+  const int = v => Math.floor(v + 1e-9), tenth = v => Math.floor(v * 1000 + 1e-9) / 10;
+  assert.deepEqual([int(r.base.hp), int(r.base.atk), int(r.base.def), int(r.base.spd)], [2000, 1372, 923, 104]);
+  assert.deepEqual([int(r.total.hp), int(r.total.atk), int(r.total.def), int(r.total.spd)], [3006, 2392, 1189, 122]);
+  const t = r.total;
+  assert.deepEqual([tenth(t.cr), tenth(t.cd), tenth(t.be), tenth(t.heal), tenth(t.err), tenth(t.ehr), tenth(t.res), tenth(t.elation), tenth(t.dmg)],
+    [47.6, 218.6, 34.9, 0, 19.4, 26.7, 16.4, 26, 38.8]);   // régén. d'énergie : 100 % + 19,4 %
+  assert.deepEqual(r.missing, []);
+});
+
 test('archive_trace_points', () => {
   assert.deepEqual(ev(`archiveTracePoints({ ability_1: true, ability_3: true, stat_1: true, stat_10: true, special: true, stat_2: false })`),
     ['Point06', 'Point08', 'Point09', 'Point18', 'Point21']);

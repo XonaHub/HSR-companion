@@ -68,6 +68,8 @@ const PROP_KEYS: &[(&str, &str)] = &[
     ("StatusProbabilityBase", "ehr"), ("StatusResistanceBase", "res"),
     ("BreakDamageAddedRatioBase", "be"), ("HealRatioBase", "heal"), ("SPRatioBase", "err"),
     ("AllDamageTypeAddedRatio", "dmg_all"),
+    // stat « Allégresse » des persos de cette Voie (traces, set Punklorde Stage Zero…)
+    ("ElationDamageAddedRatioBase", "elation"), ("ElationDamageAddedRatio", "elation"),
 ];
 /// Clé de stat de l'app pour une propriété du jeu (`None` : propriété qui ne s'affiche pas sur l'écran de stats)
 fn stat_of(prop: &str) -> Option<String> {
@@ -523,6 +525,10 @@ pub(crate) mod tests {
         assert!(g["relicMain"]["rope"]["err"].is_array() && g["relicMain"]["rope"]["be"].is_array());
         // Passerby of Wandering Cloud : soins +10 % (2 pièces), rien de fixe en 4 pièces
         assert_json_eq(&g["relicSetBonus"]["101"], &json!([[["heal", 0.1]], []]), "set 101");
+        // Punklorde Stage Zero : Allégresse +8 % (cas réel d'Evanescia, écart trouvé face au jeu)
+        assert_json_eq(&g["relicSetBonus"]["325"], &json!([[["elation", 0.08]], []]), "set 325");
+        let eva = g["chars"].as_array().unwrap().iter().find(|c| c["en"] == "Evanescia").unwrap();
+        assert_json_eq(&eva["trStats"]["Point17"], &json!([["elation", 0.08]]), "trace Allégresse");
     }
 
     #[test]

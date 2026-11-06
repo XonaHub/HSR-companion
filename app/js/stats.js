@@ -25,7 +25,7 @@ function relicMainValue(relicMain, r) {
     input = { char: { stats, trStats, element, path }, level, promo, points: [ancres] | null,
               cone: { stats, passive, path, level, promo, sup } | null,
               relics: [{ slot, main, level, subs, set }], relicMain, setBonus: id -> [[2p], [4p]], setIdOf: nom -> id }
-    Renvoie { base: { hp, atk, def, spd }, total: { hp, atk, def, spd, cr, cd, be, heal, err, ehr, res, dmg }, missing: [...] } ;
+    Renvoie { base: { hp, atk, def, spd }, total: { hp, atk, def, spd, cr, cd, be, heal, err, ehr, res, dmg, elation }, missing: [...] } ;
     `missing` liste ce qui manque pour un calcul exact ('char', 'relicMain'). */
 function charStats(input) {
   const add = {}, missing = [];
@@ -68,7 +68,8 @@ function charStats(input) {
     def: base.def * (1 + g('def_pct')) + g('def'),
     spd: base.spd * (1 + g('spd_pct')) + g('spd'),
     cr: g('cr'), cd: g('cd'), be: g('be'), heal: g('heal'), err: g('err'), ehr: g('ehr'), res: g('res'),
-    dmg: g('dmg_' + el) + g('dmg_all')
+    dmg: g('dmg_' + el) + g('dmg_all'),
+    elation: g('elation')   // stat « Allégresse » (Voie de l'Allégresse)
   };
   return { base, total, missing };
 }

@@ -81,7 +81,7 @@ fn read_json(path: &Path) -> Option<String> {
 /// Données du jeu téléchargées, prêtes à être injectées dans la page.
 /// Forme des données produites par `build` : à incrémenter dès qu'elle change, pour qu'une app plus récente
 /// n'utilise jamais des données téléchargées dans un ancien format.
-pub const DATA_FORMAT: u32 = 3;   // 3 : stats de base, traces, cônes, stats principales et sets des reliques
+pub const DATA_FORMAT: u32 = 4;   // 3 : stats de base, traces, cônes, stats principales et sets ; 4 : stat Allégresse
 
 /// Les données téléchargées ne valent que pour la version de l'app et le format qui les ont écrites ;
 /// sinon on revient aux données intégrées à l'exe (une nouvelle vérification les remplacera).
@@ -248,13 +248,13 @@ mod tests {
         install(&dir, "sha2", fixture_getter()).unwrap();
         let mut m: Value = serde_json::from_str(&fs::read_to_string(dir.join("meta.json")).unwrap()).unwrap();
         // format 2 : données d'avant le simulateur de stats ; même règle
-        for old in [1, 2] {
+        for old in [1, 2, 3] {
             m["format"] = json!(old);
             fs::write(dir.join("meta.json"), m.to_string()).unwrap();
             assert!(load_game(&dir).is_none());
             assert!(load_details(&dir, "fr").is_none());
         }
-        assert_eq!(DATA_FORMAT, 3);
+        assert_eq!(DATA_FORMAT, 4);
     }
 
     #[test]

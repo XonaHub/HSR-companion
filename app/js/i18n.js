@@ -42,7 +42,7 @@ const I18N = {
     prof_healer: 'Soigneur', prof_shielder: 'Bouclier (DÉF)', prof_debuffer: 'Affaiblisseur',
     stat_hp: 'PV', stat_atk: 'ATQ', stat_def: 'DÉF', stat_hp_pct: 'PV %', stat_atk_pct: 'ATQ %', stat_def_pct: 'DÉF %', stat_spd: 'VIT',
     stat_cr: 'Taux CRIT', stat_cd: 'DGT CRIT', stat_ehr: 'Chances d’effet', stat_res: 'RÉS aux effets', stat_be: 'Effet de rupture',
-    stat_heal: 'Bonus de soins', stat_err: 'Régén. d’énergie', dmg_boost: 'Bonus DGT {el}',
+    stat_heal: 'Bonus de soins', stat_err: 'Régén. d’énergie', stat_elation: 'Allégresse', dmg_boost: 'Bonus DGT {el}',
 
     planner_title: 'Planificateur de farm', planner_hint: 'Choisis un personnage et ses objectifs : l’app calcule les matériaux et l’énergie nécessaires. Ascensions et traces : coûts exacts du jeu. EXP par palier : estimation.',
     character: 'Personnage', level_from: 'Niveau actuel', level_to: 'Niveau visé',
@@ -231,7 +231,7 @@ const I18N = {
     prof_healer: 'Healer', prof_shielder: 'Shielder (DEF)', prof_debuffer: 'Debuffer',
     stat_hp: 'HP', stat_atk: 'ATK', stat_def: 'DEF', stat_hp_pct: 'HP%', stat_atk_pct: 'ATK%', stat_def_pct: 'DEF%', stat_spd: 'SPD',
     stat_cr: 'CRIT Rate', stat_cd: 'CRIT DMG', stat_ehr: 'Effect Hit Rate', stat_res: 'Effect RES', stat_be: 'Break Effect',
-    stat_heal: 'Outgoing Healing', stat_err: 'Energy Regen Rate', dmg_boost: '{el} DMG Boost',
+    stat_heal: 'Outgoing Healing', stat_err: 'Energy Regen Rate', stat_elation: 'Elation', dmg_boost: '{el} DMG Boost',
 
     planner_title: 'Farming planner', planner_hint: 'Pick a character and goals: the app computes the materials and Trailblaze Power needed. Ascension and trace costs are exact game data; EXP per level tier is an estimate.',
     character: 'Character', level_from: 'Current level', level_to: 'Target level',

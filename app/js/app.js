@@ -1395,7 +1395,8 @@
     return S.relics.map(r => ids.has(r.id) ? { ...r, owner: charId, from: r.owner }
       : r.owner === charId && tr[r.slot] ? { ...r, owner: null } : r);
   }
-  const STAT_ROWS = ['hp', 'atk', 'def', 'spd', 'cr', 'cd', 'be', 'heal', 'err', 'ehr', 'res', 'dmg'];
+  // ordre de l'écran « Détails des stats » du jeu ; Allégresse seulement pour les persos qui en ont
+  const STAT_ROWS = ['hp', 'atk', 'def', 'spd', 'cr', 'cd', 'be', 'heal', 'err', 'ehr', 'res', 'elation', 'dmg'];
   function statsFor(c, relics) {
     const g = gameChar(c), o = S.owned[c.id] || {};
     const eq = S.cones.find(x => x.owner === c.id), lc = eq && coneOf(G.lightCones, eq.id);
@@ -1425,13 +1426,15 @@
     if (!o.pts) warn.push(t('sim_warn_traces'));
     if (S.relics.some(r => r.owner === c.id && !r.exact)) warn.push(t('sim_warn_rounded'));
     if (cur.missing.length) warn.push(t('sim_no_data'));
-    const rows = STAT_ROWS.map(k => {
+    // PV/ATQ/DÉF/VIT : « base + bonus », comme dans le jeu (bonus = total affiché − base affichée)
+    const baseOf = (k, s) => s.base[k] != null ? `<small class="sim-base">${fmtTotal(k, s.base[k])} + ${fmtTotal(k, Math.max(0, (k === 'spd' ? Math.floor(s.total[k] * 10 + 1e-9) / 10 - Math.floor(s.base[k] * 10 + 1e-9) / 10 : Math.floor(s.total[k] + 1e-9) - Math.floor(s.base[k] + 1e-9))), true)}</small>` : '';
+    const rows = STAT_ROWS.filter(k => k !== 'elation' || c.path === 'elation' || cur.total.elation > 0 || (tri && tri.total.elation > 0)).map(k => {
       const a = cur.total[k], b = tri ? tri.total[k] : null, tg = targets.get(k);
       // écart entre les valeurs affichées (arrondies comme dans le jeu), pas entre les valeurs exactes
       const q = ['hp', 'atk', 'def'].includes(k) ? x => Math.floor(x + 1e-9) : k === 'spd' ? x => Math.floor(x * 10 + 1e-9) / 10 : x => Math.floor(x * 1000 + 1e-9) / 1000;
       const d = b == null ? 0 : q(b) - q(a), eps = ['hp', 'atk', 'def'].includes(k) ? 0.5 : k === 'spd' ? 0.05 : 0.0005;
       const val = tri ? b : a, reached = tg ? val + 1e-9 >= tg.min : null;
-      return `<tr><th>${esc(rowLabel(k, c))}</th><td>${fmtTotal(k, a)}</td>
+      return `<tr><th>${esc(rowLabel(k, c))}</th><td>${fmtTotal(k, a)}${baseOf(k, cur)}</td>
         ${trying ? `<td class="${d > eps ? 'up' : d < -eps ? 'down' : ''}">${fmtTotal(k, b)}${Math.abs(d) > eps ? ` <small>(${d > 0 ? '+' : '−'}${fmtTotal(k, Math.abs(d), true)})</small>` : ''}</td>` : ''}
         <td class="tgt ${reached === true ? 'ok' : reached === false ? 'bad' : ''}">${tg ? `${reached ? '✓' : '✗'} ${esc(tg.text)}` : ''}</td></tr>`;
     }).join('');
