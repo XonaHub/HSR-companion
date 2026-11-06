@@ -155,7 +155,7 @@
   const TABS = ['today', 'roster', 'planner', 'warps', 'relics', 'teams', 'news', 'settings'];
   const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const TAB_ICONS = {
-    today: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>'),
+    today: svg('<rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><circle cx="12" cy="14.5" r="2"/>'),
     roster: svg('<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.8 14.2c2.4.1 4.1 1.7 4.7 4.3"/>'),
     planner: svg('<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>'),
     warps: svg('<path d="M12 2.5 14 10l7.5 2-7.5 2-2 7.5-2-7.5L2.5 12 10 10z"/>'),
@@ -564,7 +564,28 @@
 
   /* Cartes tirées d'Actus (bannière, prochaine version, dernière actu) */
   function todayNewsCards() {
-    return '';
+    const card = (cls, label, body) => todayCard('news', cls, TAB_ICONS.news, label, body);
+    if (!news) {   // pas encore chargé, ou hors ligne sans cache : l'accueil se redessine à l'arrivée (newsArrived)
+      const msg = `<small>${newsError ? t('news_error', { e: esc(newsError) }) : t('news_loading')}</small>`;
+      return card('', t('today_banner'), msg) + card('', t('today_next'), msg) + card('wide', t('today_latest'), msg);
+    }
+    const now = Date.now(), vers = news.versions || [];
+    const cur = currentVersion(vers, now), phase = currentPhase(cur, now);
+    const five = phase ? phase.items.filter(i => i.rarity === 5).sort((a, b) => (a.kind === 'char' ? 0 : 1) - (b.kind === 'char' ? 0 : 1))
+      .filter((i, k, l) => l.findIndex(j => j.name === i.name) === k) : [];
+    const left = phase ? daysUntil(phase.end || (cur && cur.end), now) : null;
+    const banner = five.length
+      ? `<div class="today-tags">${five.map(warpItemTag).join('')}</div>${left != null ? `<small>${t('today_ends_in', { n: left })}</small>` : ''}`
+      : `<small>${t('today_banner_none')}</small>`;
+    const next = nextVersion(vers, now);
+    const nextBody = next && (next.start
+      ? `<p class="today-big">${esc(next.version)}</p><small>${t('today_next_on', { d: dayOf(next.start).slice(0, 5), n: daysUntil(next.start, now) })}</small>`
+      : `<p class="today-big">${esc(next.version)}</p><small>${t('today_next_undated')}</small>`);
+    const last = latestNews(vers);
+    const lastBody = last
+      ? `<p><b>${t('news_version', { v: esc(last.version) })}</b>${last.name ? ` « ${esc(last.name)} »` : ''} · ${last.announced ? t('today_latest_five', { n: last.newFive }) : t('today_latest_later')}</p><span class="today-link">${t('today_go_news')}</span>`
+      : `<small>${t('news_none')}</small>`;
+    return card('', t('today_banner'), banner) + (next ? card('', t('today_next'), nextBody) : '') + card('wide', t('today_latest'), lastBody);
   }
 
   function renderToday(v) {
@@ -1135,19 +1156,25 @@
 
   /* Affiche d'abord le dernier fil enregistré (sans réseau), puis le rafraîchit.
      force : ignorer le cache récent (bouton « Actualiser ») */
+  /* Redessine ce qui affiche les actus : l'onglet Actus, l'accueil, ou seulement le point de l'onglet */
+  function newsArrived() {
+    if (S.tab === 'news') renderNews($('#view'));
+    else if (S.tab === 'today') { renderTabs(); renderToday($('#view')); }
+    else renderTabs();
+  }
   function loadNews(force) {
     if (newsLoading) return;
     newsLoading = true; newsError = '';
     const lang = S.lang;
     const shown = news ? Promise.resolve() : invoke('news_cached', { lang }).then(f => {
-      if (f && lang === S.lang && !news) { news = f; if (S.tab === 'news') renderNews($('#view')); else renderTabs(); }
+      if (f && lang === S.lang && !news) { news = f; newsArrived(); }
     }).catch(() => { /* pas de cache lisible : on attend le réseau */ });
     shown.then(() => invoke('news_feed', { lang, force: !!force })).then(f => { if (lang === S.lang) news = f; })
       .catch(e => { newsError = String(e); })
       .finally(() => {
         newsLoading = false;
         if (lang !== S.lang) return loadNews(false);   // langue changée pendant le chargement
-        if (S.tab === 'news') renderNews($('#view')); else renderTabs();
+        newsArrived();
       });
   }
 
@@ -1220,7 +1247,7 @@
       return;
     }
     const vers = news.versions;
-    const current = vers.find(x => started(x) && (!x.end || Date.now() < Date.parse(x.end))) || vers.find(started);
+    const current = currentVersion(vers, Date.now());   // même choix que « Aujourd'hui » (js/today.js)
     const upcoming = current ? vers.slice(0, vers.indexOf(current)) : vers.filter(x => !started(x));
     const previous = current ? vers.slice(vers.indexOf(current) + 1, vers.indexOf(current) + 11) : [];
     const soon = upcoming.reverse().map(x => `
