@@ -187,6 +187,13 @@ pub fn assemble(list: &[ListedPost], posts: &HashMap<String, CachedPost>, lang: 
     }
     let mut versions: Vec<VersionNews> = versions.into_values().collect();
     versions.sort_by_key(|v| std::cmp::Reverse(version_key(&v.version)));
+    // une version commence quand la précédente se termine (fin officielle donnée par son patch note) :
+    // date de début d'une version annoncée avant la parution de son propre patch note
+    for i in 0..versions.len().saturating_sub(1) {
+        if versions[i].start.is_none() {
+            versions[i].start = versions[i + 1].end.clone();
+        }
+    }
     let latest_id = list.iter().map(|p| p.id.as_str()).max_by_key(|id| id_key(id)).unwrap_or_default().to_string();
     NewsFeed { fetched_at: 0, stale: false, latest_id, versions, unattached }
 }
@@ -376,6 +383,18 @@ mod tests {
         // versions triées de la plus récente à la plus ancienne
         assert!(f.versions.windows(2).all(|w| version_key(&w[0].version) > version_key(&w[1].version)));
         assert!(!f.latest_id.is_empty());
+    }
+
+    #[test]
+    fn announced_version_starts_when_previous_one_ends() {
+        let f = assemble(&fixture_list(), &fixture_posts("fr-fr"), "fr");
+        // pas encore de patch note 4.7 : début = fin officielle de la 4.6
+        assert_eq!(f.versions[0].version, "4.7");
+        assert_eq!(f.versions[0].start.as_deref(), Some("2026-11-11T06:00:00+08:00"));
+        assert_eq!(f.versions[0].end, None);
+        // une version qui a son patch note garde sa propre date
+        let v46 = f.versions.iter().find(|v| v.version == "4.6").unwrap();
+        assert_eq!(v46.start.as_deref(), Some("2026-09-28T06:00:00+08:00"));
     }
 
     #[test]
