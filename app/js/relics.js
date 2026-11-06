@@ -79,12 +79,15 @@ function relicReview(advice, relics, charId, opts) {
     return (st.kind === 'off' || st.kind === 'missing') && !st.target.some(n => normName(n) === normName(r.set));
   };
   // meilleure pièce du même emplacement : stat principale bonne, set gardé (ou set visé si la pièce casse le set),
-  // mieux notée pour ce perso ; une pièce libre passe avant une pièce portée
-  const better = (r, breaking) => {
+  // au moins aussi montée (une pièce +0 n'est notée que sur son potentiel), mieux notée pour ce perso, et d'une
+  // meilleure lettre quand seule la note pose problème ; une pièce libre passe avant une pièce portée
+  const GRADES = ['D', 'C', 'B', 'A', 'S'];
+  const better = (r, breaking, onlyLow) => {
     const sets = (breaking ? groupOf(r.slot).target : [r.set]).map(normName);
     const cands = all.filter(x => x !== r && x.id !== r.id && x.slot === r.slot && x.owner !== charId
       && relicMainOk(x.slot, x.main, allowedFor(x.slot), opts.element) && sets.includes(normName(x.set))
-      && opts.score(x) > opts.score(r));
+      && (x.level || 0) >= (r.level || 0) && opts.score(x) > opts.score(r)
+      && (!onlyLow || GRADES.indexOf(opts.grade(x)) > GRADES.indexOf(opts.grade(r))));
     const free = cands.filter(x => !x.owner);
     const pool = free.length ? free : cands;
     return pool.length ? pool.reduce((a, b) => (opts.score(b) > opts.score(a) ? b : a)) : null;
@@ -96,6 +99,6 @@ function relicReview(advice, relics, charId, opts) {
     return { relic: r, main, set, low, key: main ? 0 : set ? 1 : low ? 2 : 3 };
   }).filter(i => i.key < 3);
   issues.sort((a, b) => a.key - b.key || opts.score(a.relic) - opts.score(b.relic));
-  const priority = issues.slice(0, 3).map(({ key, ...i }) => ({ ...i, better: better(i.relic, i.set) }));
+  const priority = issues.slice(0, 3).map(({ key, ...i }) => ({ ...i, better: better(i.relic, i.set, !i.main && !i.set) }));
   return { source: advice ? 'prydwen' : 'profile', slots, cavern, planar, mains, priority };
 }

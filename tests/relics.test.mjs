@@ -20,7 +20,7 @@ const PROFILE_MAIN = { body: ['cr', 'cd'], feet: ['spd', 'atk_pct'], sphere: ['e
 const PIO = 'Pioneer Diver of Dead Waters', SCH = 'Scholar Lost in Erudition', MUS = 'Musketeer of Wild Wheat', IZU = 'Izumo Gensei and Takama Divine Realm';
 
 let n = 0;
-const R = (slot, set, main, q, owner = 'acheron') => ({ id: 'r' + (++n), slot, set, main, owner, q });
+const R = (slot, set, main, q, owner = 'acheron', level = 15) => ({ id: 'r' + (++n), slot, set, main, owner, q, level });
 const MAINS = { head: 'hp', hands: 'atk', body: 'cr', feet: 'atk_pct', sphere: 'dmg_lightning', rope: 'atk_pct' };
 /** 6 pièces bien montées ; `over` remplace des pièces par emplacement */
 function kit(over = {}) {
@@ -128,6 +128,28 @@ test('better_piece_must_have_a_good_main_stat', () => {
   assert.equal(r.priority[0].better, null);
   const good2 = R('body', PIO, 'cd', 0.8, null);
   assert.equal(review(kit({ body: badMain }).concat([alsoBad, good2])).priority[0].better.id, good2.id);
+});
+
+test('better_piece_is_at_least_as_levelled', () => {
+  // cas réel (Evanescia) : une corde +0 notée C ne remplace pas une corde +15 notée D
+  const low = R('rope', IZU, 'atk_pct', 0.1);
+  const fresh = R('rope', IZU, 'atk_pct', 0.3, null, 0);
+  assert.equal(review(kit({ rope: low }).concat([fresh])).priority[0].better, null);
+  const done = R('rope', IZU, 'atk_pct', 0.3, null, 15);
+  assert.equal(review(kit({ rope: low }).concat([fresh, done])).priority[0].better.id, done.id);
+});
+
+test('low_grade_only_needs_a_better_letter', () => {
+  // cas réel : une sphère D proposée pour remplacer une sphère D
+  const low = R('sphere', IZU, 'dmg_lightning', 0.1);
+  const sameLetter = R('sphere', IZU, 'atk_pct', 0.2, null);
+  assert.equal(review(kit({ sphere: low }).concat([sameLetter])).priority[0].better, null);
+  const cLetter = R('sphere', IZU, 'atk_pct', 0.3, null);
+  assert.equal(review(kit({ sphere: low }).concat([sameLetter, cLetter])).priority[0].better.id, cLetter.id);
+  // stat principale fausse : une pièce conforme mieux notée suffit, même de la même lettre
+  const badMain = R('body', PIO, 'atk_pct', 0.1);
+  const fix = R('body', PIO, 'cr', 0.2, null);
+  assert.equal(review(kit({ body: badMain }).concat([fix])).priority[0].better.id, fix.id);
 });
 
 test('fallback_to_profile_without_advice', () => {

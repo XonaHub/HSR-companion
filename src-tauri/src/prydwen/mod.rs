@@ -93,14 +93,20 @@ pub fn ranking_with(dir: &Path, name_en: &str, force: bool, now: i64, fetch: imp
         .ok_or("introuvable")?;
     let path = dir.join(format!("{slug}.json"));
     let cached: Option<Ranking> = read(&path);
-    // un cache d'avant la lecture des reliques (`relics` absent) est redemandé une fois
-    if let Some(c) = cached.as_ref().filter(|c| !force && now - c.fetched_at < FRESH_MS && c.relics.is_some()) {
+    // un cache sans conseils de reliques (enregistré avant leur lecture) est redemandé une fois,
+    // même si la page a déjà été demandée dans les 24 h : tentative comptée à part (« relics:<adresse> »)
+    let relics_key = format!("relics:{slug}");
+    let upgrade = cached.as_ref().is_some_and(|c| c.relics.is_none()) && !attempted_recently(dir, &relics_key, now);
+    if let Some(c) = cached.as_ref().filter(|c| !force && !upgrade && now - c.fetched_at < FRESH_MS) {
         return Ok(c.clone());
     }
-    if !force && attempted_recently(dir, &slug, now) {
+    if !force && !upgrade && attempted_recently(dir, &slug, now) {
         return cached.map(|c| Ranking { stale: true, ..c }).ok_or_else(|| "classement indisponible".to_string());
     }
     record_attempt(dir, &slug, now);
+    if cached.as_ref().is_some_and(|c| c.relics.is_none()) {
+        record_attempt(dir, &relics_key, now);
+    }
     let fresh = fetch(&format!("{BASE}/{slug}")).and_then(|html| {
         parse::parse_ranking(&html).map(|r| Ranking { fetched_at: now, ..r }).ok_or_else(|| "page Prydwen illisible".to_string())
     });
@@ -278,6 +284,34 @@ mod tests {
         let r = ranking_with(&dir, "Acheron", false, 2 * DAY, &fetch).unwrap();
         assert!(r.relics.is_some_and(|a| !a.sets.is_empty()));
         ranking_with(&dir, "Acheron", false, 2 * DAY + 1000, &fetch).unwrap();
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn cache_without_relics_is_fetched_even_if_page_was_requested_today() {
+        // cas réel : la page a été demandée il y a une heure par une version qui ne lisait pas les reliques
+        let dir = seeded("norelics-attempted", 2 * DAY - 60 * 60 * 1000);
+        let mut old: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("acheron.json")).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("relics");
+        fs::write(dir.join("acheron.json"), old.to_string()).unwrap();
+        record_attempt(&dir, "acheron", 2 * DAY - 60 * 60 * 1000);
+        let calls = std::cell::Cell::new(0);
+        let fetch = |_: &str| -> Result<String, String> { calls.set(calls.get() + 1); Ok(fixture("acheron.html")) };
+        let r = ranking_with(&dir, "Acheron", false, 2 * DAY, &fetch).unwrap();
+        assert!(!r.stale && r.relics.is_some());
+        assert_eq!(calls.get(), 1);
+        // une page sans conseils de reliques n'est pas redemandée en boucle
+        let dir = seeded("norelics-page", 2 * DAY - 60 * 60 * 1000);
+        let mut old: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("acheron.json")).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("relics");
+        fs::write(dir.join("acheron.json"), old.to_string()).unwrap();
+        let without = fixture("acheron.html").replace("Best Relic Sets", "X").replace("Best Planetary Sets", "Y").replace("Best Stats", "Z");
+        calls.set(0);
+        let fetch2 = |_: &str| -> Result<String, String> { calls.set(calls.get() + 1); Ok(without.clone()) };
+        for t in [2 * DAY, 2 * DAY + 1000, 2 * DAY + 2000] {
+            let r = ranking_with(&dir, "Acheron", false, t, &fetch2).unwrap();
+            assert!(!r.stale);
+        }
         assert_eq!(calls.get(), 1);
     }
 
