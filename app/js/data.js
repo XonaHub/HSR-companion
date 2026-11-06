@@ -238,7 +238,10 @@ const PULL_INCOME = {
   dailyJades: 60,            // Entraînement quotidien : 60 jades par jour
   expressJades: 90,          // Passe de ravitaillement Express : 90 jades par jour (si coché dans l'onglet Vœux)
   weeklyJades: 225,          // Univers (simulé / divergent) : récompense hebdomadaire complète
-  endgameJadesPerCycle: 800, // Mémoire du chaos, Fiction pure, Ombre apocalyptique : 800 jades par mode terminé
+  // Mémoire du chaos, Fiction pure, Ombre apocalyptique, par cycle : 800 jades pour toutes les étoiles, + 100 pour le
+  // mode Starward réussi avec toutes les étoiles (guide endgame Game8 mis à jour le 03/11/2026, relevé le 07/11/2026)
+  endgameJadesPerCycle: 900, // maximum (estimation d'Actus)
+  endgameAllStarsJades: 800, // toutes les étoiles, sans Starward (réglage par défaut de l'onglet Vœux)
   endgameCycleDays: 14,      // les trois modes se renouvellent en alternance : un renouvellement toutes les 2 semaines
   embersPassesPerMonth: 5    // Boutique de Flammes immortelles : 5 Passes stellaires spéciaux par mois
 };

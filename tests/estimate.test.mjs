@@ -26,6 +26,14 @@ test('daily_and_express_lines', () => {
   assert.equal(line(run(V46, { express: true }), 'express').jades, 44 * 90);
 });
 
+test('endgame_counts_full_clear_with_starward', () => {
+  // maximum possible : 800 jades pour toutes les étoiles + 100 pour le mode Starward (Game8, 03/11/2026)
+  const I = ev('PULL_INCOME');
+  assert.equal(I.endgameJadesPerCycle, 900);
+  assert.equal(I.endgameAllStarsJades, 800);
+  assert.equal(line(run(V46, { express: false }), 'endgame').jades, (Math.floor(44 / 14) + 1) * 900);
+});
+
 test('explicit_amounts_from_patch_note', () => {
   const r = run(V46, { express: false });
   assert.equal(line(r, 'rewards').jades, 600);
