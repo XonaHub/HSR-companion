@@ -62,3 +62,14 @@ for (const id of POSTS) for (const lang of ['fr-fr', 'en-us']) {
     await get(`https://bbs-api-os.hoyolab.com/community/post/wapi/getPostFull?post_id=${id}`, lang));
   await pause();
 }
+
+console.log('Prydwen (HTML brut, classement des cônes)');
+for (const [file, url] of [
+  ['acheron', 'https://www.prydwen.gg/star-rail/characters/acheron'],
+  ['characters', 'https://www.prydwen.gg/star-rail/characters'],
+]) {
+  const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
+  if (!res.ok) throw new Error(`${res.status} ${url}`);
+  await save(`prydwen/${file}.html`, await res.text());
+  await pause();
+}

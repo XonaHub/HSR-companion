@@ -11,6 +11,7 @@ mod gacha;
 pub mod gamedata;
 pub mod net;
 mod news;
+mod prydwen;
 mod storage;
 
 use tauri::{WebviewUrl, WebviewWindowBuilder};
@@ -27,6 +28,7 @@ pub fn run() {
             gamedata::update::game_details,
             gamedata::update::restart_app,
             news::news_feed,
+            prydwen::prydwen_ranking,
             news::news_cached
         ])
         .setup(|app| {
