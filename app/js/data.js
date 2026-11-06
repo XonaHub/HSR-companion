@@ -156,6 +156,24 @@ const LEVELS = [1, 20, 30, 40, 50, 60, 70, 80];
 const LEVEL_EXP = { 1: 0, 20: 108800, 30: 326400, 40: 725300, 50: 1414400, 60: 2411700, 70: 3844200, 80: 5795000 };
 const EXP_BOOK = 20000;          // Traveler's Guide
 const EXP_CREDIT_RATIO = 0.1;    // crédits dépensés par point d'EXP (approx.)
+/* Objets d'EXP de perso (id → EXP) : Travel Encounters, Adventure Log, Traveler's Guide */
+const EXP_ITEMS = { 211: 1000, 212: 5000, 213: 20000 };
+
+/* ---------- Cônes de lumière : EXP de niveau (cumulée), par rareté du cône ----------
+   source : données du jeu, ExcelOutput/EquipmentExpType.json (ExpType 1/2/3 = cônes 3★/4★/5★, d'après
+   EquipmentConfig.json) — https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/ExcelOutput/EquipmentExpType.json,
+   relevé le 06/11/2026 (recoupé : 5★ 70 → 80 = 413 010 EXP ≈ 69 Refined Aether, comme le disent les guides). */
+const LC_LEVEL_EXP = {
+  3: { 1: 0, 20: 15800, 30: 41550, 40: 77250, 50: 132530, 60: 218540, 70: 349620, 80: 597440 },
+  4: { 1: 0, 20: 21070, 30: 55400, 40: 102980, 50: 176690, 60: 291370, 70: 466180, 80: 796590 },
+  5: { 1: 0, 20: 26320, 30: 69220, 40: 128700, 50: 220840, 60: 364200, 70: 582690, 80: 995700 }
+};
+/* Objets d'EXP de cône (id → EXP) : Sparse, Condensed, Refined Aether ; et crédits par point d'EXP de cône.
+   source : données du jeu, ExcelOutput/EquipmentExpItemConfig.json (ExpProvide 500/2000/6000, CoinCost 250/1000/3000)
+   — https://gitlab.com/Dimbreath/turnbasedgamedata/-/raw/main/ExcelOutput/EquipmentExpItemConfig.json ; ids et noms :
+   https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/en/items.json, relevé le 06/11/2026 */
+const LC_EXP_ITEMS = { 221: 500, 222: 2000, 223: 6000 };
+const LC_EXP_CREDIT_RATIO = 0.5;
 
 /* ---------- Ascensions (au palier de niveau indiqué) ---------- */
 const ASCENSION = {
@@ -205,7 +223,10 @@ const TRACE_CREDIT_MULT = { 5: 1, 4: 0.8 };
 
 /* ---------- Énergie (Trailblaze Power) ---------- */
 const TP_PER_DAY = 240;
-const DEFAULT_RATES = { exp: 24000, credits: 24000, crimson: 6, shadow: 4, echo: 2 };
+/* lcExp : EXP de cône par 10 d'énergie (Calice doré « Bourgeon d'éther »). Plus haute difficulté documentée
+   (V : 2-3 Sparse, 2 Condensed, 1 Refined Aether ≈ 11 000 EXP) ; source : guide HoYoLAB « Ultimate Beginner's Guide »,
+   https://www.hoyolab.com/article/20092738, relevé le 06/11/2026 — réglable dans les Paramètres. */
+const DEFAULT_RATES = { exp: 24000, lcExp: 11000, credits: 24000, crimson: 6, shadow: 4, echo: 2 };
 
 /* ---------- Vœux ---------- */
 const JADE_PER_PULL = 160;

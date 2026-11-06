@@ -89,7 +89,7 @@ const I18N = {
     tp_exp: 'Calice doré (EXP)', tp_credits: 'Calice doré (crédits)', tp_path: 'Calice cramoisi (traces)', tp_boss: 'Ombre stagnante (boss)',
     tp_echo: 'Écho de la guerre (~{w} sem.)', tp_hint: 'Estimation basée sur les rendements modifiables dans Paramètres. Les matériaux communs (ennemis) ne sont pas comptés.',
     unknown_char: 'Personnage introuvable', lvl: 'Niv.', include: 'Inclure dans le total',
-    mat_exp: 'EXP de personnage', mat_book: 'Guide du voyageur', mat_credits: 'Crédits', mat_common: 'Matériau commun T{tier}',
+    mat_exp: 'EXP de personnage', mat_lc_exp: 'EXP de cône', mat_book: 'Guide du voyageur', mat_credits: 'Crédits', mat_common: 'Matériau commun T{tier}',
     mat_path: 'Mat. de Voie {path} T{tier}', mat_boss: 'Mat. de boss ({name})', mat_weekly: 'Mat. hebdo ({name})', cat_boss: 'Mat. de boss', cat_weekly: 'Mat. hebdo',
     nothing_needed: 'Rien à farmer.',
 
@@ -146,7 +146,7 @@ const I18N = {
 
     settings_title: 'Paramètres', language: 'Langue', rates_title: 'Rendements de farm',
     rates_hint: 'Valeurs moyennes par passage, utilisées pour estimer l’énergie. Ajuste-les selon ton niveau d’équilibre.',
-    rate_exp: 'EXP par 10 d’énergie (calice doré)', rate_credits: 'Crédits par 10 d’énergie', rate_crimson: 'Mat. de Voie (équiv. T1) par 10 d’énergie',
+    rate_exp: 'EXP par 10 d’énergie (calice doré)', rate_lc_exp: 'EXP de cône par 10 d’énergie (calice doré)', rate_credits: 'Crédits par 10 d’énergie', rate_crimson: 'Mat. de Voie (équiv. T1) par 10 d’énergie',
     rate_shadow: 'Mat. de boss par 30 d’énergie', rate_echo: 'Mat. hebdo par écho (30 d’énergie)', reset_rates: 'Valeurs par défaut',
     data_title: 'Données', data_hint: 'Tout est sauvegardé sur ce PC. Exporte un fichier pour faire une sauvegarde ou changer d’appareil.',
     export: 'Exporter', import: 'Importer', reset_all: 'Tout effacer',
@@ -244,7 +244,7 @@ const I18N = {
     tp_exp: 'Golden Calyx (EXP)', tp_credits: 'Golden Calyx (credits)', tp_path: 'Crimson Calyx (traces)', tp_boss: 'Stagnant Shadow (boss)',
     tp_echo: 'Echo of War (~{w} wk)', tp_hint: 'Estimate based on the yields you can edit in Settings. Common enemy materials are not counted.',
     unknown_char: 'Unknown character', lvl: 'Lv.', include: 'Include in total',
-    mat_exp: 'Character EXP', mat_book: "Traveler's Guide", mat_credits: 'Credits', mat_common: 'Common material T{tier}',
+    mat_exp: 'Character EXP', mat_lc_exp: 'Light Cone EXP', mat_book: "Traveler's Guide", mat_credits: 'Credits', mat_common: 'Common material T{tier}',
     mat_path: '{path} path mat. T{tier}', mat_boss: 'Boss mat. ({name})', mat_weekly: 'Weekly mat. ({name})', cat_boss: 'Boss material', cat_weekly: 'Weekly material',
     nothing_needed: 'Nothing to farm.',
 
@@ -301,7 +301,7 @@ const I18N = {
 
     settings_title: 'Settings', language: 'Language', rates_title: 'Farming yields',
     rates_hint: 'Average values per run, used to estimate Trailblaze Power. Adjust them to your equilibrium level.',
-    rate_exp: 'EXP per 10 TP (Golden Calyx)', rate_credits: 'Credits per 10 TP', rate_crimson: 'Path mats (T1 equiv.) per 10 TP',
+    rate_exp: 'EXP per 10 TP (Golden Calyx)', rate_lc_exp: 'Light Cone EXP per 10 TP (Golden Calyx)', rate_credits: 'Credits per 10 TP', rate_crimson: 'Path mats (T1 equiv.) per 10 TP',
     rate_shadow: 'Boss mats per 30 TP', rate_echo: 'Weekly mats per Echo (30 TP)', reset_rates: 'Defaults',
     data_title: 'Data', data_hint: 'Everything is saved on this PC. Export a file to back up or move to another device.',
     export: 'Export', import: 'Import', reset_all: 'Erase everything',

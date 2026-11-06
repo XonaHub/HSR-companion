@@ -56,6 +56,7 @@
   }
   function migrate(s) {   // anciennes sauvegardes
     delete s.lastImport;   // import par vitrine (fonction retirée)
+    for (const p of s.plans || []) if (!p.lc) p.lc = { on: false, lvTo: 80 };   // cône équipé : pas inclus par défaut
     return s;
   }
   let S = load();
@@ -358,59 +359,36 @@
   /* Coûts exacts tirés des données du jeu (js/assets.js). Les tables estimées de data.js
      ne servent que pour un personnage personnalisé absent de ces données. */
   const CREDIT_ID = G.special.credits || '2', TD_ID = G.special.td || '241';
-  const LEGACY_AB = { basic: 'Point01', skill: 'Point02', ult: 'Point03', talent: 'Point04' };
   const AB_KEYS = { Point01: 'basic', Point02: 'skill', Point03: 'ult', Point04: 'talent', Point19: 'memo_skill', Point20: 'memo_talent', Point22: 'elation_skill' };
   const FALLBACK_AB = { Point01: 6, Point02: 10, Point03: 10, Point04: 10 };
   const exactData = c => { const g = gameChar(c); return g && g.asc && g.asc.length ? g : null; };
   const abilitiesOf = c => { const g = c && exactData(c); return g ? Object.keys(g.tr).sort().map(a => [a, g.tr[a].length + 1]) : Object.entries(FALLBACK_AB); };
   const abLabel = (a, short) => t((short ? 'ab_short_' : 'ab_') + (AB_KEYS[a] || 'extra'));
-  const planTr = p => { const o = {}; for (const k in p.tr) o[LEGACY_AB[k] || k] = p.tr[k]; return o; };
-  const itemCat = id => G.items[id] ? G.items[id][4] : (id === CREDIT_ID ? 'credit' : 'common');
-  const itemTier = id => G.items[id] ? Math.max(1, G.items[id][3] - 1) : 1;   // rareté 2/3/4 → T1/T2/T3
+  const planTr = farmPlanTr;
+  const itemCat = id => farmItemCat(G.items, id);
+  const itemTier = id => farmItemTier(G.items, id);   // rareté 2/3/4 → T1/T2/T3
 
-  function computePlan(p) {
+  /* Calcul du farm : js/farm.js (fonctions pures). Le départ vient de l'état importé du perso (S.owned),
+     sauf useOwned = false (coût complet depuis le niveau 1, fiche du perso). */
+  const equippedCone = charId => (S.cones || []).find(x => x.owner === charId) || null;
+  function computePlan(p, useOwned = true) {
     const c = charById(p.charId); if (!c) return null;
-    const g = exactData(c);
-    const r = { exp: Math.max(0, LEVEL_EXP[p.lvTo] - LEVEL_EXP[p.lvFrom]), items: {}, gen: {} };
-    const addList = list => { for (const [id, n] of list) r.items[id] = (r.items[id] || 0) + n; };
-    const addGen = (o, mult = 1) => {
-      for (const k in o) {
-        if (k === 'credits') addList([[CREDIT_ID, Math.round(o[k] * mult)]]);
-        else if (k === 'td') addList([[TD_ID, o[k]]]);
-        else r.gen[k] = (r.gen[k] || 0) + o[k];
-      }
-    };
-    addList([[CREDIT_ID, Math.round(r.exp * EXP_CREDIT_RATIO)]]);
-    LEVELS.slice(1, 7).forEach((cap, i) => {          // ascensions aux paliers 20 → 70
-      if (p.lvFrom <= cap && cap < p.lvTo) g ? addList(g.asc[i] || []) : addGen((ASCENSION[c.rarity] || ASCENSION[5])[i].cost);
-    });
-    const tr = planTr(p), mult = TRACE_CREDIT_MULT[c.rarity] || 1;
-    for (const a in tr) {
-      const [from, to] = tr[a];
-      for (let l = from + 1; l <= to; l++) {
-        if (g) { if (g.tr[a] && g.tr[a][l - 2]) addList(g.tr[a][l - 2]); }
-        else { const table = a === 'Point01' ? BASIC_COST : ABILITY_COST; if (table[l]) addGen(table[l], mult); }
-      }
-    }
-    if (p.bonus !== false) g ? addList(g.bonus) : addGen(BONUS_TRACES, mult);
-    return r;
+    const cone = equippedCone(c.id);
+    return planNeeds(p, planStart(p, useOwned ? S.owned[c.id] : null), exactData(c), cone, cone && coneOf(G.lightCones || [], cone.id), c);
   }
+  let families = null;
+  /* Ce qui manque à chaque plan (dans l'ordre de S.plans) une fois le stock partagé */
+  const missingOf = plans => allocate(plans.map(p => computePlan(p) || { exp: 0, lcExp: 0, items: {} }), S.inventory, families || (families = familiesOf(G))).map(x => x.missing);
 
-  function tpEstimate(tot) {
-    const R = S.rates;
-    const expTP = tot.exp / R.exp * 10;
-    const crTP = tot.credits / R.credits * 10;
-    const pathTP = tot.pathT1 / R.crimson * 10;
-    const bossTP = tot.boss / R.shadow * 30;
-    const echoRuns = Math.ceil(tot.weekly / R.echo);
-    const echoTP = echoRuns * 30;
-    const total = expTP + crTP + pathTP + bossTP + echoTP;
-    return { expTP, crTP, pathTP, bossTP, echoTP, echoWeeks: Math.ceil(echoRuns / 3), total, days: total / TP_PER_DAY };
+  function tpEstimate(missing) {
+    const tp = farmTp(missing, S.rates, G.items);
+    const tm = farmTimes([missing], S.rates, new Date(), G.items).total;
+    return { ...tp, echoWeeks: Math.ceil(tp.weeklyRuns / 3), days: tm.days };
   }
 
   /* Regroupe les besoins par objet réel du jeu (ex. deux persos qui partagent le même boss) */
-  function aggregate(plans) {
-    const tot = { exp: 0, credits: 0, pathT1: 0, boss: 0, weekly: 0, rows: new Map() };
+  function aggregate(plans, useOwned = true) {
+    const tot = { exp: 0, lcExp: 0, credits: 0, pathT1: 0, boss: 0, weekly: 0, rows: new Map() };
     const ORDER = { path: 10, common: 20, boss: 30, weekly: 40, td: 50 };
     const add = (key, n, order, item, sub, emoji, name) => {
       if (!n) return;
@@ -419,9 +397,9 @@
       tot.rows.set(key, row);
     };
     for (const p of plans) {
-      const r = computePlan(p); if (!r) continue;
+      const r = computePlan(p, useOwned); if (!r) continue;
       const c = charById(p.charId), nm = charName(c);
-      tot.exp += r.exp;
+      tot.exp += r.exp; tot.lcExp += r.lcExp;
       for (const id in r.items) {
         const n = r.items[id], cat = itemCat(id), tier = itemTier(id);
         if (cat === 'credit') { tot.credits += n; continue; }
@@ -453,6 +431,7 @@
       : `${fmt(need)}<small class="${h >= need ? 'inv-ok' : 'inv-miss'}">${h >= need ? t('inv_ok', { n: fmt(h) }) : t('inv_missing', { n: fmt(need - h) })}</small>`;
     const expHave = inv ? Object.entries(EXP_ITEMS).reduce((s, [id, v]) => s + (inv[id] || 0) * v, 0) : null;
     if (tot.exp) rows.push([ico(G.special.exp), `${t('mat_exp')}<small>≈ ${fmt(Math.ceil(tot.exp / EXP_BOOK))} × ${t('mat_book')}</small>`, qty(tot.exp, expHave)]);
+    if (tot.lcExp) rows.push([ico('223'), t('mat_lc_exp'), qty(tot.lcExp, inv ? Object.entries(LC_EXP_ITEMS).reduce((s, [id, v]) => s + (inv[id] || 0) * v, 0) : null)]);
     if (tot.credits) rows.push([ico(CREDIT_ID), t('mat_credits'), qty(tot.credits, inv && inv[CREDIT_ID] != null ? inv[CREDIT_ID] : null)]);
     [...tot.rows.values()].sort((a, b) => a.order - b.order).forEach(r => {
       const title = (r.item && itemName(r.item)) || r.sub;
@@ -481,7 +460,13 @@
   function renderPlanner(v) {
     const active = S.plans.filter(p => p.on !== false && charById(p.charId));
     const tot = aggregate(active);
-    const tp = tpEstimate(tot);
+    const miss = missingOf(active);   // énergie et temps : sur ce qui manque vraiment, stock partagé dans l'ordre des plans
+    const tp = tpEstimate(miss.reduce((a, m) => {
+      a.exp += m.exp; a.lcExp += m.lcExp;
+      for (const id in m.items) a.items[id] = (a.items[id] || 0) + m.items[id];
+      for (const k in m.gen) a.gen[k] = (a.gen[k] || 0) + m.gen[k];
+      return a;
+    }, { exp: 0, lcExp: 0, items: {}, gen: {} }));
     v.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h2>${t('planner_title')}</h2></div>
@@ -1274,7 +1259,7 @@
     const o = S.owned[c.id];
     let body;
     if (sheet.tab === 'cones') body = sheetCones(c);
-    else if (sheet.tab === 'mats') body = g ? `<p class="hint small">${t('sheet_mats_hint')}</p>${matTable(matRows(aggregate([fullPlan(c)])))}` : `<p class="empty">${t('sheet_nodata')}</p>`;
+    else if (sheet.tab === 'mats') body = g ? `<p class="hint small">${t('sheet_mats_hint')}</p>${matTable(matRows(aggregate([fullPlan(c)], false)))}` : `<p class="empty">${t('sheet_nodata')}</p>`;
     else if (!g) body = `<p class="empty">${t('sheet_nodata')}</p>`;
     else if (!d) body = `<p class="empty">${sheet.err ? t('sheet_error') : t('computing')}</p>`;
     else body = ({ skills: sheetSkills, traces: sheetTraces, eidolons: sheetRanks })[sheet.tab](d, D);
@@ -1395,7 +1380,6 @@
     SPD: 'spd', 'Effect Hit Rate_': 'ehr', 'Effect RES_': 'res', 'Break Effect_': 'be'
   };
   const ITEM_SPECIAL_PASS = '102';
-  const EXP_ITEMS = { 211: 1000, 212: 5000, 213: 20000 };
   const charByGameId = id => {   // index construit une fois (appelé pour chaque relique importée)
     if (!gameIdIndex) {
       gameIdIndex = new Map();
@@ -1536,6 +1520,7 @@
       <p class="hint">${t('rates_hint')}</p>
       <div class="field-grid">
         <label class="field">${t('rate_exp')}${num('exp')}</label>
+        <label class="field">${t('rate_lc_exp')}${num('lcExp')}</label>
         <label class="field">${t('rate_credits')}${num('credits')}</label>
         <label class="field">${t('rate_crimson')}${num('crimson')}</label>
         <label class="field">${t('rate_shadow')}${num('shadow')}</label>
@@ -1589,7 +1574,7 @@
     skillLv: el => { sheet.lv[+el.dataset.i] = +el.value; renderSheet(); },
     planFromSheet: b => {
       const c = charById(b.dataset.id);
-      S.plans.push({ id: uid(), ...fullPlan(c), on: true });
+      S.plans.push({ id: uid(), ...fullPlan(c), lc: { on: false, lvTo: 80 }, on: true });
       save(); toast(t('plan_added'));
     },
     setEidolon: el => { S.owned[el.dataset.id].e = +el.value; save(); },
@@ -1612,7 +1597,7 @@
         const ab = el.dataset.ab, a = +el.value, b = +$(`#pl_${ab}_to`).value;
         tr[ab] = [a, Math.max(a, b)];
       }
-      S.plans.push({ id: uid(), charId: $('#plChar').value, lvFrom, lvTo: Math.max(lvFrom, lvTo), tr, bonus: $('#plBonus').checked, on: true });
+      S.plans.push({ id: uid(), charId: $('#plChar').value, lvFrom, lvTo: Math.max(lvFrom, lvTo), tr, bonus: $('#plBonus').checked, lc: { on: false, lvTo: 80 }, on: true });
       save(); render(); toast(t('added'));
     },
     delPlan: (b, e) => { e.preventDefault(); S.plans = S.plans.filter(p => p.id !== b.dataset.id); save(); render(); },
