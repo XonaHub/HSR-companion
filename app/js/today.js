@@ -4,6 +4,9 @@
    liste triée de la plus récente à la plus ancienne. */
 
 const todayStarted = (x, now) => !!x.start && Date.parse(x.start) <= now;
+/* Fin d'une période : une date sans heure (« 2026-11-10 », comme le parseur d'Actus en donne pour les phases)
+   compte jusqu'à la fin de ce jour, pas jusqu'à son début. */
+const todayEndMs = iso => Date.parse(iso) + (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? 86400000 : 0);
 
 /** Version en cours, choisie comme l'onglet Actus : commencée et pas finie, sinon la dernière commencée. */
 function currentVersion(versions, now) {
@@ -23,7 +26,7 @@ function currentPhase(version, now) {
   if (!version || !(version.phases || []).length) return null;
   const dated = version.phases.filter(p => p.start && p.end);
   if (!dated.length) return { items: version.phases.flatMap(p => p.items || []), end: version.end || null };
-  const live = dated.filter(p => Date.parse(p.start) <= now && now < Date.parse(p.end))
+  const live = dated.filter(p => Date.parse(p.start) <= now && now < todayEndMs(p.end))
     .sort((a, b) => Date.parse(b.start) - Date.parse(a.start));
   return live.length ? { items: live[0].items || [], end: live[0].end } : null;
 }
@@ -34,12 +37,19 @@ function daysUntil(iso, now) {
   return Math.max(0, Math.ceil((Date.parse(iso) - now) / 86400000));
 }
 
-/** Dernière actu : la version la plus récente connue, avec le nombre de nouveaux 5★ (persos et cônes, hors reruns). */
+/** Jours restants jusqu'à la fin d'une période (date sans heure = fin de ce jour) ; null sans date. */
+function daysLeft(iso, now) {
+  if (!iso) return null;
+  return Math.max(0, Math.ceil((todayEndMs(iso) - now) / 86400000));
+}
+
+/** Dernière actu : la version la plus récente connue, avec le nombre de nouveaux persos 5★ (hors reruns),
+    comme les listes d'Actus qui ne comptent que les persos. */
 function latestNews(versions) {
   const x = (versions || [])[0];
   if (!x) return null;
   const items = (x.phases || []).flatMap(p => p.items || []);
-  const fresh = new Set(items.filter(i => i.rarity === 5 && !i.rerun).map(i => i.name));
+  const fresh = new Set(items.filter(i => i.rarity === 5 && i.kind === 'char' && !i.rerun).map(i => i.name));
   return { version: x.version, name: x.name || '', newFive: fresh.size, announced: items.length > 0 };
 }
 

@@ -62,7 +62,7 @@ test('latest_news_counts_new_five_stars', () => {
     ph(undefined, undefined, [it('A'), it('B'), it('C', 5, 'char', true), it('Cône', 5, 'lc'), it('D', 4)]),
     ph(undefined, undefined, [it('A')])
   ] };
-  assert.equal(J(call('latestNews', [x])), J({ version: '3.8', name: 'Nom', newFive: 3, announced: true }));
+  assert.equal(J(call('latestNews', [x])), J({ version: '3.8', name: 'Nom', newFive: 2, announced: true }));
   const empty = call('latestNews', [v('3.9', '2027-01-07T02:00:00Z')]);
   assert.equal(empty.newFive, 0);
   assert.equal(empty.announced, false);
@@ -94,4 +94,20 @@ test('today_empty_inputs', () => {
   assert.equal(ev(`currentPhase(null, ${NOW})`), null);
   assert.equal(call('currentPhase', v('3.7', '2026-10-08T02:00:00Z'), NOW), null);
   assert.equal(call('latestNews', []), null);
+});
+
+test('phase_date_only_end_lasts_the_whole_day', () => {
+  // le parseur d'Actus donne des dates sans heure (« 2026-11-10 ») : la phase dure jusqu'à la fin de ce jour
+  const x = v('3.7', '2026-10-08T02:00:00Z', '2026-11-19T02:00:00Z', [ph('2026-10-21', '2026-11-06', [it('A')])]);
+  assert.equal(call('currentPhase', x, NOW).items[0].name, 'A');
+  assert.equal(call('daysLeft', '2026-11-06', NOW), 1);
+  assert.equal(call('daysLeft', '2026-11-12', NOW), 7);
+  assert.equal(call('daysLeft', '2026-11-12T12:00:00Z', NOW), 6);
+  assert.equal(ev(`daysLeft(undefined, ${NOW})`), null);
+});
+
+test('latest_news_counts_characters_like_news_tab', () => {
+  // Actus ne liste que les persos 5★ neufs : même compte ici
+  const x = { ...v('3.8', '2026-11-19T02:00:00Z'), phases: [ph(undefined, undefined, [it('A'), it('B'), it('Cône 1', 5, 'lc'), it('Cône 2', 5, 'lc')])] };
+  assert.equal(call('latestNews', [x]).newFive, 2);
 });

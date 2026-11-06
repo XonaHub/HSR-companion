@@ -573,7 +573,7 @@
     const cur = currentVersion(vers, now), phase = currentPhase(cur, now);
     const five = phase ? phase.items.filter(i => i.rarity === 5).sort((a, b) => (a.kind === 'char' ? 0 : 1) - (b.kind === 'char' ? 0 : 1))
       .filter((i, k, l) => l.findIndex(j => j.name === i.name) === k) : [];
-    const left = phase ? daysUntil(phase.end || (cur && cur.end), now) : null;
+    const left = phase ? daysLeft(phase.end || (cur && cur.end), now) : null;
     const banner = five.length
       ? `<div class="today-tags">${five.map(warpItemTag).join('')}</div>${left != null ? `<small>${t('today_ends_in', { n: left })}</small>` : ''}`
       : `<small>${t('today_banner_none')}</small>`;
