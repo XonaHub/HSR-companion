@@ -28,7 +28,8 @@
     teamFilter: 'all',
     weak: [],
     rates: { ...DEFAULT_RATES },
-    rosterFilter: { q: '', el: '', path: '', rar: '', owned: false }
+    rosterFilter: { q: '', el: '', path: '', rar: '', owned: false },
+    newsSeen: ''          // dernière annonce vue dans l'onglet Actus (point rouge sinon)
   });
   function merge(base, d) {
     for (const k in d) {
@@ -145,7 +146,7 @@
   }
 
   /* ------------------------------------------------------------------ rendu global */
-  const TABS = ['roster', 'planner', 'warps', 'relics', 'teams', 'settings'];
+  const TABS = ['roster', 'planner', 'warps', 'relics', 'teams', 'news', 'settings'];
   const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const TAB_ICONS = {
     roster: svg('<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.8 14.2c2.4.1 4.1 1.7 4.7 4.3"/>'),
@@ -153,14 +154,15 @@
     warps: svg('<path d="M12 2.5 14 10l7.5 2-7.5 2-2 7.5-2-7.5L2.5 12 10 10z"/>'),
     relics: svg('<path d="M12 3 19 8l-2.6 9H7.6L5 8z"/><path d="M5 8h14M9.5 8 12 17l2.5-9"/>'),
     teams: svg('<path d="M4 20 15 9M15 9l1.5-4.5L21 3l-1.5 4.5zM6 14l4 4M20 20 9 9M9 9 7.5 4.5 3 3l1.5 4.5zM18 14l-4 4"/>'),
+    news: svg('<path d="M4 5h12v14H6a2 2 0 0 1-2-2z"/><path d="M16 9h4v8a2 2 0 0 1-2 2h-2M7 9h6M7 12h6M7 15h4"/>'),
     settings: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>')
   };
-  const RENDERERS = { roster: renderRoster, planner: renderPlanner, warps: renderWarps, relics: renderRelics, teams: renderTeams, settings: renderSettings };
+  const RENDERERS = { roster: renderRoster, planner: renderPlanner, warps: renderWarps, relics: renderRelics, teams: renderTeams, news: renderNews, settings: renderSettings };
 
   function render() {
     document.documentElement.lang = S.lang;
     $('#langSelect').value = S.lang;
-    $('#tabs').innerHTML = TABS.map(k => `<button class="tab ${S.tab === k ? 'active' : ''}" data-action="tab" data-tab="${k}" title="${esc(t('tab_' + k))}">${TAB_ICONS[k]}<span>${t('tab_' + k)}</span></button>`).join('');
+    renderTabs();
     resetCaches();
     $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
     RENDERERS[S.tab]($('#view'));
@@ -912,6 +914,125 @@
     }).join('')}`;
   }
 
+  /* ================================================================== ACTUS (annonces officielles HoYoLAB)
+     Le fil est préparé par le backend (src-tauri/src/news) : versions avec bannières, événements, patch note.
+     Rien ne vient de sites tiers ; l'estimation des vœux est calculée par js/estimate.js. */
+  let news = null;        // dernier fil reçu (NewsFeed) dans la langue de l'app
+  let newsError = '';
+  let newsLoading = false;
+  const idNewer = (a, b) => a.length !== b.length ? a.length > b.length : a > b;   // ids trop grands pour Number
+  const hasUnseenNews = () => !!(news && news.latestId && idNewer(news.latestId, S.newsSeen || ''));
+
+  function renderTabs() {
+    $('#tabs').innerHTML = TABS.map(k => `<button class="tab ${S.tab === k ? 'active' : ''}" data-action="tab" data-tab="${k}" title="${esc(t('tab_' + k))}">${TAB_ICONS[k]}<span>${t('tab_' + k)}</span>${k === 'news' && hasUnseenNews() && S.tab !== 'news' ? '<i class="tab-dot" aria-hidden="true"></i>' : ''}</button>`).join('');
+  }
+
+  /* force : ignorer le cache récent (bouton « Actualiser ») */
+  function loadNews(force) {
+    if (newsLoading) return;
+    newsLoading = true; newsError = '';
+    const lang = S.lang;
+    invoke('news_feed', { lang, force: !!force }).then(f => { if (lang === S.lang) news = f; })
+      .catch(e => { newsError = String(e); })
+      .finally(() => {
+        newsLoading = false;
+        if (lang !== S.lang) return loadNews(false);   // langue changée pendant le chargement
+        if (S.tab === 'news') renderNews($('#view')); else renderTabs();
+      });
+  }
+
+  const dayOf = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '';
+  const monthOf = iso => iso ? new Date(iso.slice(0, 10) + 'T12:00:00Z').toLocaleDateString(locale(), { month: 'long', year: 'numeric' }) : '';
+  const started = x => !!x.start && Date.parse(x.start) <= Date.now();
+
+  /* Perso de l'app correspondant à un nom d'annonce (dans la langue de l'app), même élément */
+  function charForNews(item) {
+    const n = normName(item.name);
+    return allChars().find(c => (!item.element || c.element === item.element) && [c.name, c.fr, charName(c)].some(x => x && normName(x) === n));
+  }
+
+  function warpItemTag(i) {
+    return `<span class="tag news-item r${i.rarity}">${i.rarity}★ ${esc(i.name)}${i.element ? ' ' + elChip(i.element) : ''}${i.path ? ' ' + pathTag(i.path) : ''}${i.rerun ? ` <small class="news-rerun">${t('news_rerun')}</small>` : ''}</span>`;
+  }
+
+  /* Résumé (bannières, événements, vœux) + détails + patch note complet d'une version */
+  function newsVersionBody(x) {
+    const items = x.phases.flatMap(p => p.items);
+    const five = items.filter(i => i.rarity === 5 && i.kind === 'char');
+    const uniq = list => list.filter((i, k) => list.findIndex(j => j.name === i.name) === k);
+    const est = estimateVersionPulls(x, { express: S.warp.express });
+    const evJades = x.events.reduce((a, e) => a + e.jades, 0);
+    const planBtns = uniq(five.filter(i => !i.rerun)).map(i => charForNews(i)).filter(Boolean)
+      .map(c => `<button class="btn sm" data-action="newsPlanChar" data-id="${esc(c.id)}">${t('news_plan', { name: esc(charName(c)) })}</button>`).join('');
+    const group = (phaseItems, kind, rarity, key) => {
+      const list = phaseItems.filter(i => i.kind === kind && i.rarity === rarity);
+      return list.length ? `<div class="news-group"><small>${t(key)}</small>${uniq(list).map(warpItemTag).join('')}</div>` : '';
+    };
+    const phaseDates = p => p.start || p.end ? ` · ${dayOf(p.start)} → ${dayOf(p.end)}` : '';
+    return `
+      <div class="news-grid">
+        <div><small>${t('news_banners')}</small>
+          ${five.length ? uniq(five).map(warpItemTag).join('') : `<p class="hint small">${t('news_banners_later')}</p>`}
+          ${x.phases.length ? `<div class="form-row news-actions"><button class="btn sm" data-action="newsOpenWarps">${t('news_sim')}</button>${planBtns}</div>` : ''}
+        </div>
+        <div><small>${t('news_events')}</small>
+          <b>${t('news_events_count', { n: x.events.length })}</b>
+          ${evJades ? `<p class="hint small">${t('news_jades_listed', { j: fmt(evJades) })}</p>` : ''}
+        </div>
+        <div><small>${t('news_pulls')}</small>
+          ${est ? `<b class="news-pulls">≈ ${fmt(est.pulls)} ${t('pulls')}</b><p class="hint small">${t('news_total', { j: fmt(est.jades), p: fmt(est.passes) })} · ${t('news_estimate')}</p>`
+            : `<p class="hint small">${t('news_no_dates')}</p>`}
+        </div>
+      </div>
+      <details class="news-more"><summary>${t('news_details')}</summary>
+        ${x.phases.map(p => `<h4>${t('news_phase', { n: p.phase })}${phaseDates(p)}</h4>
+          ${group(p.items, 'char', 5, 'news_chars5')}${group(p.items, 'lc', 5, 'news_lcs5')}${group(p.items, 'char', 4, 'news_chars4')}${group(p.items, 'lc', 4, 'news_lcs4')}`).join('')}
+        ${x.events.length ? `<h4>${t('news_events')}</h4><ul class="news-events">${x.events.map(e => `<li><b>${esc(e.name)}</b>${e.jades || e.passes ? ` <small>${[e.jades ? fmt(e.jades) + ' ' + t('jades') : '', e.passes ? fmt(e.passes) + ' ' + t('passes') : ''].filter(Boolean).join(' · ')}</small>` : ''}</li>`).join('')}</ul>` : ''}
+        ${est ? `<h4>${t('news_pulls')}</h4><table class="news-est">${est.lines.map(l => `<tr><td>${t('est_' + l.key, { d: est.days })}</td><td>${l.jades ? fmt(l.jades) + ' ' + t('jades') : ''}</td><td>${l.passes ? fmt(l.passes) + ' ' + t('passes') : ''}</td></tr>`).join('')}
+          <tr class="total"><td>${t('news_pulls')}</td><td colspan="2">≈ ${fmt(est.pulls)} ${t('pulls')}</td></tr></table>
+          <p class="hint small">${t('news_estimate_hint')}</p>` : ''}
+      </details>
+      ${x.sections.length ? `<details class="news-more"><summary>${t('news_patch')}</summary>
+        ${x.sections.map(s => `${s.title ? `<h4>${esc(s.title)}</h4>` : ''}${s.items.map(i => `${i.title ? `<h5>${esc(i.title)}</h5>` : ''}${i.text ? `<p>${esc(i.text).replace(/\n/g, '<br>')}</p>` : ''}`).join('')}`).join('')}
+      </details>` : ''}`;
+  }
+
+  function renderNews(v) {
+    if (news && news.latestId && S.newsSeen !== news.latestId) { S.newsSeen = news.latestId; save(); }
+    renderTabs();
+    if (!news && !newsLoading && !newsError) loadNews(false);
+    const head = `<div class="panel-head"><h2>${t('tab_news')}</h2>
+      <button class="btn sm" data-action="newsRefresh" ${newsLoading ? 'disabled' : ''}>${t(newsLoading ? 'news_loading' : 'news_refresh')}</button></div>
+      ${news && news.stale ? `<p class="note warn">${t('news_offline')}</p>` : ''}
+      ${newsError && news ? `<p class="note warn">${t('news_error', { e: esc(newsError) })}</p>` : ''}`;
+    if (!news) {
+      v.innerHTML = `<section class="panel">${head}<p class="${newsError ? 'note warn' : 'hint'}">${newsError ? t('news_error', { e: esc(newsError) }) : t('news_loading')}</p></section>`;
+      return;
+    }
+    const vers = news.versions;
+    const current = vers.find(x => started(x) && (!x.end || Date.now() < Date.parse(x.end))) || vers.find(started);
+    const upcoming = current ? vers.slice(0, vers.indexOf(current)) : vers.filter(x => !started(x));
+    const previous = current ? vers.slice(vers.indexOf(current) + 1, vers.indexOf(current) + 11) : [];
+    const soon = upcoming.reverse().map(x => `
+      <h3>${t('news_soon')} · ${t('news_version', { v: x.version })}${x.start ? ' · ' + dayOf(x.start) : ''}</h3>
+      ${x.name ? `<p class="news-name">« ${esc(x.name)} »</p>` : ''}
+      ${x.phases.length ? newsVersionBody(x) : `<p class="hint small">${t('news_banners_later')}</p>`}`).join('');
+    const announced = news.unattached.length ? `<div class="news-group"><small>${t('news_announced')}</small>${news.unattached.map(a => warpItemTag({ ...a, rarity: 5, kind: 'char' })).join('')}</div>` : '';
+    v.innerHTML = `
+    <section class="panel">${head}${!vers.length ? `<p class="empty">${t('news_none')}</p>` : ''}</section>
+    ${soon || announced ? `<section class="panel news-soon">${soon}${announced}</section>` : ''}
+    ${current ? `<section class="panel">
+      <h3>${t('news_current')} · ${t('news_version', { v: current.version })}${current.end ? ' · ' + t('news_until', { d: dayOf(current.end) }) : ''}</h3>
+      ${current.name ? `<p class="news-name">« ${esc(current.name)} »</p>` : ''}
+      ${newsVersionBody(current)}
+    </section>` : ''}
+    ${previous.length ? `<section class="panel"><h3>${t('news_previous')}</h3>
+      ${previous.map(x => `<details class="news-old"><summary><b>${esc(x.version)}</b> <span class="hint small">${esc(monthOf(x.start))}${x.name ? ' · « ' + esc(x.name) + ' »' : ''}</span>
+        <span class="news-old-five">${[...new Set(x.phases.flatMap(p => p.items).filter(i => i.rarity === 5 && i.kind === 'char' && !i.rerun).map(i => i.name))].map(esc).join(', ')}</span></summary>
+        ${newsVersionBody(x)}</details>`).join('')}
+    </section>` : ''}`;
+  }
+
   /* ================================================================== FICHE PERSO */
   /* Les textes (compétences, traces, eidolons) sont chargés à la demande : version téléchargée par l'app
      si elle existe (commande game_details), sinon js/details/<langue>.js intégré. */
@@ -1257,12 +1378,15 @@
     setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2200);
   }
   function setLang(l) {
-    S.lang = l; save(); render();
+    S.lang = l; news = null; save(); render(); loadNews(false);   // les actus dépendent de la langue
     if (sheet) { const tab = sheet.tab; openSheet(sheet.id); sheet.tab = tab; renderSheet(); }
   }
 
   const actions = {
     tab: b => { S.tab = b.dataset.tab; save(); render(); window.scrollTo({ top: 0 }); },
+    newsRefresh: () => loadNews(true),
+    newsOpenWarps: () => { S.tab = 'warps'; save(); render(); window.scrollTo({ top: 0 }); },
+    newsPlanChar: b => { S.plChar = b.dataset.id; S.tab = 'planner'; save(); render(); window.scrollTo({ top: 0 }); },
     lang: el => setLang(el.value),
     toggleOwned: b => {
       const id = b.dataset.id;
@@ -1429,6 +1553,7 @@
   });
 
   render();
+  loadNews(false);   // en arrière-plan : point rouge sur l'onglet Actus s'il y a du nouveau
 
   /* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord) */
   for (const d of findCustomDuplicates(S.custom, BASE_CHARS)) {

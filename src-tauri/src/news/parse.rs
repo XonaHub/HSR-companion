@@ -335,6 +335,8 @@ fn collect_warp_items(text: &str, rerun: bool, dates: Option<(&Date, &Date)>, it
         } else {
             re!(r"([^,()]+?) \(([^()]+)\)").captures_iter(seg).map(|c| (c[1].to_string(), c[2].to_string())).collect()
         };
+        // un rerun ne concerne que les 5★ (les 4★ sont cités dans toutes les sections d'une phase)
+        let rerun = rerun && rarity == 5;
         for (name, paren) in found {
             let name = clean_name(&name);
             if name.is_empty() {
@@ -530,6 +532,8 @@ pub(crate) mod tests {
         assert_eq!(eva.end.as_deref(), Some("2026-10-21"));
         let q = find(&w.items, "Qingque");
         assert_eq!((q.rarity, q.element.as_deref(), q.path.as_deref()), (4, Some("quantum"), Some("erudition")));
+        // les 4★ sont aussi cités dans la section du rerun : ils ne sont pas des reruns pour autant
+        assert!(w.items.iter().filter(|i| i.rarity == 4).all(|i| !i.rerun));
         assert_eq!(find(&w.items, "Micha").path.as_deref(), Some("destruction"));
         let lc = find(&w.items, "Couleurs dédiées au lendemain");
         assert_eq!((lc.kind.as_str(), lc.rarity, lc.path.as_deref()), ("lc", 5, Some("elation")));

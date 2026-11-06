@@ -571,3 +571,33 @@ body.no-scroll { overflow: hidden; }
   .mt-actions select { flex: 1; max-width: none; }
   .team-editor { max-height: 100vh; height: 100vh; clip-path: none; padding: 22px 16px; }
 }
+
+/* ---------- Actus ---------- */
+.tab { position: relative; }
+.tab-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 8px var(--bad); }
+.news-soon { border-color: var(--violet-deep); }
+.news-soon h3 { color: var(--violet); }
+.news-name { margin: 0 0 10px; color: var(--muted); font-style: italic; }
+.news-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 14px; margin: 8px 0; }
+.news-grid > div { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.news-grid small, .news-group small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+.news-pulls { font-family: var(--font-title); font-size: 24px; color: var(--gold-hi); }
+.news-item { padding: 3px 10px; margin: 2px 4px 2px 0; flex-wrap: nowrap; white-space: nowrap; }
+.news-item.r5 { border-color: rgba(230, 192, 122, .45); }
+.news-rerun { color: var(--violet); text-transform: uppercase; font-size: 10px; letter-spacing: .1em; }
+.news-group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0; }
+.news-group small { width: 100%; }
+.news-actions { margin-top: 6px; }
+.news-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.news-more summary, .news-old summary { cursor: pointer; color: var(--gold); }
+.news-more h4 { margin: 12px 0 4px; }
+.news-more h5 { margin: 8px 0 2px; font-size: 13px; }
+.news-more p { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
+.news-events { margin: 0; padding-left: 18px; }
+.news-est { border-collapse: collapse; font-size: 13px; }
+.news-est td { padding: 3px 12px 3px 0; border-bottom: 1px dashed var(--line); }
+.news-est .total td { color: var(--gold-hi); font-weight: 600; border-bottom: 0; }
+.news-old { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.news-old summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; color: var(--text); }
+.news-old-five { margin-left: auto; color: var(--gold); font-size: 12px; }
+@media (max-width: 760px) { .news-grid { grid-template-columns: 1fr; } }
