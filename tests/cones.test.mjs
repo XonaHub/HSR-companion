@@ -31,3 +31,63 @@ test('unknown_cone_kept_with_archive_name', () => {
   assert.equal(ev(`coneOf(${JSON.stringify(LCS)}, '99999')`), null);
   assert.equal(ev(`coneOf(${JSON.stringify(LCS)}, 23024)`).id, '23024');
 });
+
+// --- coneAdvice ---
+const adv = loadScripts('data.js', 'gamechars.js', 'cones.js');
+const mkLc = (id, en) => ({ id: String(id), en, fr: en, rarity: 5, path: 'Nihility', icon: '', preview: '', asc: [] });
+const LCS2 = [mkLc(1, 'Along the Passing Shore'), mkLc(2, 'Incessant Rain'), mkLc(3, 'Good Night and Sleep Well'), mkLc(4, 'Boundless Choreo'),
+  mkLc(5, 'Cone Five'), mkLc(6, 'Cone Six'), mkLc(7, 'Cone Seven')];
+const ACHERON = { updated: '01/01/2026', stale: false, cones: [
+  { name: 'Along the Passing Shore', rank: 1, score: 125.5, sup: 1 },
+  { name: 'Incessant Rain', rank: 2, score: 107.77, sup: 1 },
+  { name: 'Good Night and Sleep Well', rank: 3, score: 100, sup: 5 },
+  { name: 'Boundless Choreo', rank: 4, score: 95.51, sup: 5 }] };
+const own = (uid, id, sup, owner) => ({ uid, id: String(id), name: 'x', level: 80, asc: 6, sup, owner });
+const INV = [own('a', 4, 5, 'acheron'), own('b', 3, 3, 'pela')];
+const advice = (ranking, cones, lcs = LCS2) =>
+  adv(`coneAdvice(${JSON.stringify(ranking)}, ${JSON.stringify(cones)}, ${JSON.stringify(lcs)}, 'acheron')`);
+
+test('splits_mine_and_target', () => {
+  const r = advice(ACHERON, INV);
+  assert.deepEqual(r.mine.map(e => e.lc.en), ['Good Night and Sleep Well', 'Boundless Choreo']);
+  assert.equal(r.mine[0].rank, 3); assert.equal(r.mine[0].owned.owner, 'pela'); assert.equal(r.mine[1].rank, 4);
+  assert.deepEqual(r.target.map(e => e.lc.en), ['Along the Passing Shore', 'Incessant Rain']);
+  assert.equal(r.target[0].owned, null);
+});
+
+test('better_points_to_higher_ranked_owned', () => {
+  const r = advice(ACHERON, INV);
+  assert.equal(r.equipped.id, '4'); assert.equal(r.better.lc.en, 'Good Night and Sleep Well');
+});
+
+test('no_better_when_best_is_equipped', () => {
+  const r = advice(ACHERON, [own('a', 4, 5, 'acheron')]);
+  assert.equal(r.better, null);
+});
+
+test('keeps_top5_only', () => {
+  const ranking = { updated: '', stale: false, cones: LCS2.map((l, i) => ({ name: l.en, rank: i + 1, score: null, sup: 1 })) };
+  const r = advice(ranking, INV);
+  assert.ok(r.mine.length + r.target.length <= 5);
+  assert.equal(r.mine.length + r.target.length, 5);
+});
+
+test('duplicate_entry_uses_closest_sup', () => {
+  const ranking = { updated: '', stale: false, cones: [
+    { name: 'Incessant Rain', rank: 1, score: null, sup: 1 },
+    { name: 'Boundless Choreo', rank: 2, score: null, sup: 5 },
+    { name: 'Boundless Choreo', rank: 6, score: null, sup: 1 }] };
+  const r = advice(ranking, [own('c', 4, 3, null)]);
+  assert.equal(r.mine.length, 1); assert.equal(r.mine[0].rank, 6); assert.equal(r.mine[0].testedSup, 1);
+  assert.deepEqual(r.target.map(e => e.lc.en), ['Incessant Rain']);
+});
+
+test('free_copy_preferred', () => {
+  const r = advice(ACHERON, [own('b', 3, 3, 'pela'), own('c', 3, 3, null)]);
+  assert.equal(r.mine[0].owned.owner, null);
+});
+
+test('equipped_outside_ranking_makes_first_owned_better', () => {
+  const r = advice(ACHERON, [own('z', 7, 1, 'acheron'), own('b', 3, 3, 'pela')]);
+  assert.equal(r.equipped.id, '7'); assert.equal(r.better.lc.en, 'Good Night and Sleep Well');
+});
