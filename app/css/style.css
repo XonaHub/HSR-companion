@@ -705,3 +705,17 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
 .ctag.eq { background: rgba(178, 150, 242, .15); color: var(--violet); }
 .ctag.warn { background: rgba(241, 194, 107, .15); color: var(--warn); }
 .lc-src { color: var(--dim); font-size: 11px; margin-top: 4px; }
+
+/* Onglet Persos : sélecteur Personnages / Cônes et inventaire des cônes */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+.seg button { border: 0; background: none; color: var(--muted); font: inherit; padding: 5px 16px; cursor: pointer; }
+.seg button:hover { color: var(--text); }
+.seg button.on { background: var(--text); color: var(--bg); font-weight: 600; }
+.cone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin-top: 12px; }
+.cone-card { display: flex; gap: 10px; padding: 8px; background: var(--inset); border: 1px solid var(--line); }
+.cone-card.r5 .lc-ic { background: linear-gradient(160deg, var(--gold-deep), #3a2810); }
+.cone-card small { display: block; color: var(--muted); }
+.cone-card .ctag { margin: 3px 0 0; }
+.ctag.free { background: rgba(255, 255, 255, .06); color: var(--muted); }
+.cone-star { color: var(--gold); font-size: 11px; margin-left: 6px; font-weight: 500; }
+.cone-rec { display: block; color: var(--gold); font-size: 11px; margin-top: 3px; }

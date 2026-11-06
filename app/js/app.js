@@ -30,6 +30,8 @@
     weak: [],
     rates: { ...DEFAULT_RATES },
     rosterFilter: { q: '', el: '', path: '', rar: '', owned: false },
+    rosterView: 'chars',  // 'chars' | 'cones' : sélecteur en haut de l'onglet Persos
+    coneFilter: { path: '', rar: '', equipped: false },
     newsSeen: '',         // dernière annonce vue dans l'onglet Actus (point rouge sinon)
     mergeDeclined: []     // fusions de persos personnalisés refusées (« idPerso>idOfficiel »)
   });
@@ -217,9 +219,14 @@
   let tabBarPos = null;   // position du trait doré sous l'onglet actif, pour le faire glisser au changement
 
   /* ================================================================== PERSONNAGES */
+  function rosterSwitch() {
+    return `<div class="seg" role="group">${['chars', 'cones'].map(k =>
+      `<button class="${S.rosterView === k ? 'on' : ''}" data-action="rosterView" data-view="${k}" aria-pressed="${S.rosterView === k}">${t('rv_' + k)}</button>`).join('')}</div>`;
+  }
   function renderRoster(v) {
+    if (S.rosterView === 'cones') return renderConeInventory(v);
     const f = S.rosterFilter;
-    v.innerHTML = `
+    v.innerHTML = rosterSwitch() + `
     <section class="panel">
       <h3>${t('acc_title')}</h3>
       <div class="import-box">
@@ -275,6 +282,53 @@
     const ownedCount = ownedChars().length;
     $('#ownedBadge').textContent = t('owned_count', { n: ownedCount, total: allChars().length });
     $('#rosterGrid').innerHTML = list.length ? list.map(charCard).join('') : `<p class="empty">${t('no_results')}</p>`;
+  }
+
+  /* Inventaire des cônes : tous les cônes importés, filtrés par Voie, rareté, équipés. Les cônes absents
+     des données du jeu gardent le nom de l'archive, sans icône ni Voie/rareté (ils sortent des filtres Voie et rareté). */
+  function renderConeInventory(v) {
+    const f = S.coneFilter;
+    v.innerHTML = rosterSwitch() + `
+    <section class="panel">
+      <div class="panel-head"><h2>${t('rv_cones')}</h2><span class="badge" id="coneBadge"></span></div>
+      <div class="toolbar">
+        <select data-cfilter="path">${opt('', t('all_paths'), f.path)}${PATHS.map(p => opt(p, t('path_' + p), f.path)).join('')}</select>
+        <select data-cfilter="rar">${opt('', t('all_rarities'), f.rar)}${opt('5', '5★', f.rar)}${opt('4', '4★', f.rar)}${opt('3', '3★', f.rar)}</select>
+        <label class="check"><input type="checkbox" data-cfilter="equipped" ${f.equipped ? 'checked' : ''}> ${t('cones_equipped_only')}</label>
+      </div>
+      <div id="coneGrid" class="cone-grid"></div>
+    </section>`;
+    renderConeGrid();
+  }
+  /* Meilleur classement Prydwen déjà en mémoire pour ce cône parmi les persos possédés (aucune requête ici) */
+  function coneTop(lc) {
+    let best = null;
+    for (const c of ownedChars()) {
+      const r = rankings.get(c.id);
+      if (!r || r === 'error') continue;
+      const adv = coneAdvice(r, S.cones, G.lightCones || [], c.id);
+      const e = adv.mine.concat(adv.target).find(x => x.lc.id === lc.id);
+      if (e && (!best || e.rank < best.rank)) best = { rank: e.rank, c };
+    }
+    return best;
+  }
+  function renderConeGrid() {
+    const f = S.coneFilter;
+    const list = S.cones.map(o => ({ o, lc: coneOf(G.lightCones || [], o.id) })).filter(({ o, lc }) =>
+      (!f.path || (lc && lc.path === f.path)) && (!f.rar || (lc && lc.rarity === +f.rar)) && (!f.equipped || o.owner)
+    ).sort((a, b) => ((b.lc ? b.lc.rarity : 0) - (a.lc ? a.lc.rarity : 0)) ||
+      coneName(a.lc, a.o.name).localeCompare(coneName(b.lc, b.o.name), S.lang));
+    $('#coneBadge').textContent = t('cones_count', { n: list.length, total: S.cones.length });
+    $('#coneGrid').innerHTML = list.length ? list.map(({ o, lc }) => {
+      const owner = o.owner && charById(o.owner), top = lc && coneTop(lc);
+      const sub = [`S${o.sup}`, t('lvl') + ' ' + o.level, lc && lc.path ? t('path_' + lc.path) : ''].filter(Boolean).join(' · ');
+      return `<div class="cone-card${lc ? ' r' + lc.rarity : ''}">
+        <span class="lc-ic">${lc ? img(lc.icon, 'lc-img', coneName(lc)) : ''}</span>
+        <div><b>${esc(coneName(lc, o.name))}${lc ? `<span class="cone-star">${lc.rarity}★</span>` : ''}</b><small>${esc(sub)}</small>
+          ${o.owner ? `<span class="ctag eq">${esc(owner ? charName(owner) : t('cone_tag_equipped'))}</span>` : `<span class="ctag free">${t('cone_free')}</span>`}
+          ${top ? `<span class="cone-rec">${esc(t('cone_top', { n: top.rank, name: charName(top.c) }))}</span>` : ''}</div>
+      </div>`;
+    }).join('') : `<p class="empty">${t(S.cones.length ? 'no_results' : 'cones_none')}</p>`;
   }
 
   function charCard(c) {
@@ -1521,6 +1575,7 @@
     newsOpenWarps: () => { S.tab = 'warps'; save(); render(); window.scrollTo({ top: 0 }); },
     newsPlanChar: b => { S.plChar = b.dataset.id; S.tab = 'planner'; save(); render(); window.scrollTo({ top: 0 }); },
     lang: el => setLang(el.value),
+    rosterView: b => { S.rosterView = b.dataset.view; save(); render(); },
     toggleOwned: b => {
       const id = b.dataset.id;
       if (S.owned[id]) delete S.owned[id]; else S.owned[id] = { e: 0 };
@@ -1669,6 +1724,10 @@
     if (el.id === 'archFile' && el.files[0]) return importArchiveFile(el.files[0]);
     if (el.id === 'importFile' && el.files[0]) {
       return readJsonFile(el.files[0], d => { S = migrate(merge(defaultState(), d)); save(); render(); toast(t('import_ok')); }, 'import_err');
+    }
+    if (el.dataset.cfilter) {
+      S.coneFilter[el.dataset.cfilter] = el.type === 'checkbox' ? el.checked : el.value;
+      save(); return renderConeGrid();
     }
     if (el.dataset.filter) {
       S.rosterFilter[el.dataset.filter] = el.type === 'checkbox' ? el.checked : el.value;
