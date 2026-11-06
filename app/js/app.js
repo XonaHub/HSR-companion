@@ -301,18 +301,22 @@
     </section>`;
     renderConeGrid();
   }
-  /* Meilleur classement Prydwen déjà en mémoire pour ce cône parmi les persos possédés (aucune requête ici) */
-  function coneTop(lc) {
-    let best = null;
+  /* Meilleurs classements Prydwen déjà en mémoire (aucune requête ici) : lcId → [{ rank, c, updated }] dans l'ordre des persos possédés.
+     coneAdvice n'est calculé qu'une fois par perso, pas une fois par cône. */
+  function coneTops() {
+    const map = new Map();
     for (const c of ownedChars()) {
       const r = rankings.get(c.id);
       if (!r || r === 'error') continue;
       const adv = coneAdvice(r, S.cones, G.lightCones || [], c.id);
-      const e = adv.mine.concat(adv.target).find(x => x.lc.id === lc.id);
-      if (e && (!best || e.rank < best.rank)) best = { rank: e.rank, c };
+      for (const e of adv.mine.concat(adv.target)) {
+        if (!map.has(e.lc.id)) map.set(e.lc.id, []);
+        map.get(e.lc.id).push({ rank: e.rank, c, updated: r.updated || '' });
+      }
     }
-    return best;
+    return map;
   }
+  const coneTopOf = (tops, lc) => (tops.get(lc.id) || []).reduce((best, e) => (!best || e.rank < best.rank ? e : best), null);
   function renderConeGrid() {
     const f = S.coneFilter;
     const list = S.cones.map(o => ({ o, lc: coneOf(G.lightCones || [], o.id) })).filter(({ o, lc }) =>
@@ -320,8 +324,10 @@
     ).sort((a, b) => ((b.lc ? b.lc.rarity : 0) - (a.lc ? a.lc.rarity : 0)) ||
       coneName(a.lc, a.o.name).localeCompare(coneName(b.lc, b.o.name), S.lang));
     $('#coneBadge').textContent = t('cones_count', { n: list.length, total: S.cones.length });
+    const tops = coneTops(), shown = [];
     $('#coneGrid').innerHTML = list.length ? list.map(({ o, lc }) => {
-      const owner = o.owner && charById(o.owner), top = lc && coneTop(lc);
+      const owner = o.owner && charById(o.owner), top = lc && coneTopOf(tops, lc);
+      if (top) shown.push(top);
       const sub = [`S${o.sup}`, t('lvl') + ' ' + o.level, lc && lc.path ? t('path_' + lc.path) : ''].filter(Boolean).join(' · ');
       return `<div class="cone-card${lc ? ' r' + lc.rarity : ''}">
         <span class="lc-ic">${lc ? img(lc.icon, 'lc-img', coneName(lc)) : ''}</span>
@@ -330,6 +336,13 @@
           ${top ? `<span class="cone-rec">${esc(t('cone_top', { n: top.rank, name: charName(top.c) }))}</span>` : ''}</div>
       </div>`;
     }).join('') : `<p class="empty">${t(S.cones.length ? 'no_results' : 'cones_none')}</p>`;
+    // source (et date la plus ancienne) des classements affichés
+    const oldest = shown.map(x => x.updated).filter(Boolean).sort()[0];
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(oldest || '');
+    const note = !shown.length ? '' : m ? t('cones_rank_src_date', { date: new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(locale()) }) : t('cones_rank_src');
+    let el = $('#coneRankSrc');
+    if (!el) { el = document.createElement('p'); el.id = 'coneRankSrc'; el.className = 'lc-src'; $('#coneGrid').after(el); }
+    el.textContent = note;
   }
 
   function charCard(c) {
@@ -559,6 +572,7 @@
         <button class="btn sm danger" data-action="delPlan" data-id="${p.id}" title="${esc(t('delete'))}">×</button>
       </summary>
       <label class="check lc-card"><input type="checkbox" data-action="togglePlanLc" data-id="${p.id}" ${lcOn ? 'checked' : ''} ${lcOk ? '' : 'disabled'}> ${t('include_lc')} <small>${esc(lcOk ? coneName(gC, eq.name) : lcWhy)}</small></label>
+      <label class="field lc-card">${t('lc_to')} <select data-action="planLcTo" data-id="${p.id}" ${lcOn ? '' : 'disabled'}>${LEVELS.map(l => opt(l, l, p.lc ? p.lc.lvTo : 80)).join('')}</select></label>
       ${f ? `<p class="hint small">${t('plan_mats_hint')}</p>` : ''}
       ${matTable(matRows(tot, !!f))}
     </details>`;
@@ -1655,6 +1669,7 @@
     gachaAuto: () => importGacha(null),
     gachaUrl: () => importGacha($('#gachaUrl').value.trim()),
     togglePlanLc: el => { const p = S.plans.find(x => x.id === el.dataset.id); if (p) { p.lc = { ...(p.lc || { lvTo: 80 }), on: el.checked }; save(); render(); } },
+    planLcTo: el => { const p = S.plans.find(x => x.id === el.dataset.id); if (p) { p.lc = { ...(p.lc || { on: false }), lvTo: +el.value }; save(); render(); } },
     togglePlan: el => { const p = S.plans.find(x => x.id === el.dataset.id); if (p) { p.on = el.checked; save(); render(); } },
     simulate: () => { $('#simOut').innerHTML = `<p class="hint">${t('computing')}</p>`; setTimeout(simulate, 20); },
     addWish: () => {
