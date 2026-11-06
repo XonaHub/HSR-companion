@@ -94,7 +94,7 @@ h4 { font-size: 13px; color: var(--muted); }
 .brand h1::before { content: none; }
 .brand small { display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); margin-top: -2px; }
 .logo { width: 30px; height: 30px; color: var(--gold); filter: drop-shadow(0 0 8px rgba(230, 192, 122, .55)); }
-#tabs { display: flex; gap: 2px; flex: 1; flex-wrap: wrap; align-self: stretch; }
+#tabs { display: flex; gap: 2px; flex: 1; flex-wrap: wrap; align-self: stretch; position: relative; }
 .tab {
   position: relative; border: 0; background: none; cursor: pointer; color: var(--muted);
   display: flex; gap: 8px; align-items: center; padding: 0 14px; min-height: 64px;
@@ -104,11 +104,13 @@ h4 { font-size: 13px; color: var(--muted); }
 .tab svg { width: 18px; height: 18px; flex: none; opacity: .8; }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--gold-hi); }
-.tab.active::after {
-  content: ""; position: absolute; left: 14px; right: 14px; bottom: 0; height: 2px;
+/* trait doré + losange sous l'onglet actif : un seul élément qui glisse d'un onglet à l'autre (app.js : renderTabs) */
+.tab-bar {
+  position: absolute; height: 2px; pointer-events: none;
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  transition: left .35s cubic-bezier(.2, .8, .2, 1), width .35s cubic-bezier(.2, .8, .2, 1), top .35s cubic-bezier(.2, .8, .2, 1);
 }
-.tab.active::before {
+.tab-bar::after {
   content: ""; position: absolute; left: 50%; bottom: 6px; width: 5px; height: 5px; transform: translateX(-50%) rotate(45deg);
   background: var(--gold);
 }
@@ -601,3 +603,81 @@ body.no-scroll { overflow: hidden; }
 .news-old summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; color: var(--text); }
 .news-old-five { margin-left: auto; color: var(--gold); font-size: 12px; }
 @media (max-width: 760px) { .news-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Animations (désactivées si Windows est réglé sur « réduire les animations », voir en bas) ---------- */
+:root { --ease-out: cubic-bezier(.2, .8, .2, 1); }
+
+/* changement d'onglet : panneaux en cascade (classe posée par app.js : enterView) */
+#view.enter > * { animation: rise .45s var(--ease-out) both; }
+#view.enter > *:nth-child(2) { animation-delay: .07s; }
+#view.enter > *:nth-child(3) { animation-delay: .14s; }
+#view.enter > *:nth-child(4) { animation-delay: .21s; }
+#view.enter > *:nth-child(n+5) { animation-delay: .28s; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+
+/* boutons : reflet doré qui balaie, bordure qui s'illumine ; bouton principal : le rond devient losange */
+.btn { position: relative; overflow: hidden; transition: background .15s, border-color .25s, color .25s, box-shadow .25s; }
+.btn::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(246, 223, 174, .3), transparent); transform: skewX(-20deg);
+}
+.btn:hover { border-color: var(--gold); box-shadow: 0 0 12px rgba(230, 192, 122, .22); }
+.btn:hover::after { animation: shine .7s ease; }
+.btn.sm.danger::after { display: none; }          /* petits boutons « × » : pas de reflet */
+.btn.danger:hover { border-color: var(--bad); box-shadow: none; }
+.btn.primary:hover { box-shadow: 0 0 16px rgba(246, 223, 174, .35); }
+.btn.primary::before { transition: transform .3s var(--ease-out), border-radius .3s; }
+.btn.primary:hover::before { transform: rotate(45deg); border-radius: 0; }
+.chip-toggle:hover { box-shadow: 0 0 10px color-mix(in srgb, var(--el) 22%, transparent); }
+@keyframes shine { to { left: 130%; } }
+
+/* cartes de persos : soulèvement, liseré doré et halo de la couleur de l'élément */
+.char-card { transition: filter .3s; }
+.char-card .tile { transition: transform .3s var(--ease-out), filter .2s; }
+.char-card .tile:hover { transform: translateY(-6px); }
+.char-card:has(.tile:hover) { filter: drop-shadow(0 0 1px rgba(230, 192, 122, .9)) drop-shadow(0 10px 12px color-mix(in srgb, var(--el) 45%, transparent)); }
+.mt-member .avatar { transition: transform .25s var(--ease-out), box-shadow .25s; }
+.mt-member:not(.empty):hover .avatar { transform: translateY(-3px); }
+
+/* sections repliables : le contenu se déroule, la flèche pivote */
+details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
+@keyframes unfold { from { opacity: 0; transform: translateY(-6px); } }
+.news-more > summary, .news-old > summary { list-style: none; }
+.news-more > summary::-webkit-details-marker, .news-old > summary::-webkit-details-marker { display: none; }
+.news-more > summary::before, .news-old > summary::before {
+  content: "▸"; display: inline-block; margin-right: 6px; color: var(--gold); transition: transform .25s var(--ease-out);
+}
+.news-more[open] > summary::before, .news-old[open] > summary::before { transform: rotate(90deg); }
+
+/* point « nouveau » de l'onglet Actus : onde douce */
+.tab-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--bad); animation: ping 1.8s cubic-bezier(0, 0, .2, 1) infinite; }
+@keyframes ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
+
+/* reflet doré de temps en temps sur les 5★ (décalé d'un élément à l'autre) */
+.news-item.r5 { position: relative; overflow: hidden; }
+.news-item.r5::after, .tile.r5 .tile-art::before {
+  content: ""; position: absolute; top: 0; left: -50%; width: 30%; height: 100%; z-index: 2; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(246, 223, 174, .35), transparent); transform: skewX(-20deg);
+  animation: sweep 7s ease-in-out infinite;
+}
+.news-item.r5:nth-child(4n+2)::after, .char-card:nth-child(5n+2) .tile.r5 .tile-art::before { animation-delay: 1.4s; }
+.news-item.r5:nth-child(4n+3)::after, .char-card:nth-child(5n+3) .tile.r5 .tile-art::before { animation-delay: 2.8s; }
+.news-item.r5:nth-child(4n)::after, .char-card:nth-child(5n+4) .tile.r5 .tile-art::before { animation-delay: 4.2s; }
+.char-card:nth-child(5n) .tile.r5 .tile-art::before { animation-delay: 5.6s; }
+@keyframes sweep { 0%, 82% { left: -50%; } 100% { left: 140%; } }
+
+/* notifications : arrivée avec un léger rebond et une étoile dorée */
+.toast { transition: transform .45s cubic-bezier(.2, 1.4, .4, 1), opacity .3s; }
+.toast::before { content: "✦ "; color: var(--gold-deep); }
+
+/* ciel étoilé vivant (étoiles créées par app.js : startSky), sous le contenu */
+#sky { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+#sky i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; opacity: .2; animation: twinkle 6s ease-in-out infinite; }
+#sky i.gold { background: var(--gold-hi); }
+@keyframes twinkle { 50% { opacity: .9; box-shadow: 0 0 6px rgba(255, 255, 255, .7); } }
+
+/* Windows réglé sur « réduire les animations » : tout reste immédiat et immobile */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  #sky { display: none; }
+}

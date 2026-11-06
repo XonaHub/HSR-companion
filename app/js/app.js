@@ -160,6 +160,7 @@
   };
   const RENDERERS = { roster: renderRoster, planner: renderPlanner, warps: renderWarps, relics: renderRelics, teams: renderTeams, news: renderNews, settings: renderSettings };
 
+  let shownTab = null;    // onglet affiché : la cascade d'entrée ne se joue qu'en changeant d'onglet
   function render() {
     document.documentElement.lang = S.lang;
     $('#langSelect').value = S.lang;
@@ -167,7 +168,52 @@
     resetCaches();
     $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
     RENDERERS[S.tab]($('#view'));
+    if (shownTab !== S.tab) { shownTab = S.tab; enterView(); }
   }
+
+  /* ------------------------------------------------------------------ animations
+     Tout est désactivé si Windows est réglé sur « réduire les animations » (voir aussi style.css). */
+  const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let enterTimer = null;
+  /* Panneaux de l'onglet qui apparaissent en cascade, puis grands chiffres qui défilent */
+  function enterView() {
+    const v = $('#view');
+    v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter');
+    clearTimeout(enterTimer); enterTimer = setTimeout(() => v.classList.remove('enter'), 900);
+    countUpIn(v);
+  }
+  /* Les éléments [data-count] montent de 0 à leur valeur (data-fmt="pct" : probabilité affichée en %) */
+  function countUpIn(root) {
+    if (reduceMotion()) return;
+    for (const el of root.querySelectorAll('[data-count]')) {
+      const to = Number(el.dataset.count), pctFmt = el.dataset.fmt === 'pct';
+      if (!isFinite(to) || to <= 0) continue;
+      const show = x => { el.textContent = pctFmt ? pct(x, 1) : fmt(x); };
+      const t0 = performance.now();
+      const step = now => {
+        const p = Math.min(1, (now - t0) / 700), e = 1 - Math.pow(1 - p, 3);
+        show(p < 1 ? (pctFmt ? to * e : Math.round(to * e)) : to);
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+  }
+  /* Ciel étoilé vivant : petites étoiles qui scintillent lentement, chacune à son rythme */
+  function startSky() {
+    if (reduceMotion() || $('#sky')) return;
+    const sky = document.createElement('div'); sky.id = 'sky'; sky.setAttribute('aria-hidden', 'true');
+    for (let i = 0; i < 46; i++) {
+      const st = document.createElement('i');
+      if (i % 7 === 0) st.className = 'gold';
+      st.style.left = (Math.random() * 100).toFixed(2) + '%';
+      st.style.top = (Math.random() * 100).toFixed(2) + '%';
+      st.style.animationDelay = (Math.random() * 6).toFixed(2) + 's';
+      st.style.animationDuration = (4 + Math.random() * 5).toFixed(2) + 's';
+      sky.appendChild(st);
+    }
+    document.body.prepend(sky);
+  }
+  let tabBarPos = null;   // position du trait doré sous l'onglet actif, pour le faire glisser au changement
 
   /* ================================================================== PERSONNAGES */
   function renderRoster(v) {
@@ -234,7 +280,7 @@
     const o = S.owned[c.id];
     const g = gameChar(c);
     const tip = `${charName(c)} · ${t('el_' + c.element)} · ${t('path_' + c.path)} — ${o ? t('owned') : t('add')}`;
-    return `<div class="char-card ${o ? 'owned' : ''}">
+    return `<div class="char-card ${o ? 'owned' : ''}" style="--el:${EL_COLORS[c.element]}">
       <button class="tile r${c.rarity}" data-action="toggleOwned" data-id="${c.id}" title="${esc(tip)}" aria-pressed="${!!o}">
         <div class="tile-art">
           <span class="ini">${esc(initials(c))}</span>
@@ -533,7 +579,7 @@
   function updateWarpDerived() {
     const el = $('#pullsAvail'); if (!el) return;
     const { pulls, income } = availablePulls();
-    el.textContent = fmt(pulls);
+    el.textContent = fmt(pulls); el.dataset.count = pulls;
     $('#incomeInfo').textContent = income ? t('income_info', { j: fmt(income) }) : '';
     const w = S.warp;
     const bar = (label, val, max, soft) => `<div class="pity-bar"><div class="pb-label"><span>${label}</span><b>${val} / ${max}</b></div>
@@ -568,7 +614,7 @@
       const p = probAt(need), mean = need.reduce((a, b) => a + b, 0) / N, med = quant(0.5), p90 = quant(0.9);
       const goal = [tc > 0 ? 'E' + (tc - 1) : '', tl > 0 ? 'S' + tl : ''].filter(Boolean).join(' + ');
       html += `<div class="sim-result">
-        <div class="gauge" style="--p:${p * 100}"><span>${pct(p, 1)}</span></div>
+        <div class="gauge" style="--p:${p * 100}"><span data-count="${p}" data-fmt="pct">${pct(p, 1)}</span></div>
         <div><h4>${t('sim_goal', { goal, n: fmt(P) })}</h4>
           <ul class="sim-list">
             <li>${t('sim_mean')} : <b>${fmt(mean)}</b> ${t('pulls')}</li>
@@ -581,6 +627,7 @@
       return `<div class="e-cell"><b>E${k - 1}</b><div class="e-bar"><div style="height:${p * 100}%"></div></div><span>${pct(p, 0)}</span></div>`;
     }).join('')}</div><p class="hint small">${t('sim_model')}</p>`;
     out.innerHTML = html;
+    countUpIn(out);
   }
 
   /* ================================================================== RELIQUES */
@@ -925,7 +972,19 @@
   const hasUnseenNews = () => !!(news && news.latestId && idNewer(news.latestId, S.newsSeen || ''));
 
   function renderTabs() {
-    $('#tabs').innerHTML = TABS.map(k => `<button class="tab ${S.tab === k ? 'active' : ''}" data-action="tab" data-tab="${k}" title="${esc(t('tab_' + k))}">${TAB_ICONS[k]}<span>${t('tab_' + k)}</span>${k === 'news' && hasUnseenNews() && S.tab !== 'news' ? '<i class="tab-dot" aria-hidden="true"></i>' : ''}</button>`).join('');
+    const tabs = $('#tabs');
+    tabs.innerHTML = TABS.map(k => `<button class="tab ${S.tab === k ? 'active' : ''}" data-action="tab" data-tab="${k}" title="${esc(t('tab_' + k))}">${TAB_ICONS[k]}<span>${t('tab_' + k)}</span>${k === 'news' && hasUnseenNews() && S.tab !== 'news' ? '<i class="tab-dot" aria-hidden="true"></i>' : ''}</button>`).join('') + '<span class="tab-bar" aria-hidden="true"></span>';
+    const active = tabs.querySelector('.tab.active'), bar = tabs.querySelector('.tab-bar');
+    if (!active) return;
+    const to = { left: active.offsetLeft, width: active.offsetWidth, top: active.offsetTop + active.offsetHeight - 2 };
+    if (tabBarPos && !reduceMotion()) {   // part de l'ancien onglet puis glisse vers le nouveau
+      bar.style.transition = 'none';
+      bar.style.left = tabBarPos.left + 'px'; bar.style.width = tabBarPos.width + 'px'; bar.style.top = tabBarPos.top + 'px';
+      void bar.offsetWidth;
+      bar.style.transition = '';
+    }
+    bar.style.left = to.left + 'px'; bar.style.width = to.width + 'px'; bar.style.top = to.top + 'px';
+    tabBarPos = to;
   }
 
   /* Affiche d'abord le dernier fil enregistré (sans réseau), puis le rafraîchit.
@@ -985,7 +1044,7 @@
           ${evJades ? `<p class="hint small">${t('news_jades_listed', { j: fmt(evJades) })}</p>` : ''}
         </div>
         <div><small>${t('news_pulls')}</small>
-          ${est ? `<b class="news-pulls">≈ ${fmt(est.pulls)} ${t('pulls')}</b><p class="hint small">${t('news_total', { j: fmt(est.jades), p: fmt(est.passes) })} · ${t('news_estimate')}</p>`
+          ${est ? `<b class="news-pulls">≈ <span data-count="${est.pulls}">${fmt(est.pulls)}</span> ${t('pulls')}</b><p class="hint small">${t('news_total', { j: fmt(est.jades), p: fmt(est.passes) })} · ${t('news_estimate')}</p>`
             : `<p class="hint small">${t('news_no_dates')}</p>`}
         </div>
       </div>
@@ -1557,7 +1616,9 @@
     if (el.closest('.relic-form')) updateRelicPreview();
   });
 
+  window.addEventListener('resize', () => { tabBarPos = null; renderTabs(); });
   render();
+  startSky();
   loadNews(false);   // en arrière-plan : point rouge sur l'onglet Actus s'il y a du nouveau
 
   /* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord) */
