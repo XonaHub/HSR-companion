@@ -720,6 +720,24 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
 .ctag.warn { background: rgba(241, 194, 107, .15); color: var(--warn); }
 .lc-src { color: var(--dim); font-size: 11px; margin-top: 4px; }
 
+/* onglet Reliques de la fiche : bilan, pièces à remplacer */
+.rl-check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rl-check li { display: flex; gap: 10px; align-items: baseline; padding: 6px 10px; background: var(--inset); border: 1px solid var(--line); }
+.rl-check li::before { content: "·"; width: 12px; color: var(--muted); font-weight: 700; }
+.rl-check li.ok::before { content: "✓"; color: var(--ok); }
+.rl-check li.bad::before { content: "✗"; color: var(--bad); }
+.rl-check li span { color: var(--muted); font-size: 12px; min-width: 110px; }
+.rl-check li span:empty { display: none; }
+.rl-check li b { font-weight: 500; }
+.rl-prio { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--inset); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--warn); }
+.rl-prio .grade-pill { width: 20px; height: 20px; margin: 0 6px 0 8px; vertical-align: middle; }
+.rl-prio .grade-pill > span { font-size: 11px; }
+.rl-why { display: block; color: var(--warn); }
+.rl-better { color: var(--ok); }
+.rl-better small { color: var(--muted); }
+.rl-none { color: var(--dim); }
+.relic-card.rl-empty { justify-content: center; align-items: center; min-height: 80px; color: var(--muted); opacity: .6; }
+
 /* Onglet Persos : sélecteur Personnages / Cônes et inventaire des cônes */
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
 .seg button { border: 0; background: none; color: var(--muted); font: inherit; padding: 5px 16px; cursor: pointer; }

@@ -24,6 +24,29 @@ pub struct Ranking {
     pub fetched_at: i64,
     pub stale: bool,
     pub cones: Vec<RankedCone>,
+    /// Conseils de reliques de la même page (absent des caches d'avant les reliques)
+    #[serde(default)]
+    pub relics: Option<RelicAdvice>,
+}
+
+/// Un set d'une entrée conseillée et son nombre de pièces (4, ou 2)
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct SetPick {
+    pub name: String,
+    pub pieces: u8,
+}
+
+/// Conseils de reliques d'un perso : noms, ordre et stats seulement.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct RelicAdvice {
+    /// « Best Relic Sets » dans l'ordre : 1 set (4 pièces), 2 sets (2 + 2) ou 1 set 2 pièces + « Flex »
+    pub sets: Vec<Vec<SetPick>>,
+    /// Bonus 2 pièces à combiner (« mix and match »)
+    pub flex: Vec<String>,
+    /// « Best Planetary Sets » dans l'ordre
+    pub planars: Vec<String>,
+    /// body / feet / sphere / rope → clés de stats de l'app, dans l'ordre de Prydwen
+    pub main: std::collections::BTreeMap<String, Vec<String>>,
 }
 
 fn unescape(s: &str) -> String {
@@ -62,7 +85,85 @@ pub fn parse_ranking(html: &str) -> Option<Ranking> {
     if cones.is_empty() {
         return None;
     }
-    Some(Ranking { updated, fetched_at: 0, stale: false, cones })
+    Some(Ranking { updated, fetched_at: 0, stale: false, cones, relics: parse_relics(html) })
+}
+
+/// Stat principale de Prydwen → clé de l'app (`None` si inconnue)
+fn stat_key(label: &str) -> Option<String> {
+    let l = unescape(label).to_lowercase();
+    let k = match l.trim() {
+        "crit rate" => "cr",
+        "crit dmg" => "cd",
+        "atk%" | "atk" => "atk_pct",
+        "hp%" | "hp" => "hp_pct",
+        "def%" | "def" => "def_pct",
+        "speed" | "spd" => "spd",
+        "break effect" => "be",
+        "energy regen rate" | "energy regeneration rate" | "err" => "err",
+        "outgoing healing" | "outgoing healing boost" | "healing bonus" => "heal",
+        "effect hit rate" | "ehr" => "ehr",
+        other => {
+            let el = other.strip_suffix(" dmg")?;
+            return ["physical", "fire", "ice", "lightning", "wind", "quantum", "imaginary"]
+                .contains(&el).then(|| format!("dmg_{el}"));
+        }
+    };
+    Some(k.to_string())
+}
+
+/// Conseils de reliques : sets, sets planaires et stats principales. `None` si aucune de ces parties n'est lisible.
+pub fn parse_relics(html: &str) -> Option<RelicAdvice> {
+    let set = Regex::new(r#"class="hsr-set-name[^"]*">([^<]+)(?:<!-- -->)?\s*<span>\((?:<!-- -->)?(\d)(?:<!-- -->)?-PC\)"#).unwrap();
+    let after = |from: &str| html.find(from).map(|i| &html[i..]);
+    let mut advice = RelicAdvice::default();
+    if let Some(rest) = after("Best Relic Sets") {
+        let end = ["Best Planetary Sets", "<h2"].iter().filter_map(|m| rest[20..].find(m).map(|i| i + 20)).min().unwrap_or(rest.len());
+        let section = &rest[..end];
+        for chunk in section.split("class=\"single-cone").skip(1) {
+            // la liste « mix and match » suit la dernière entrée : on ne lit les sets qu'avant elle
+            let head = &chunk[..chunk.find("class=\"information").unwrap_or(chunk.len())];
+            let picks: Vec<SetPick> = set.captures_iter(head)
+                .filter_map(|c| Some(SetPick { name: unescape(&c[1]), pieces: c[2].parse().ok()? })).collect();
+            if !picks.is_empty() {
+                advice.sets.push(picks);
+            }
+        }
+        if let Some(i) = section.find("mix and match") {
+            let name = Regex::new(r#"class="hsr-name"><span>([^<]+)</span>"#).unwrap();
+            advice.flex = name.captures_iter(&section[i..]).map(|c| unescape(&c[1])).collect();
+        }
+    }
+    if let Some(rest) = after("Best Planetary Sets") {
+        let section = &rest[..rest.find("class=\"build-stats").or_else(|| rest.find("<h2")).unwrap_or(rest.len())];
+        advice.planars = set.captures_iter(section).map(|c| unescape(&c[1])).collect();
+    }
+    if let Some(rest) = after("Best Stats") {
+        let section = &rest[..rest.find("Substats").unwrap_or(rest.len())];
+        let header = Regex::new(r#"class="stats-header"><span>([^<]+)</span>"#).unwrap();
+        // l'icône de la stat (`<img …/>`) précède parfois son nom
+        let stat = Regex::new(r#"class="hsr-stat">(?:<img[^>]*>)?<span[^>]*>([^<]+)</span>"#).unwrap();
+        let heads: Vec<_> = header.captures_iter(section).collect();
+        for (i, h) in heads.iter().enumerate() {
+            let slot = match h[1].trim() {
+                "Body" => "body",
+                "Feet" => "feet",
+                "Planar Sphere" => "sphere",
+                "Link Rope" => "rope",
+                _ => continue,
+            };
+            let stop = heads.get(i + 1).map_or(section.len(), |n| n.get(0).unwrap().start());
+            let mut keys: Vec<String> = Vec::new();
+            for c in stat.captures_iter(&section[h.get(0).unwrap().end()..stop]) {
+                if let Some(k) = stat_key(&c[1]).filter(|k| !keys.contains(k)) {
+                    keys.push(k);
+                }
+            }
+            if !keys.is_empty() {
+                advice.main.insert(slot.to_string(), keys);
+            }
+        }
+    }
+    (!advice.sets.is_empty() || !advice.planars.is_empty() || !advice.main.is_empty()).then_some(advice)
 }
 
 /// Persos de la page « characters » : (nom affiché, adresse). L'adresse vient du lien de la fiche, jamais du nom.
@@ -97,6 +198,35 @@ mod tests {
         assert_eq!(r.cones[2].name, "Good Night and Sleep Well");
         assert_eq!(r.cones[2].sup, 5);
         assert_eq!(r.cones[3].rank, 4);
+    }
+
+    #[test]
+    fn parse_acheron_relics() {
+        let a = parse_ranking(&fixture("acheron.html")).unwrap().relics.unwrap();
+        let pick = |n: &str, p: u8| SetPick { name: n.into(), pieces: p };
+        assert_eq!(a.sets[0], vec![pick("Pioneer Diver of Dead Waters", 4)]);
+        assert_eq!(a.sets[1], vec![pick("Scholar Lost in Erudition", 4)]);
+        assert_eq!(a.sets.last().unwrap(), &vec![pick("Scholar Lost in Erudition", 2)]);
+        assert_eq!(a.sets.len(), 4);
+        assert_eq!(a.flex.len(), 5);
+        assert_eq!(a.flex[0], "Pioneer Diver of Dead Waters");
+        assert_eq!(a.planars[0], "Izumo Gensei and Takama Divine Realm");
+        assert_eq!(a.planars.len(), 4);
+        assert_eq!(a.planars[3], "Firmament Frontline: Glamoth");
+        let main = |s: &str| a.main[s].iter().map(String::as_str).collect::<Vec<_>>();
+        assert_eq!(main("body"), ["cr", "cd"]);
+        assert_eq!(main("feet"), ["atk_pct", "spd"]);
+        assert_eq!(main("sphere"), ["atk_pct", "dmg_lightning"]);
+        assert_eq!(main("rope"), ["atk_pct"]);
+    }
+
+    #[test]
+    fn relics_absent_or_unknown_stats() {
+        assert_eq!(parse_relics("<html>rien</html>"), None);
+        assert_eq!(stat_key("Lightning DMG").as_deref(), Some("dmg_lightning"));
+        assert_eq!(stat_key("Energy Regen Rate").as_deref(), Some("err"));
+        assert_eq!(stat_key("Something new"), None);
+        assert_eq!(stat_key("Shadow DMG"), None);
     }
 
     #[test]

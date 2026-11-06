@@ -93,7 +93,8 @@ pub fn ranking_with(dir: &Path, name_en: &str, force: bool, now: i64, fetch: imp
         .ok_or("introuvable")?;
     let path = dir.join(format!("{slug}.json"));
     let cached: Option<Ranking> = read(&path);
-    if let Some(c) = cached.as_ref().filter(|c| !force && now - c.fetched_at < FRESH_MS) {
+    // un cache d'avant la lecture des reliques (`relics` absent) est redemandé une fois
+    if let Some(c) = cached.as_ref().filter(|c| !force && now - c.fetched_at < FRESH_MS && c.relics.is_some()) {
         return Ok(c.clone());
     }
     if !force && attempted_recently(dir, &slug, now) {
@@ -174,7 +175,7 @@ mod tests {
     fn seeded(name: &str, fetched_at: i64) -> PathBuf {
         let dir = tempdir(name);
         write_list(&dir, 2 * DAY);
-        let r = Ranking { updated: "2026-11-04".into(), fetched_at, stale: false, cones: vec![RankedCone { name: "Incessant Rain".into(), rank: 1, score: None, sup: 1 }] };
+        let r = Ranking { updated: "2026-11-04".into(), fetched_at, stale: false, cones: vec![RankedCone { name: "Incessant Rain".into(), rank: 1, score: None, sup: 1 }], relics: Some(Default::default()) };
         fs::write(dir.join("acheron.json"), serde_json::to_string(&r).unwrap()).unwrap();
         dir
     }
@@ -263,6 +264,21 @@ mod tests {
         let r = ranking_with(&blocker, "Acheron", false, 5_000, fetch).unwrap();
         assert_eq!(r.cones.len(), 4);
         let _ = fs::remove_file(&blocker);
+    }
+
+    #[test]
+    fn fresh_cache_without_relics_is_fetched_once() {
+        let dir = seeded("norelics", 2 * DAY - 60 * 60 * 1000);
+        // cache enregistré avant la lecture des reliques
+        let mut old: serde_json::Value = serde_json::from_str(&fs::read_to_string(dir.join("acheron.json")).unwrap()).unwrap();
+        old.as_object_mut().unwrap().remove("relics");
+        fs::write(dir.join("acheron.json"), old.to_string()).unwrap();
+        let calls = std::cell::Cell::new(0);
+        let fetch = |_: &str| -> Result<String, String> { calls.set(calls.get() + 1); Ok(fixture("acheron.html")) };
+        let r = ranking_with(&dir, "Acheron", false, 2 * DAY, &fetch).unwrap();
+        assert!(r.relics.is_some_and(|a| !a.sets.is_empty()));
+        ranking_with(&dir, "Acheron", false, 2 * DAY + 1000, &fetch).unwrap();
+        assert_eq!(calls.get(), 1);
     }
 
     #[test]

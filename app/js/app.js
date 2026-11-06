@@ -887,7 +887,7 @@
     return res;
   }
 
-  function relicCard(r) {
+  function relicCard(r, o = {}) {   // o.readOnly : sans bouton de suppression (fiche du perso)
     const owner = r.owner && charById(r.owner);
     const [prof, s, isBest] = scoreFor(r);
     const w = PROFILES[prof].weights;
@@ -899,7 +899,7 @@
       <ul class="rc-subs">${r.subs.filter(x => x.stat).map(x => `<li class="${(w[x.stat] || 0) >= 0.75 ? 'good' : (w[x.stat] || 0) > 0 ? 'mid' : 'dead'}">${statIcon(x.stat)}<span>${statLabel(x.stat)}</span><b>${fmtStat(x.stat, x.val)}</b></li>`).join('')}</ul>
       <div class="rc-foot"><small>${owner ? esc(charName(owner)) : t('nobody')} · ${isBest ? t('best_for') + ' ' : ''}${t('prof_' + prof)}</small>
         <small>${t('useful_rolls', { n: s.useful.toFixed(1) })}</small>
-        <button class="btn sm danger" data-action="delRelic" data-id="${r.id}">×</button></div>
+        ${o.readOnly ? '' : `<button class="btn sm danger" data-action="delRelic" data-id="${r.id}">×</button>`}</div>
     </div>`;
   }
   /* Icône de la pièce : icon/relic/{set}_{index} (tête/sphère 0, mains/corde 1, torse 2, pieds 3) */
@@ -1305,7 +1305,7 @@
 
   let sheet = null;   // { id, tab, lv: { indexCompétence: niveau }, err }
   const DEFAULT_SKILL_LV = { Normal: 6, BPSkill: 10, Ultra: 10, Talent: 10, MemospriteSkill: 6, MemospriteTalent: 6, ElationDamage: 10 };
-  const SHEET_TABS = ['skills', 'traces', 'eidolons', 'cones', 'mats'];
+  const SHEET_TABS = ['skills', 'traces', 'eidolons', 'cones', 'relics', 'mats'];
 
   /* Remplace les marqueurs du jeu (#1[i]%, #2[f1]…) par les valeurs du niveau choisi */
   function fmtDesc(desc, params) {
@@ -1381,6 +1381,55 @@
       ${adv.target.length ? `<h3>${t('cones_target')}</h3>${adv.target.map(e => coneRow(e, false)).join('')}` : ''}
       <p class="lc-src">${esc(t('cones_source', { date }))}${r.stale ? ' · ' + esc(t('cones_offline')) : ''}</p>`;
   }
+  /* ---- onglet Reliques : bilan d'après Prydwen (même page que les cônes), sinon profil du perso (relics.js) ---- */
+  const prydwenDate = r => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec((r && r.updated) || '');
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(locale()) : ((r && r.updated) || '');
+  };
+  function sheetRelics(c) {
+    if (!S.relics.length) return `<p class="empty">${t('rl_none_imported')}</p>`;
+    const r = rankings.get(c.id);
+    if (!r) return `<p class="empty">${t('rl_loading')}</p>`;
+    const advice = r !== 'error' && r.relics ? r.relics : null;
+    const prof = profileOf(c);
+    const score = x => relicScore(x, prof).ratio;
+    const rev = relicReview(advice, S.relics, c.id, { element: c.element, profileMain: PROFILES[prof].main, score, grade: x => gradeOf(score(x)) });
+    const line = (ok, label, text) => `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : ''}"><span>${label}</span><b>${esc(text)}</b></li>`;
+    const setText = st => st.kind === 'rec' ? t('rl_set_rec', { rank: st.rank, set: st.target.join(' + ') })
+      : st.kind === 'mix' ? t('rl_set_mix', { a: st.target[0], b: st.target[1] })
+      : st.kind === 'unknown' ? t('rl_set_unknown') : t('rl_set_' + st.kind, { set: st.target.join(' + ') });
+    const setOk = st => st.kind === 'rec' || st.kind === 'mix' ? true : st.kind === 'unknown' ? null : false;
+    const mains = rev.mains.map(m => !m.relic ? line(false, '', t('rl_main_empty', { slot: t('slot_' + m.slot) }))
+      : m.ok ? line(true, '', t('rl_main_ok', { slot: t('slot_' + m.slot), stat: statLabel(m.relic.main) }))
+      : line(false, '', t('rl_main_bad', { slot: t('slot_' + m.slot), stat: statLabel(m.relic.main), best: m.best ? statLabel(m.best) : '?' }))).join('');
+    const empty = SLOTS.filter(s => !rev.slots[s]);
+    const pieces = SLOTS.map(s => rev.slots[s] ? relicCard(rev.slots[s], { readOnly: true })
+      : `<div class="relic-card rl-empty"><b>${t('slot_' + s)}</b><small>${t('rl_empty')}</small></div>`).join('');
+    const short = x => `${t('slot_' + x.slot)} +${x.level} · ${esc(x.set || t('unknown_set'))} · ${statLabel(x.main)}`;
+    const prio = rev.priority.map(p => {
+      const why = [p.main && t('rl_why_main'), p.set && t('rl_why_set'), p.low && t('rl_why_low', { grade: gradeOf(score(p.relic)) })].filter(Boolean);
+      const b = p.better;
+      const by = b && b.owner ? ' · ' + t('cone_carried', { name: charName(charById(b.owner)) }) : '';
+      return `<div class="rl-prio">
+        <div><b>${short(p.relic)}</b> <span class="grade-pill grade-${gradeOf(score(p.relic))}"><span>${gradeOf(score(p.relic))}</span></span>
+          <small class="rl-why">${why.map(esc).join(' · ')}</small></div>
+        ${b ? `<div class="rl-better"><small>${t('rl_better')}</small> ${short(b)} <span class="grade-pill grade-${gradeOf(score(b))}"><span>${gradeOf(score(b))}</span></span>${esc(by)}</div>`
+          : `<small class="rl-none">${t('rl_no_better')}</small>`}
+      </div>`;
+    }).join('');
+    const equippedCount = SLOTS.length - empty.length;
+    return `<h3>${t('rl_review')}</h3>
+      ${equippedCount ? '' : `<p class="hint small">${t('rl_none_equipped')}</p>`}
+      <ul class="rl-check">
+        ${line(setOk(rev.cavern), t('rl_cavern'), setText(rev.cavern))}
+        ${line(setOk(rev.planar), t('rl_planar'), setText(rev.planar))}
+      </ul>
+      <h4>${t('rl_main')}</h4><ul class="rl-check">${mains}</ul>
+      ${equippedCount ? `<h3>${t('rl_priority')}</h3>${prio || `<p class="hint small">${t('rl_all_good')}</p>`}` : ''}
+      <h3>${t('rl_pieces')}</h3><div class="relic-grid">${pieces}</div>
+      <p class="lc-src">${advice ? esc(t('rl_source', { date: prydwenDate(r) })) + (r.stale ? ' · ' + esc(t('cones_offline')) : '') : esc(t('rl_no_advice', { profile: t('prof_' + prof) }))}</p>`;
+  }
+
   /* Bandeau sous le portrait : cône équipé et, s'il y a mieux dans l'inventaire, un lien vers l'onglet Cônes */
   function coneBar(c) {
     if (!S.cones.length) return '';   // pas d'archive importée : on ne sait rien des cônes
@@ -1404,6 +1453,7 @@
     const o = S.owned[c.id];
     let body;
     if (sheet.tab === 'cones') body = sheetCones(c);
+    else if (sheet.tab === 'relics') body = sheetRelics(c);
     else if (sheet.tab === 'mats') body = g ? `<p class="hint small">${t('sheet_mats_hint')}</p>${matTable(matRows(aggregate([fullPlan(c)], false)))}` : `<p class="empty">${t('sheet_nodata')}</p>`;
     else if (!g) body = `<p class="empty">${t('sheet_nodata')}</p>`;
     else if (!d) body = `<p class="empty">${sheet.err ? t('sheet_error') : t('computing')}</p>`;
