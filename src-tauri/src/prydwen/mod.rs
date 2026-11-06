@@ -140,12 +140,9 @@ pub async fn prydwen_ranking(app: tauri::AppHandle, name_en: String, force: bool
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0);
     tauri::async_runtime::spawn_blocking(move || {
         let client = crate::net::blocking_client()?;
-        let requested = std::cell::Cell::new(false);
         ranking_with(&dir, &name_en, force, now, |url| {
-            // pause de politesse entre deux requêtes de la série, pas après la dernière
-            if requested.replace(true) {
-                std::thread::sleep(crate::net::POLITE_DELAY);
-            }
+            // pause de politesse entre deux requêtes réelles du processus, appels en file d'attente compris
+            polite_wait();
             http_fetch(&client, url)
         })
     }).await.map_err(|e| e.to_string())?
