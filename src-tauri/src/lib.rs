@@ -19,6 +19,8 @@ use tauri::{WebviewUrl, WebviewWindowBuilder};
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // liens externes (target="_blank") ouverts dans le navigateur du système, voir app.js
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             gacha::gacha_find,
             gacha::gacha_fetch,

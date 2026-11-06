@@ -45,6 +45,18 @@
   /* Backend Rust de l'app de bureau (src-tauri/src) : système de fichiers, réseau, import des vœux */
   const invoke = (cmd, args) => window.__TAURI__.core.invoke(cmd, args);
 
+  /* Liens externes : la WebView de Tauri n'ouvre pas les target="_blank" ; on les passe au
+     navigateur du système (plugin opener, http/https uniquement). Clic gauche et clic molette. */
+  function openExternal(e) {
+    if (e.type === 'auxclick' && e.button !== 1) return;
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (!a || !/^https?:\/\//i.test(a.href)) return;
+    e.preventDefault();
+    invoke('plugin:opener|open_url', { url: a.href }).catch(() => { /* hors app de bureau */ });
+  }
+  document.addEventListener('click', openExternal);
+  document.addEventListener('auxclick', openExternal);
+
   /* ------------------------------------------------------------------ sauvegarde */
   function load() {
     // localStorage et data.json (injecté avant le chargement par src-tauri/src/lib.rs) : on garde la copie la plus récente
