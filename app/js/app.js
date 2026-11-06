@@ -22,6 +22,7 @@
     warp: { jades: 0, passes: 0, charPity: 0, charGuar: false, lcPity: 0, lcGuar: false, days: 0, express: false, extra: 0, targetChar: 1, targetLc: 0 },
     history: [],
     relics: [],
+    cones: [],            // cônes de lumière importés : { uid, id, name, level, asc, sup, owner }
     relicOwnerFilter: '',
     teams: emptyTeams(),
     myTeams: [],          // équipes personnelles : { id, name, type, members[4], main, note }
@@ -1319,6 +1320,7 @@
     }
     // l'export contient tout : il remplace les reliques importées avant (vitrine ou export)
     S.relics = S.relics.filter(r => r.src !== 'archive' && r.src !== 'uid').concat(relics);   // 'uid' : ancien import par vitrine
+    if (Array.isArray(ex.light_cones)) S.cones = importCones(ex.light_cones, G.lightCones || [], id => (charByGameId(id) || {}).id || null);
     if (ex.gacha && ex.gacha.stellar_jade != null) S.warp.jades = ex.gacha.stellar_jade;
     if (Array.isArray(ex.materials) && ex.materials.length) {
       S.inventory = {};
@@ -1388,6 +1390,8 @@
       case 'InitialScan': live.data = msg.data; break;
       case 'UpdateRelics': if (d) upsertBy(d.relics, msg.data, '_uid'); break;
       case 'DeleteRelics': if (d) { const del = new Set(msg.data.map(String)); d.relics = d.relics.filter(r => !del.has(String(r._uid))); } break;
+      case 'UpdateLightCones': if (d) upsertBy(d.light_cones || (d.light_cones = []), msg.data, '_uid'); break;
+      case 'DeleteLightCones': if (d) { const del = new Set(msg.data.map(String)); d.light_cones = (d.light_cones || []).filter(c => !del.has(String(c._uid))); } break;
       case 'UpdateCharacters': if (d) upsertBy(d.characters, msg.data, 'id'); break;
       case 'UpdateMaterials': if (d) upsertBy(d.materials, msg.data, 'id'); break;
       case 'UpdateGachaFunds': if (d) d.gacha = msg.data; break;
