@@ -1121,7 +1121,7 @@
 
   let sheet = null;   // { id, tab, lv: { indexCompétence: niveau }, err }
   const DEFAULT_SKILL_LV = { Normal: 6, BPSkill: 10, Ultra: 10, Talent: 10, MemospriteSkill: 6, MemospriteTalent: 6, ElationDamage: 10 };
-  const SHEET_TABS = ['skills', 'traces', 'eidolons', 'mats'];
+  const SHEET_TABS = ['skills', 'traces', 'eidolons', 'cones', 'mats'];
 
   /* Remplace les marqueurs du jeu (#1[i]%, #2[f1]…) par les valeurs du niveau choisi */
   function fmtDesc(desc, params) {
@@ -1141,12 +1141,75 @@
   async function openSheet(id) {
     sheet = { id, tab: 'skills', lv: {} };
     renderSheet();
+    const opened = charById(id); if (opened) loadRanking(opened, true);
     try { await loadDetails(S.lang); } catch (e) { if (sheet) sheet.err = true; }
     if (sheet && sheet.id === id) renderSheet();
   }
   function closeSheet() {
     sheet = null;
     closeModal('sheet');
+  }
+
+  /* ---- classement des cônes (Prydwen, via la commande Rust prydwen_ranking) ----
+     rankings : id de perso -> classement, ou 'error' (non sauvegardé). Les appels se font un par un :
+     le côté Rust gère le cache de 24 h mais ne sérialise pas les appels en parallèle. */
+  const rankings = new Map();
+  const rankPending = new Set();
+  let rankQueue = Promise.resolve();
+  function loadRanking(c, retryError) {
+    const g = gameChar(c), cur = rankings.get(c.id);
+    if (!g || !g.en) { rankings.set(c.id, 'error'); return; }   // perso sans données du jeu : pas de classement
+    if (rankPending.has(c.id) || (cur && !(retryError && cur === 'error'))) return;
+    rankPending.add(c.id);
+    rankQueue = rankQueue
+      .then(() => invoke('prydwen_ranking', { nameEn: g.en, force: false }))
+      .then(r => rankings.set(c.id, r), () => rankings.set(c.id, 'error'))
+      .then(() => { rankPending.delete(c.id); if (sheet && sheet.id === c.id) renderSheet(); });
+  }
+  const coneName = (lc, fallback) => (lc && (S.lang === 'fr' ? lc.fr : lc.en)) || (lc && lc.en) || fallback || '?';
+  const ownerLabel = (cone, charId) => cone.owner === charId ? t('cone_tag_equipped')
+    : cone.owner ? t('cone_carried', { name: charName(charById(cone.owner)) }) : '';
+  function coneRow(e, best) {
+    const o = e.owned, lbl = o ? ownerLabel(o, sheet.id) : '';
+    const tags = o ? `<span class="ctag own">S${o.sup}</span>${lbl ? `<span class="ctag ${o.owner === sheet.id ? 'eq' : 'warn'}">${esc(lbl)}</span>` : ''}` : '';
+    const sub = e.testedSup != null ? t('cone_tested', { n: e.testedSup }) : '';
+    return `<div class="lc-row r${e.lc.rarity} ${o ? '' : 'missing'} ${best ? 'best' : ''}">
+      <span class="lc-rk">${e.rank != null ? e.rank : ''}</span>
+      <span class="lc-ic">${img(e.lc.icon, 'lc-img', coneName(e.lc))}</span>
+      <div><b>${esc(coneName(e.lc))}${tags}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>
+      <span class="lc-sc">${e.score != null ? pct(e.score / 100, 1) : ''}</span></div>`;
+  }
+  function sheetCones(c) {
+    const r = rankings.get(c.id);
+    if (!r) return `<p class="empty">${t('cones_loading')}</p>`;
+    const adv = r !== 'error' ? coneAdvice(r, S.cones, G.lightCones || [], c.id) : null;
+    if (!adv || !(adv.mine.length || adv.target.length)) {   // classement indisponible : cônes possédés de la même Voie, sans rang
+      const same = S.cones.map(o => ({ lc: coneOf(G.lightCones, o.id), owned: o })).filter(e => e.lc && e.lc.path === c.path)
+        .sort((a, b) => b.lc.rarity - a.lc.rarity || b.owned.sup - a.owned.sup)
+        .map(e => ({ lc: e.lc, rank: null, score: null, testedSup: null, owned: e.owned }));
+      return `<p class="hint small">${t('cones_unavailable')}</p>
+        ${same.length ? `<h3>${t('cones_same_path')}</h3>${same.map(e => coneRow(e, false)).join('')}` : ''}`;
+    }
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(r.updated || '');
+    const date = m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(locale()) : (r.updated || '');
+    return `<h3>${t('cones_mine')}</h3>
+      ${adv.mine.length ? adv.mine.map((e, i) => coneRow(e, i === 0)).join('') : `<p class="hint small">${t('cones_no_owned')}</p>`}
+      ${adv.target.length ? `<h3>${t('cones_target')}</h3>${adv.target.map(e => coneRow(e, false)).join('')}` : ''}
+      <p class="lc-src">${esc(t('cones_source', { date }))}${r.stale ? ' · ' + esc(t('cones_offline')) : ''}</p>`;
+  }
+  /* Bandeau sous le portrait : cône équipé et, s'il y a mieux dans l'inventaire, un lien vers l'onglet Cônes */
+  function coneBar(c) {
+    if (!S.cones.length) return '';   // pas d'archive importée : on ne sait rien des cônes
+    const r = rankings.get(c.id);
+    const adv = r && r !== 'error' ? coneAdvice(r, S.cones, G.lightCones || [], c.id) : null;
+    const eq = S.cones.find(o => o.owner === c.id), lc = eq && coneOf(G.lightCones, eq.id);
+    const better = adv && adv.better;
+    const by = better && better.owned.owner && better.owned.owner !== c.id ? ' · ' + t('cone_carried', { name: charName(charById(better.owned.owner)) }) : '';
+    return `<div class="cone-bar">
+      ${eq ? `<span class="lc-ic sm">${img(lc && lc.icon, 'lc-img')}</span><div><small>${t('cone_equipped_label')}</small><b>${esc(coneName(lc, eq.name))} S${eq.sup}</b></div>`
+        : `<div><small>${t('cone_equipped_label')}</small><b class="none">${t('cone_none_equipped')}</b></div>`}
+      ${better ? `<button class="cone-hint" data-action="sheetTab" data-tab="cones">${esc(t('cone_better', { name: coneName(better.lc) }) + by)}</button>` : ''}
+    </div>`;
   }
 
   function renderSheet() {
@@ -1156,7 +1219,8 @@
     const scroll = root.querySelector('.sheet') ? root.querySelector('.sheet').scrollTop : 0;
     const o = S.owned[c.id];
     let body;
-    if (sheet.tab === 'mats') body = g ? `<p class="hint small">${t('sheet_mats_hint')}</p>${matTable(matRows(aggregate([fullPlan(c)])))}` : `<p class="empty">${t('sheet_nodata')}</p>`;
+    if (sheet.tab === 'cones') body = sheetCones(c);
+    else if (sheet.tab === 'mats') body = g ? `<p class="hint small">${t('sheet_mats_hint')}</p>${matTable(matRows(aggregate([fullPlan(c)])))}` : `<p class="empty">${t('sheet_nodata')}</p>`;
     else if (!g) body = `<p class="empty">${t('sheet_nodata')}</p>`;
     else if (!d) body = `<p class="empty">${sheet.err ? t('sheet_error') : t('computing')}</p>`;
     else body = ({ skills: sheetSkills, traces: sheetTraces, eidolons: sheetRanks })[sheet.tab](d, D);
@@ -1174,6 +1238,7 @@
           </div>
         </div>
       </header>
+      ${coneBar(c)}
       <nav class="sheet-tabs">${SHEET_TABS.map(k => `<button class="${sheet.tab === k ? 'active' : ''}" data-action="sheetTab" data-tab="${k}">${t('sheet_' + k)}</button>`).join('')}</nav>
       <div class="sheet-body">${body}</div>
     </div>`;
@@ -1623,6 +1688,8 @@
   window.addEventListener('resize', () => { tabBarPos = null; renderTabs(); });
   render();
   startSky();
+  // classements de cônes des persos possédés, en arrière-plan et un par un (le cache de 24 h est côté Rust)
+  if (S.cones.length) setTimeout(() => ownedChars().forEach(c => loadRanking(c)), 1500);
   loadNews(false);   // en arrière-plan : point rouge sur l'onglet Actus s'il y a du nouveau
 
   /* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord) */

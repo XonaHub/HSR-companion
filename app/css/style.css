@@ -683,3 +683,25 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   #sky { display: none; }
 }
+
+/* cônes conseillés sur la fiche d'un perso */
+.cone-bar { display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--inset); border-bottom: 1px solid var(--line); }
+.cone-bar small { display: block; color: var(--muted); font-size: 11px; }
+.cone-bar b.none { color: var(--muted); font-weight: 500; }
+.cone-hint { margin-left: auto; border: 0; background: none; color: var(--warn); font: inherit; font-size: 12px; cursor: pointer; text-align: right; }
+.cone-hint:hover { color: var(--gold-hi); text-decoration: underline; }
+.lc-row { display: grid; grid-template-columns: 22px 34px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; background: var(--inset); border: 1px solid var(--line); }
+.lc-row.missing { opacity: .55; }
+.lc-row.best { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
+.lc-rk { color: var(--dim); font-weight: 700; text-align: center; }
+.lc-row small { display: block; color: var(--muted); }
+.lc-sc { font-family: var(--font-title); font-size: 17px; font-weight: 700; color: var(--gold); text-align: right; }
+.lc-ic { flex: none; width: 34px; height: 40px; border-radius: 3px; overflow: hidden; background: linear-gradient(160deg, var(--violet-deep), #2a2040); }
+.lc-row.r5 .lc-ic, .cone-bar .lc-ic { background: linear-gradient(160deg, var(--gold-deep), #3a2810); }
+.lc-ic.sm { width: 30px; height: 36px; }
+.lc-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ctag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 6px; text-transform: uppercase; letter-spacing: .05em; vertical-align: 1px; font-weight: 500; }
+.ctag.own { background: rgba(143, 214, 164, .15); color: var(--ok); }
+.ctag.eq { background: rgba(178, 150, 242, .15); color: var(--violet); }
+.ctag.warn { background: rgba(241, 194, 107, .15); color: var(--warn); }
+.lc-src { color: var(--dim); font-size: 11px; margin-top: 4px; }
