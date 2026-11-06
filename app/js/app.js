@@ -60,6 +60,7 @@
     return s;
   }
   let S = load();
+  S.tab = 'today';   // l'app s'ouvre toujours sur « Aujourd'hui » (l'onglet choisi reste enregistré, sans effet au lancement suivant)
   // save() est appelé à chaque saisie : l'écriture (JSON de tout l'état) est regroupée toutes les 300 ms
   let saveTimer = null;
   function flushSave() {
@@ -151,9 +152,10 @@
   }
 
   /* ------------------------------------------------------------------ rendu global */
-  const TABS = ['roster', 'planner', 'warps', 'relics', 'teams', 'news', 'settings'];
+  const TABS = ['today', 'roster', 'planner', 'warps', 'relics', 'teams', 'news', 'settings'];
   const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const TAB_ICONS = {
+    today: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/>'),
     roster: svg('<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.8 14.2c2.4.1 4.1 1.7 4.7 4.3"/>'),
     planner: svg('<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>'),
     warps: svg('<path d="M12 2.5 14 10l7.5 2-7.5 2-2 7.5-2-7.5L2.5 12 10 10z"/>'),
@@ -162,7 +164,7 @@
     news: svg('<path d="M4 5h12v14H6a2 2 0 0 1-2-2z"/><path d="M16 9h4v8a2 2 0 0 1-2 2h-2M7 9h6M7 12h6M7 15h4"/>'),
     settings: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>')
   };
-  const RENDERERS = { roster: renderRoster, planner: renderPlanner, warps: renderWarps, relics: renderRelics, teams: renderTeams, news: renderNews, settings: renderSettings };
+  const RENDERERS = { today: renderToday, roster: renderRoster, planner: renderPlanner, warps: renderWarps, relics: renderRelics, teams: renderTeams, news: renderNews, settings: renderSettings };
 
   let shownTab = null;    // onglet affiché : la cascade d'entrée ne se joue qu'en changeant d'onglet
   function render() {
@@ -532,6 +534,50 @@
   const fmtDate = d => d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit' });
   const etaText = (days, date) => days > 0 ? t('eta', { days: t('days', { n: Math.ceil(days) }), date: fmtDate(date) }) : t('eta_none');
 
+  /* ================================================================== AUJOURD'HUI
+     Résumé des autres onglets (js/today.js) : mêmes calculs, donc mêmes chiffres. */
+  const todayCard = (tab, cls, icon, label, body) => `<button class="today-card ${cls}" data-action="tab" data-tab="${tab}">
+      <small class="today-label">${icon}${esc(label)}</small>${body}</button>`;
+
+  function todayFarm() {
+    const active = S.plans.filter(p => p.on !== false && charById(p.charId));   // même filtre que renderPlanner
+    if (!active.length) return `<p class="today-big">${t('today_no_plan')}</p><span class="today-link">${t('today_go_planner')}</span>`;
+    const miss = missingOf(active);
+    const ft = farmTimes(miss, S.rates, new Date(), G.items);
+    const i = farmFocus(ft.perPlan);
+    if (i < 0) return `<p class="today-big">${t('today_all_done')}</p><span class="today-link">${t('today_go_planner')}</span>`;
+    const c = charById(active[i].charId), f = ft.perPlan[i];
+    const post = topPost(farmTp(miss[i], S.rates, G.items));
+    const postText = post ? t('today_post_' + post.key, { path: t('path_' + c.path) }) : '';
+    return `<div class="today-farm">${avatar(c)}
+        <div class="today-who"><b>${esc(charName(c))}</b>${postText ? `<small>${t('today_do')} : ${esc(postText)}</small>` : ''}
+          ${f.cumLimitedByWeekly ? `<small>${t('limited_weekly', { n: Math.ceil(f.cumWeeklyRuns / 3) })}</small>` : ''}</div>
+        <div class="today-eta"><b>${etaText(f.cumDays, f.cumDate)}</b><small>${t('plan_energy_left')} : ${fmt(f.tp)}</small></div>
+      </div>`;
+  }
+
+  function todayWarps() {
+    const w = S.warp;
+    return `<p class="today-big">${fmt(pullsNow(w, JADE_PER_PULL))} <small>${t('pulls')}</small></p>
+      <small>${t('today_pity', { n: w.charPity })}${w.charGuar ? ' · ' + t('today_guaranteed') : ''}</small>`;
+  }
+
+  /* Cartes tirées d'Actus (bannière, prochaine version, dernière actu) */
+  function todayNewsCards() {
+    return '';
+  }
+
+  function renderToday(v) {
+    v.innerHTML = `<section class="panel today">
+      <div class="panel-head"><h2>${t('tab_today')}</h2></div>
+      <div class="today-grid">
+        ${todayCard('planner', 'wide', TAB_ICONS.planner, t('today_farm'), todayFarm())}
+        ${todayCard('warps', '', TAB_ICONS.warps, t('today_warps'), todayWarps())}
+        ${todayNewsCards()}
+      </div>
+    </section>`;
+  }
+
   /* Déplace le plan from avant ou après le plan to */
   function movePlan(plans, from, to, after) {
     if (from === to) return plans;
@@ -582,7 +628,7 @@
   const availablePulls = () => {
     const w = S.warp;
     const income = w.days * (60 + (w.express ? 90 : 0)) + w.extra;
-    return { pulls: Math.floor((w.jades + income) / JADE_PER_PULL) + w.passes, income };
+    return { pulls: pullsNow({ jades: w.jades + income, passes: w.passes }, JADE_PER_PULL), income };   // même formule que « Aujourd'hui »
   };
 
   function renderWarps(v) {

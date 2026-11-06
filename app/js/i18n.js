@@ -3,6 +3,9 @@ const I18N = {
   fr: {
     tagline: 'Boîte à outils du Pionnier', footer: 'Outil de fan non officiel · données sauvegardées sur ce PC',
     tab_news: 'Actus',
+    tab_today: 'Aujourd’hui', today_farm: 'Farm en cours', today_no_plan: 'Aucun plan de farm', today_all_done: 'Rien à farmer', today_go_planner: 'Ouvrir le Farm →',
+    today_do: 'À faire', today_post_exp: 'Calice doré (EXP)', today_post_credits: 'Calice doré (crédits)', today_post_path: 'Calice cramoisi ({path})', today_post_boss: 'Ombre stagnante (boss)', today_post_weekly: 'Écho de la guerre (boss hebdo)',
+    today_warps: 'Tes vœux', today_pity: 'pity {n}', today_guaranteed: 'garanti',
     news_soon: 'Bientôt', news_current: 'En cours', news_previous: 'Versions précédentes', news_version: 'Version {v}',
     news_until: 'jusqu’au {d}', news_banners: 'Bannières', news_events: 'Événements', news_pulls: 'Vœux obtenables',
     news_events_count: '{n} événements', news_jades_listed: '{j} jades indiqués dans le patch note',
@@ -164,6 +167,9 @@ const I18N = {
   en: {
     tagline: "Trailblazer's toolbox", footer: 'Unofficial fan tool · data saved on this PC',
     tab_news: 'News',
+    tab_today: 'Today', today_farm: 'Farming now', today_no_plan: 'No farming plan', today_all_done: 'Nothing to farm', today_go_planner: 'Open the planner →',
+    today_do: 'To do', today_post_exp: 'Golden Calyx (EXP)', today_post_credits: 'Golden Calyx (credits)', today_post_path: 'Crimson Calyx ({path})', today_post_boss: 'Stagnant Shadow (boss)', today_post_weekly: 'Echo of War (weekly boss)',
+    today_warps: 'Your warps', today_pity: 'pity {n}', today_guaranteed: 'guaranteed',
     news_soon: 'Coming soon', news_current: 'Current', news_previous: 'Previous versions', news_version: 'Version {v}',
     news_until: 'until {d}', news_banners: 'Banners', news_events: 'Events', news_pulls: 'Obtainable warps',
     news_events_count: '{n} events', news_jades_listed: '{j} jades listed in the patch notes',
