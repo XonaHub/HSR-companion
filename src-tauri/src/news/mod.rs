@@ -42,6 +42,12 @@ pub struct VersionNews {
     pub sections: Vec<NoteSection>,
     pub new_items: Vec<WarpItem>,
     pub announced: Vec<Announced>,
+    /// Cycles de l'endgame annoncés par le patch note de la version (dates en heure du serveur)
+    #[serde(default)]
+    pub endgame: Vec<parse::EndgameCycle>,
+    /// Thème de la phase d'Arbitre de l'instable
+    #[serde(default)]
+    pub arbitration: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
@@ -167,6 +173,7 @@ pub fn assemble(list: &[ListedPost], posts: &HashMap<String, CachedPost>, lang: 
                 if let Some(c) = content {
                     let pn = parse::parse_patch_note(&c.lines);
                     (v.start, v.end, v.events, v.rewards, v.sections, v.new_items) = (pn.start, pn.end, pn.events, pn.rewards, pn.sections, pn.new_items);
+                    (v.endgame, v.arbitration) = (pn.endgame, pn.arbitration);
                 }
             }
             parse::PostKind::Warp { version, phase } => {
@@ -399,6 +406,8 @@ mod tests {
         assert_eq!(v46.events.len(), 8);
         assert_eq!(v46.start.as_deref(), Some("2026-09-28T06:00:00+08:00"));
         assert!(v46.new_items.iter().any(|i| i.name == "Perle"));
+        assert_eq!(v46.endgame.len(), 4);
+        assert_eq!(v46.arbitration.as_deref(), Some("Retour aux sources"));
         // version sans contenu enregistré : gardée avec le nom du titre anglais
         let v44 = f.versions.iter().find(|v| v.version == "4.4").unwrap();
         assert!(v44.name.is_some());

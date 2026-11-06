@@ -84,6 +84,24 @@ pub struct PatchNote {
     pub events: Vec<GameEvent>,
     pub rewards: Vec<Reward>,
     pub new_items: Vec<WarpItem>,
+    /// Cycles de l'endgame (« La voie des trésors » / « Treasures Lightward »)
+    #[serde(default)]
+    pub endgame: Vec<EndgameCycle>,
+    /// Thème de la phase d'Arbitre de l'instable
+    #[serde(default)]
+    pub arbitration: Option<String>,
+}
+
+/// Cycle d'un mode d'endgame d'après le patch note. Dates « AAAA-MM-JJTHH:MM » en **heure du serveur**
+/// (le décalage dépend du serveur du joueur, appliqué par l'app) ; `start` absent = début de la version.
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct EndgameCycle {
+    /// "moc" (Mémoire du chaos), "pf" (Fiction pure) ou "as" (Ombre apocalyptique)
+    pub mode: String,
+    pub name: String,
+    pub start: Option<String>,
+    pub end: String,
+    pub effect: String,
 }
 
 /// Expression régulière compilée une seule fois
@@ -302,7 +320,54 @@ pub fn parse_patch_note(lines: &[String]) -> PatchNote {
         }
     }
     p.sections = sections.into_iter().filter(|s| !s.title.is_empty() || !s.items.is_empty()).collect();
+    p.endgame = parse_endgame(lines);
+    p.arbitration = lines.iter().find_map(|l| {
+        re!(r#"(?i)Thème de cette phase d['’]Arbitre de l['’]instable\s*:\s*(.+)$|This Period['’]s Theme:\s*"?(?:Anomaly Arbitration:\s*)?([^"]+)"?"#)
+            .captures(l).and_then(|c| c.get(1).or(c.get(2))).map(|m| m.as_str().trim().to_string())
+    });
     p
+}
+
+/// Cycles de l'endgame : section « La voie des trésors » / « Treasures Lightward » jusqu'à la prochaine ligne « ■ ».
+/// Chaque cycle = un titre « <Mode> : <nom> », une ligne de dates « (heure du serveur) » / « (server time) »,
+/// puis ses lignes d'effet. Un titre sans ligne de dates valide est ignoré.
+fn parse_endgame(lines: &[String]) -> Vec<EndgameCycle> {
+    let Some(start) = lines.iter().position(|l| re!(r"(?i)La voie des trésors|Treasures Lightward").is_match(l)) else { return vec![] };
+    let section = lines[start + 1..].iter().take_while(|l| !l.starts_with('■'));
+    let title = re!(r"(?i)^(?:Salle oubliée\s*:\s*|Forgotten Hall\s*:\s*)?(Mémoire du Chaos|Memory of Chaos|Fantômes de l['’]apocalypse|Apocalyptic Shadow|Pure fiction)\s*:\s*(.+)$");
+    let mut out: Vec<EndgameCycle> = Vec::new();
+    let mut open = false;   // le dernier cycle accepte encore des lignes d'effet
+    let mut pending: Option<(String, String)> = None;   // titre lu, ligne de dates attendue
+    for l in section {
+        if let Some(c) = title.captures(l) {
+            let mode = match c[1].to_lowercase().chars().next() {
+                Some('m') => "moc",
+                Some('f') | Some('a') => "as",
+                _ => "pf",
+            };
+            pending = Some((mode.into(), c[2].trim().into()));
+            open = false;
+            continue;
+        }
+        if let Some((mode, name)) = pending.take() {
+            let ds = dates(l);
+            if re!(r"(?i)heure du serveur|server time").is_match(l) && !ds.is_empty() {
+                let fmt = |d: &Date| format!("{}T{}", iso_day(d), d.3.as_deref().unwrap_or("00:00"));
+                let start = (ds.len() >= 2).then(|| fmt(&ds[ds.len() - 2]));
+                out.push(EndgameCycle { mode, name, start, end: fmt(ds.last().unwrap()), effect: String::new() });
+                open = true;
+            }
+            continue;
+        }
+        if open {
+            let e = &mut out.last_mut().unwrap().effect;
+            if !e.is_empty() {
+                e.push('\n');
+            }
+            e.push_str(l);
+        }
+    }
+    out
 }
 
 /// Nom nettoyé d'un élément de bannière (« et Micha » → « Micha »)
@@ -496,6 +561,35 @@ pub(crate) mod tests {
         assert_eq!(p.events[0].name, "Love, Ghosts & Robots");
         let pearl = find(&p.new_items, "Pearl");
         assert_eq!((pearl.element.as_deref(), pearl.path.as_deref()), (Some("ice"), Some("elation")));
+    }
+
+    #[test]
+    fn parse_46_two_moc_cycles() {
+        for (name, first, last_effect, theme) in [
+            ("46861607.fr-fr", "Traversée de l'au-delà", "Lorsqu'une cible alliée utilise son ultime", "Retour aux sources"),
+            ("46861607.en-us", "Crossing the Afterlife", "", "Return to Roots"),
+        ] {
+            let p = parse_patch_note(&lines(name));
+            let e = &p.endgame;
+            assert_eq!(e.len(), 4, "{name}: {e:?}");
+            assert_eq!((e[0].mode.as_str(), e[0].name.as_str(), e[0].start.as_deref(), e[0].end.as_str()), ("moc", first, None, "2026-11-02T03:59"), "{name}");
+            assert_eq!((e[1].mode.as_str(), e[1].start.as_deref(), e[1].end.as_str()), ("as", Some("2026-10-05T04:00"), "2026-11-16T03:59"), "{name}");
+            assert_eq!((e[2].mode.as_str(), e[2].start.as_deref(), e[2].end.as_str()), ("pf", Some("2026-10-19T04:00"), "2026-11-30T03:59"), "{name}");
+            assert_eq!((e[3].mode.as_str(), e[3].start.as_deref(), e[3].end.as_str()), ("moc", Some("2026-11-02T04:00"), "2026-12-14T03:59"), "{name}");
+            assert!(e[3].effect.starts_with(last_effect), "{name}: {}", e[3].effect);
+            assert!(!e[3].effect.is_empty() && !e[1].effect.contains("Pure"), "{name}: effet mal découpé");
+            assert_eq!(p.arbitration.as_deref(), Some(theme), "{name}");
+        }
+        assert_eq!(parse_patch_note(&lines("46861607.fr-fr")).endgame[1].name, "Domination de l'oubli");
+    }
+
+    #[test]
+    fn no_endgame_section() {
+        let odd: Vec<String> = ["■ Gameplay", "La voie des trésors : …", "Mémoire du Chaos : X", "pas de date", "■ Défi"].map(String::from).to_vec();
+        assert!(parse_patch_note(&odd).endgame.is_empty());
+        assert!(parse_patch_note(&["Bonjour".to_string()]).endgame.is_empty());
+        let p = parse_patch_note(&lines("46449452.fr-fr"));
+        assert!(p.endgame.iter().all(|c| ["moc", "pf", "as"].contains(&c.mode.as_str()) && c.end.len() == 16), "{:?}", p.endgame);
     }
 
     #[test]
