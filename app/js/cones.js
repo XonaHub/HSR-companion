@@ -52,6 +52,7 @@ function coneAdvice(ranking, cones, lightCones, charId) {
     const entry = { lc, rank: e.rank, score: e.score == null ? null : e.score, testedSup: e.sup, owned: copy };
     (copy ? mine : target).push(entry);
   }
+  mine.sort((a, b) => a.rank - b.rank); target.sort((a, b) => a.rank - b.rank); // tri stable, sur le rang affiché
   const equipped = owned.find(c => c.owner === charId) || null;
   let better = null;
   if (!equipped) better = mine[0] || null;

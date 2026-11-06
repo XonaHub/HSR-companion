@@ -91,3 +91,12 @@ test('equipped_outside_ranking_makes_first_owned_better', () => {
   const r = advice(ACHERON, [own('z', 7, 1, 'acheron'), own('b', 3, 3, 'pela')]);
   assert.equal(r.equipped.id, '7'); assert.equal(r.better.lc.en, 'Good Night and Sleep Well');
 });
+
+test('sorted_by_displayed_rank_with_ties', () => {
+  const ranks = [1, 1, 2, 2, 3, 3];
+  const ranking = { updated: '', stale: false, cones: LCS2.slice(0, 6).map((l, i) => ({ name: l.en, rank: ranks[i], score: null, sup: 1 })) };
+  const r = advice(ranking, [own('c', 2, 1, null), own('d', 5, 1, null)]);
+  assert.equal(r.mine.length + r.target.length, 5);
+  for (const list of [r.mine, r.target]) assert.deepEqual(list.map(e => e.rank), list.map(e => e.rank).sort((a, b) => a - b));
+  assert.deepEqual(r.mine.map(e => e.rank), [1, 3]);
+});
