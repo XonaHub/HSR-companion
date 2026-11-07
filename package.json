@@ -2,6 +2,7 @@
   "name": "hsr-companion",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
   "description": "HSR Companion — application de bureau (Tauri)",
   "scripts": {
     "tauri": "tauri",

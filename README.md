@@ -56,6 +56,7 @@ npm test        # tests JavaScript + tests Rust
 npm run build   # crée l'installateur Windows
 ```
 
-- Le détail technique est dans [`docs/technique-claude.md`](docs/technique-claude.md).
-- Les idées à venir sont dans [`docs/backlog.md`](docs/backlog.md).
-- Les outils Claude Code du projet sont dans [`docs/outils-claude.md`](docs/outils-claude.md).
+## Licence
+
+Code sous licence [MIT](LICENSE). Honkai: Star Rail, ses personnages et ses images
+appartiennent à HoYoverse.

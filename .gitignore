@@ -12,3 +12,11 @@ Player*.log
 .env.*
 *.pem
 *.key
+
+# Fichiers de travail privés : versionnés dans le dépôt privé HSR-companion-private
+# via `git prive` (voir docs/outils-claude.md, lui-même privé)
+.git-private/
+CLAUDE.md
+docs/
+.trail/
+.claude/
