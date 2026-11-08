@@ -1,5 +1,5 @@
 // Prépare une release GitHub : installateur signé, version portable et latest.json (mise à jour automatique).
-// Usage (depuis hsr-companion) : npm run release -- --notes "Ce qui change dans cette version"
+// Usage (depuis hsr-companion) : npm run release -- --notes "Ce qui change"  ou  npm run release -- --notes-file notes.txt
 //
 // 1. vérifie que la version est la même dans tauri.conf.json, Cargo.toml et package.json ;
 // 2. compile et signe avec la clé privée (hors du dépôt, par défaut %USERPROFILE%\.tauri\hsr-companion.key,
@@ -24,8 +24,11 @@ if (pkg !== version || cargo !== version) {
   fail(`Versions différentes : tauri.conf.json ${version}, package.json ${pkg}, Cargo.toml ${cargo}. Mets la même partout.`);
 }
 
-const notesAt = process.argv.indexOf('--notes');
-const notes = notesAt > 0 ? (process.argv[notesAt + 1] || '') : '';
+// --notes "texte" (une ligne : npm perd les retours à la ligne sous Windows) ou --notes-file chemin (plusieurs lignes)
+const arg = name => { const i = process.argv.indexOf(name); return i > 0 ? (process.argv[i + 1] || '') : null; };
+const notesFile = arg('--notes-file');
+if (notesFile !== null && !existsSync(notesFile)) fail(`Fichier de notes introuvable : ${notesFile}`);
+const notes = (notesFile !== null ? readFileSync(notesFile, 'utf8') : arg('--notes') || '').replace(/\r\n/g, '\n').trim();
 
 const key = process.env.HSR_SIGNING_KEY || join(homedir(), '.tauri', 'hsr-companion.key');
 if (!existsSync(key)) fail(`Clé de signature introuvable : ${key}. Copie-la depuis l'autre PC (voir docs/outils-claude.md).`);
