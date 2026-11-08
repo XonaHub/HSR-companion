@@ -248,23 +248,28 @@ function upgradeChance(relic, rivalValue, valueOf, rng, n = 5000) {
 /** Pièces libres encore basses qui pourraient battre la pièce conseillée de leur emplacement (ou, sans pièce
     conseillée, devenir correctes : opts.correctValue). Même set et stat principale que la cible de l'emplacement,
     chances ≥ 10 %, la meilleure par emplacement, au plus 3, triées par chances décroissantes.
-    opts = { value, valueOf, correctValue: r -> nombre, rng, cache?: Map (résultats déjà calculés) }. Renvoie [{ relic, slot, chance, rival }]. */
+    opts = { value, valueOf, correctValue: r -> nombre, rng, cache?: Map (résultats déjà calculés),
+    keep?: Set d'ids suivis en direct (toujours renvoyés, même sous 10 %, à +15 ou au-delà des 3) }. Renvoie [{ relic, slot, chance, rival }]. */
 function upgradeCandidates(loadout, relics, charId, opts) {
-  const bySlot = {};
+  const bySlot = {}, kept = [];
   for (const r of relics || []) {
     const sl = loadout.slots[r.slot];
-    if (!sl || r.owner || (r.level || 0) >= 15) continue;
+    const tracked = !!(opts.keep && opts.keep.has(r.id));   // suivie en direct : gardée sous le seuil et à +15
+    if (!sl || r.owner || ((r.level || 0) >= 15 && !tracked)) continue;
     const tg = sl.target;
     if (tg.set != null && normName(r.set) !== normName(tg.set)) continue;
     if (tg.mains.length && !tg.mains.includes(r.main)) continue;
+    // une pièce suivie devenue la pièce conseillée de son emplacement (montée à +15) a gagné
+    if (tracked && sl.pick && sl.pick.id === r.id) { kept.push({ relic: r, slot: r.slot, chance: 1, rival: null }); continue; }
     const rival = sl.pick || null;
     const rivalValue = rival ? opts.value(rival) : opts.correctValue(r);
     // le calcul est lourd (milliers de tirages) et la fiche se redessine souvent : résultat gardé par pièce et cible
     const key = opts.cache && JSON.stringify([r.id, r.level, r.main, r.subs, rivalValue]);
     let chance = key && opts.cache.has(key) ? opts.cache.get(key) : null;
     if (chance === null) { chance = upgradeChance(r, rivalValue, opts.valueOf, opts.rng); if (key) opts.cache.set(key, chance); }
+    if (tracked) { kept.push({ relic: r, slot: r.slot, chance, rival }); continue; }
     if (chance < 0.1) continue;
     if (!bySlot[r.slot] || chance > bySlot[r.slot].chance) bySlot[r.slot] = { relic: r, slot: r.slot, chance, rival };
   }
-  return Object.values(bySlot).sort((a, b) => b.chance - a.chance).slice(0, 3);
+  return Object.values(bySlot).sort((a, b) => b.chance - a.chance).slice(0, 3).concat(kept);
 }

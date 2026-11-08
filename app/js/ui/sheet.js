@@ -61,7 +61,7 @@ function sheetStep(dir) {
   openSheet(next.id); sheet.tab = tab; renderSheet();
 }
 function closeSheet() {
-  sheet = null;
+  sheet = null; upgradeTrack = null;
   closeModal('sheet');
 }
 
@@ -258,14 +258,20 @@ function loadoutPiece(r, prof) {
       ${top.map(s => `· <b>${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}</b>`).join(' ')}</summary>
     <small>${subs.map(s => `${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}`).join(' · ') || esc(t('rl_lo_no_subs'))}</small></details>`;
 }
-const upgradeCache = new Map();   // upgradeCandidates : chances déjà calculées (pièce, niveau, sous-stats, cible)
+const upgradeCache = new Map();
+/* Suivi en direct des pièces « à monter » de la fiche ouverte : niveau et chances au rendu précédent, par id.
+   Une pièce déjà affichée reste suivie (keep) tant que la fiche de ce perso est ouverte, même sous le seuil ou à +15. */
+let upgradeTrack = null;   // { charId, seen: Map id -> { level, chance } }
+const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup »   // upgradeCandidates : chances déjà calculées (pièce, niveau, sous-stats, cible)
 function loadoutBlock(c, advice, prof) {
   const relics = trialRelics(c.id);
   const value = x => relicScore(x, prof).useful;
   const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
   const lo = relicLoadout(advice, relics, c.id, opts);
   // graine fixe et résultats gardés entre deux rendus : les chances affichées ne bougent pas d'un rendu à l'autre
-  const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue: () => RELIC_CORRECT_AT_15, rng: seededRng(1), cache: upgradeCache });
+  if (!upgradeTrack || upgradeTrack.charId !== c.id) upgradeTrack = { charId: c.id, seen: new Map() };
+  const seen = upgradeTrack.seen;
+  const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue: () => RELIC_CORRECT_AT_15, rng: seededRng(1), cache: upgradeCache, keep: new Set(seen.keys()) });
   const comboText = !advice ? t('rl_lo_no_sets')
     : [lo.combo.cavern.map(p => `${p.name} (${p.pieces})`).join(' + '), lo.combo.planar ? `${lo.combo.planar} (2)` : ''].filter(Boolean).join(' + ');
   const farmText = f => t('rl_lo_farm', { what: [f.set, f.mains.map(statLabel).join(' / ')].filter(Boolean).join(' · ') || t('rl_lo_farm_any') });
@@ -278,13 +284,28 @@ function loadoutBlock(c, advice, prof) {
          ${s.farm ? `<span class="lo-st lo-farm">⚒ ${esc(farmText(s.farm))}</span>` : ''}`;
     return `<tr class="lo-${s.state}"><th>${t('slot_' + slot)}</th><td>${worn}</td><td>${pick}</td></tr>`;
   }).join('');
-  const upRows = ups.map(u => `<div class="lo-up"><span class="lo-st lo-upg">⬆ ${t('slot_' + u.slot)}</span> ${loadoutPiece(u.relic, prof)}
-      <small>${t(u.rival ? 'rl_lo_up_beat' : 'rl_lo_up_correct', { n: Math.round(u.chance * 100) })}</small>
-      <div class="lo-bar" role="img" aria-label="${Math.round(u.chance * 100)} %"><i style="width:${Math.round(u.chance * 100)}%"></i></div></div>`).join('');
+  const pct = x => Math.round(x * 100);
+  const upRows = ups.map(u => {
+    const prev = seen.get(u.relic.id), moved = prev && u.relic.level > prev.level;
+    seen.set(u.relic.id, { level: u.relic.level, chance: u.chance });
+    const done = u.relic.level >= 15;
+    const good = done ? u.chance >= 1 : u.chance >= UPGRADE_STOP;
+    const verdict = t(done ? (good ? 'rl_lo_up_done_ok' : 'rl_lo_up_done_ko') : (good ? 'rl_lo_up_go' : 'rl_lo_up_stop'));
+    const n = (moved ? pct(prev.chance) + ' % → ' : '') + pct(u.chance);
+    return `<div class="lo-up ${moved ? 'lo-up-moved' : ''}"><span class="lo-st lo-upg">⬆ ${t('slot_' + u.slot)}</span> ${loadoutPiece(u.relic, prof)}
+      ${done ? '' : `<small>${t(u.rival ? 'rl_lo_up_beat' : 'rl_lo_up_correct', { n })}</small>`}
+      <b class="lo-verdict ${good ? 'lo-go' : 'lo-stop'}">${verdict}</b>
+      ${done ? '' : `<div class="lo-bar" role="img" aria-label="${pct(u.chance)} %"><i style="width:${pct(u.chance)}%"></i></div>`}</div>`;
+  }).join('');
+  // état du suivi en direct : actif, ou comment l'activer (flux live de Reliquary Archiver, imports.js)
+  const liveOn = typeof live !== 'undefined' && live && live.state === 'connected';
+  const liveNote = liveOn ? `<p class="lo-live on">● ${t('rl_lo_live_on')}</p>`
+    : `<div class="lo-live"><p>${t('rl_lo_live_off')}</p><ol class="steps"><li>${t('rl_lo_live_step1')}</li><li>${t('rl_lo_live_step2')}</li><li>${t('rl_lo_live_step3')}</li></ol>
+      <button class="btn sm" data-action="archLive">${t('arch_live')}</button></div>`;
   return `<h3>${t('rl_loadout')}</h3>
     <p class="lo-sum"><span>${esc(comboText)}</span> <small>${t('rl_lo_counts', { swap: lo.counts.swap, farm: lo.counts.farm, up: ups.length })}</small></p>
     <table class="lo-table"><thead><tr><th></th><th>${t('rl_lo_worn')}</th><th>${t('rl_lo_pick')}</th></tr></thead><tbody>${rows}</tbody></table>
-    ${upRows ? `<h4>${t('rl_lo_upgrade')}</h4>${upRows}<p class="hint small">${t('rl_lo_up_hint')}</p>` : ''}`;
+    ${upRows ? `<h4>${t('rl_lo_upgrade')}</h4>${upRows}<p class="hint small">${t('rl_lo_up_hint')}</p>${liveNote}` : ''}`;
 }
 
 /* Bandeau sous le portrait : cône équipé et, s'il y a mieux dans l'inventaire, un lien vers l'onglet Cônes */

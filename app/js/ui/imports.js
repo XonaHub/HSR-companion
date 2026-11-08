@@ -150,6 +150,7 @@ function importArchiveData(ex, isLive) {
   S = sanitizeState(S, defaultState());   // fichier ou flux live : forme garantie (js/sanitize.js)
   save();
   if (!sheet) render();
+  else if (sheet.tab === 'relics') renderSheet();   // suivi en direct des pièces « à monter » (fiche, onglet Reliques)
 }
 /* Lit un fichier JSON choisi par l'utilisateur ; onData peut lever une erreur → message errKey */
 function readJsonFile(file, onData, errKey) {
@@ -168,8 +169,16 @@ function refreshLiveUi() {
   const b = $('[data-action=archLive]');
   if (b) b.textContent = live ? t('arch_live_stop') : t('arch_live');
 }
-function setLive(state) { if (live) { live.state = state; refreshLiveUi(); } }
-function stopLive() { const l = live; live = null; if (l) try { l.ws.close(); } catch (e) { /* déjà fermé */ } refreshLiveUi(); }
+function setLive(state) {
+  if (!live || live.state === state) return;
+  live.state = state; refreshLiveUi();
+  if (sheet && sheet.tab === 'relics') renderSheet();   // repère « suivi en direct actif » de la fiche
+}
+function stopLive() {
+  const l = live; live = null; if (l) try { l.ws.close(); } catch (e) { /* déjà fermé */ }
+  refreshLiveUi();
+  if (l && sheet && sheet.tab === 'relics') renderSheet();
+}
 function startLive() {
   stopLive();
   let ws;

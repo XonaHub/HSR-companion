@@ -344,3 +344,24 @@ test('upgrade_candidates_reuse_cache', () => {
   assert.ok(calls[0] > 0);
   assert.equal(calls[1], calls[0]);
 });
+
+test('upgrade_candidates_keep_tracked_pieces', () => {
+  // une pièce suivie en direct reste affichée sous le seuil, à +15, et en plus des 3 premières
+  const lo = { slots: { head: { pick: null, target: { set: PIO, mains: [] } }, hands: { pick: null, target: { set: PIO, mains: [] } },
+    body: { pick: null, target: { set: PIO, mains: [] } }, feet: { pick: null, target: { set: PIO, mains: [] } } } };
+  const C = (id, slot, v, level = 3) => ({ id, slot, set: PIO, main: 'x', level, owner: null, v, subs: [] });
+  const relics = [C('a', 'head', 9), C('b', 'hands', 9), C('c', 'body', 9), C('weak', 'feet', 1), C('done', 'head', 1, 15)];
+  const run = keep => ev(`upgradeCandidates(${JSON.stringify(lo)}, ${JSON.stringify(relics)}, 'acheron',
+    { value: r => r.v, valueOf: r => r.v, correctValue: () => 6, rng: seededRng(1), keep: new Set(${JSON.stringify(keep)}) })`).map(x => x.relic.id).sort();
+  assert.deepEqual(run([]), ['a', 'b', 'c']);
+  assert.deepEqual(run(['weak', 'done']), ['a', 'b', 'c', 'done', 'weak']);
+});
+
+test('tracked_piece_that_became_the_pick_counts_as_won', () => {
+  const done = { id: 'd', slot: 'head', set: PIO, main: 'hp', level: 15, owner: null, v: 9, subs: [] };
+  const lo = { slots: { head: { pick: done, target: { set: PIO, mains: [] } } } };
+  const out = ev(`upgradeCandidates(${JSON.stringify(lo)}, ${JSON.stringify([done])}, 'acheron',
+    { value: r => r.v, valueOf: r => r.v, correctValue: () => 6, rng: seededRng(1), keep: new Set(['d']) })`);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].chance, 1);
+});

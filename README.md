@@ -40,6 +40,9 @@ You don't have to enter everything by hand:
 - **Your whole account** (characters, levels, traces, relics, light cones, materials): with the free tool
   [Reliquary Archiver](https://github.com/IceDynamix/reliquary-archiver).
   Either import the file it produces, or leave it running while you play and the app updates live.
+- **Following a relic upgrade live**: start Reliquary Archiver before the game, click "Live import" and wait for the "connected" state,
+  then keep the character's sheet open on the Relics tab. Each time a piece listed under "To level" is upgraded in game,
+  its chances update right away, with a verdict: worth continuing, or no longer worth it.
 - **Your warp history**: open the warp history in the game, then click "Auto-detect" in the Warps tab.
   The app finds the link by itself in the game's cache.
 
@@ -130,6 +133,9 @@ Inutile de tout saisir à la main :
 - **Le compte complet** (persos, niveaux, traces, reliques, cônes, matériaux) : avec l'outil gratuit
   [Reliquary Archiver](https://github.com/IceDynamix/reliquary-archiver).
   Soit en important le fichier qu'il produit, soit en le laissant tourner pendant la partie : l'app se met alors à jour en direct.
+- **Suivre l'amélioration d'une relique en direct** : lancer Reliquary Archiver avant le jeu, cliquer sur « Import en direct » et attendre l'état « connecté »,
+  puis garder la fiche du perso ouverte sur l'onglet Reliques. À chaque amélioration en jeu d'une pièce listée dans « À monter »,
+  ses chances se mettent à jour aussitôt, avec un verdict : ça vaut le coup de continuer, ou plus le coup.
 - **L'historique des vœux** : ouvrir l'historique des vœux dans le jeu, puis cliquer sur « Détection auto » dans l'onglet Vœux.
   L'app retrouve le lien toute seule dans le cache du jeu.
 
