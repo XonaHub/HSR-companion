@@ -1,5 +1,5 @@
 /* Statut des données (fraîcheur des sources) : fonctions pures, testées dans tests/status.test.mjs.
-   Utilisées par app.js : panneau « Statut des données » de Paramètres, avertissements des onglets, repère « hors ligne ». */
+   Utilisées par l'interface (ui/) : panneau « Statut des données » de Paramètres, avertissements des onglets, repère « hors ligne ». */
 
 const STATUS_WARN_MS = 24 * 3600 * 1000;   // données du jeu non vérifiées depuis plus longtemps : on prévient
 

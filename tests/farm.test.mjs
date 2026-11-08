@@ -158,7 +158,7 @@ test('farm_order_changes_plan_times_not_total', () => {
 });
 
 test('disabled_plans_consume_no_stock', () => {
-  // la sélection des plans actifs (on !== false) est faite dans app.js avant allocate : un plan désactivé n'est pas transmis
+  // la sélection des plans actifs (on !== false) est faite dans ui/planner.js avant allocate : un plan désactivé n'est pas transmis
   const plans = [{ on: false, items: { A: 5 } }, { on: true, items: { A: 5 } }];
   const alloc = list => ev(`allocate(${J(list)}, { A: 5 }, [])`).map(x => x.missing.items);
   const active = alloc(plans.filter(p => p.on !== false));

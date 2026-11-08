@@ -115,7 +115,7 @@ fn category(id: &str) -> &'static str {
     }
 }
 
-/// Comme `norm` de app.js / build_assets.py : décomposition, ASCII seul, minuscules, lettres et chiffres.
+/// Comme `norm` de ui/core.js / build_assets.py : décomposition, ASCII seul, minuscules, lettres et chiffres.
 pub fn norm(s: &str) -> String {
     s.nfkd().filter(char::is_ascii).collect::<String>().to_lowercase().chars().filter(char::is_ascii_alphanumeric).collect()
 }

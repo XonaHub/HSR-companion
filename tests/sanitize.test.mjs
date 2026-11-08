@@ -4,7 +4,7 @@ import { loadScripts } from './helpers.mjs';
 
 const ev = loadScripts('data.js', 'sanitize.js');
 
-// mêmes valeurs par défaut que defaultState() (app.js) pour les champs que sanitizeState consulte
+// mêmes valeurs par défaut que defaultState() (ui/core.js) pour les champs que sanitizeState consulte
 ev(`var BASE = {
   lang: 'fr', rosterView: 'chars', teamFilter: 'all', rates: { ...DEFAULT_RATES },
   warp: { jades: 0, passes: 0, charPity: 0, charGuar: false, lcPity: 0, lcGuar: false, days: 0, express: false, extra: 0, targetChar: 1, targetLc: 0 },

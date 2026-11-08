@@ -21,7 +21,7 @@ use tauri::{WebviewUrl, WebviewWindowBuilder};
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        // liens externes (target="_blank") ouverts dans le navigateur du système, voir app.js
+        // liens externes (target="_blank") ouverts dans le navigateur du système, voir openExternal dans ui/core.js
         .plugin(tauri_plugin_opener::init())
         // mise à jour de l'app : utilisée seulement côté Rust (appupdate.rs), aucune permission côté page
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -44,7 +44,7 @@ pub fn run() {
             news::news_cached
         ])
         .setup(|app| {
-            // Données injectées avant le chargement de la page, pour qu'app.js les lise de façon
+            // Données injectées avant le chargement de la page, pour que ui/core.js les lise de façon
             // synchrone : la sauvegarde du joueur et, si elles ont été téléchargées, les données du jeu.
             storage::backup_at_launch(app.handle()); // avant tout chargement : copie si la version a changé
             let saved = storage::load_state(app.handle()).unwrap_or_else(|| "null".into());

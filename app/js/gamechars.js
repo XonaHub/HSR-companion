@@ -1,12 +1,12 @@
 /* HSR Companion — persos du jeu absents de la liste écrite à la main (data.js : CHARACTERS)
    et fusion des persos personnalisés devenus officiels. Fonctions pures, testées dans tests/. */
 
-/* Même normalisation que app.js et gamedata::norm (Rust) : décomposition, ASCII, minuscules, lettres et chiffres */
+/* Même normalisation que norm (ui/core.js) et gamedata::norm (Rust) : décomposition, ASCII, minuscules, lettres et chiffres */
 function normName(s) {
   return String(s || '').normalize('NFKD').replace(/[^\x00-\x7f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
 
-/* Clés possibles d'un perso de l'app dans les données du jeu (même règle que findGameChar dans app.js) */
+/* Clés possibles d'un perso de l'app dans les données du jeu (même règle que findGameChar dans ui/core.js) */
 function charKeys(c) {
   const el = '|' + c.element;
   return [normName(c.name) + el, normName(c.fr) + el, normName(String(c.name || '').replace(/\s*\(.*\)\s*$/, '')) + el];

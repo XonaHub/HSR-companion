@@ -2,7 +2,7 @@
    fonctions pures, sans accès au DOM. Nécessite data.js (SLOTS, MAIN_STATS, SUBSTATS, ELEMENTS, PATHS, PROFILE_IDS).
    Les ids, nombres et valeurs de liste fermée sont insérés tels quels dans le HTML (attributs data-*, classes,
    clés de traduction) : ici on garantit leur forme, pour qu'un fichier piégé ne puisse pas injecter de code.
-   Les textes libres (noms, notes) restent des textes : ils sont échappés à l'affichage (esc dans app.js). */
+   Les textes libres (noms, notes) restent des textes : ils sont échappés à l'affichage (esc dans ui/core.js). */
 
 const safeId = v => String(v ?? '').replace(/[^A-Za-z0-9_-]/g, '');
 const optId = v => (v == null || v === '' ? null : safeId(v) || null);
