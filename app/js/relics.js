@@ -102,3 +102,96 @@ function relicReview(advice, relics, charId, opts) {
   const priority = issues.slice(0, 3).map(({ key, ...i }) => ({ ...i, better: better(i.relic, i.set, !i.main && !i.set) }));
   return { source: advice ? 'prydwen' : 'profile', slots, cavern, planar, mains, priority };
 }
+
+/* ---------- Équipement conseillé : 6 pièces tirées de l'inventaire (spec 2026-11-08-reliques-equipement) ----------
+   Candidats : pièces libres de niveau 15 et pièces déjà portées par le perso (jamais celles d'un autre perso).
+   Valeur d'une pièce : opts.value (valeur absolue des sous-stats utiles), pas le ratio par amélioration. */
+const LO_GOOD = ['S', 'A', 'B'];
+/* Comparaison de deux combinaisons : le bonus de set demande des pièces, donc d'abord le plus d'emplacements remplis.
+   Combinaison complète : le meilleur total, puis le rang Prydwen. Incomplète (il faudra farmer) : viser le set le mieux
+   classé plutôt qu'une pièce isolée bien notée d'un set moins bon. */
+function loBetter(top, cand, full) {
+  if (!top) return true;
+  if (cand.filled !== top.filled) return cand.filled > top.filled;
+  const byTotal = cand.total !== top.total ? cand.total > top.total : cand.rank < top.rank;
+  return cand.filled === full ? byTotal : cand.rank !== top.rank ? cand.rank < top.rank : cand.total > top.total;
+}
+
+/** Combinaisons caverne conseillées, dans l'ordre : entrées de advice.sets (une entrée de 2 pièces est complétée
+    par une paire de advice.flex), puis paires 2 + 2 tirées de flex seul (rank null). */
+function loadoutCavernCombos(advice) {
+  const flex = (advice && advice.flex) || [];
+  const out = [];
+  ((advice && advice.sets) || []).forEach((entry, i) => {
+    const used = entry.reduce((s, p) => s + p.pieces, 0);
+    if (used >= 4) out.push({ sets: entry.map(p => ({ name: p.name, pieces: p.pieces })), rank: i + 1 });
+    else for (const f of flex) if (!entry.some(p => normName(p.name) === normName(f)))
+      out.push({ sets: entry.map(p => ({ name: p.name, pieces: p.pieces })).concat({ name: f, pieces: 2 }), rank: i + 1 });
+  });
+  for (let a = 0; a < flex.length; a++) for (let b = a + 1; b < flex.length; b++)
+    out.push({ sets: [{ name: flex[a], pieces: 2 }, { name: flex[b], pieces: 2 }], rank: null });
+  return out;
+}
+
+/** Équipement conseillé de `charId`.
+    opts = { element, profileMain, value: r -> nombre, grade: r -> 'S'…'D' }.
+    Renvoie { combo: { cavern: [{ name, pieces }], planar, rank }, slots, counts: { swap, farm } } ;
+    slots[slot] = { worn, pick, state: 'keep'|'swap'|'farm'|'swap_farm', target: { set, mains }, farm: target | null }. */
+function relicLoadout(advice, relics, charId, opts) {
+  const all = relics || [];
+  const allowedFor = slot => (advice && advice.main && advice.main[slot] && advice.main[slot].length ? advice.main[slot] : null)
+    || (opts.profileMain && opts.profileMain[slot]) || null;
+  const admitted = all.filter(r => (!r.owner || r.owner === charId) && (r.owner === charId || r.level === 15)
+    && relicMainOk(r.slot, r.main, allowedFor(r.slot), opts.element));
+  // meilleure pièce d'un emplacement dans un set (ou tous sets si `set` est null)
+  const best = (slot, set) => admitted.filter(r => r.slot === slot && (set == null || normName(r.set) === normName(set)))
+    .reduce((a, b) => (!a || opts.value(b) > opts.value(a) ? b : a), null);
+  const val = r => (r ? opts.value(r) : 0);
+  const assign = {};   // emplacement -> set visé
+
+  // caverne : chaque combinaison, et pour un 2 + 2 chaque répartition des deux sets entre les 4 emplacements
+  const cavCombos = loadoutCavernCombos(advice);
+  let combo = { cavern: [], planar: null, rank: null };
+  if (cavCombos.length) {
+    let top = null;
+    for (const c of cavCombos) {
+      const splits = c.sets.length === 1 ? [RELIC_CAVERN.map(() => c.sets[0].name)]
+        : [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]].map(pair => RELIC_CAVERN.map((_, i) => (pair.includes(i) ? c.sets[0].name : c.sets[1].name)));
+      for (const split of splits) {
+        const picks = RELIC_CAVERN.map((slot, i) => best(slot, split[i]));
+        const filled = picks.filter(Boolean).length, total = picks.reduce((s, p) => s + val(p), 0);
+        if (loBetter(top, { filled, total, rank: c.rank || Infinity }, 4)) top = { c, split, total, filled, rank: c.rank || Infinity };
+      }
+    }
+    combo.cavern = top.c.sets; combo.rank = top.c.rank;
+    RELIC_CAVERN.forEach((slot, i) => { assign[slot] = top.split[i]; });
+  } else RELIC_CAVERN.forEach(slot => { assign[slot] = null; });
+
+  // planaire : sphère et corde du même set, le mieux noté (à égalité, le premier conseillé)
+  const planars = (advice && advice.planars) || [];
+  if (planars.length) {
+    let top = null;
+    for (const p of planars) {
+      const picks = RELIC_PLANAR.map(slot => best(slot, p));
+      const filled = picks.filter(Boolean).length, total = picks.reduce((s, x) => s + val(x), 0);
+      const rank = planars.indexOf(p) + 1;
+      if (loBetter(top, { filled, total, rank }, 2)) top = { p, total, filled, rank };
+    }
+    combo.planar = top.p;
+    RELIC_PLANAR.forEach(slot => { assign[slot] = top.p; });
+  } else RELIC_PLANAR.forEach(slot => { assign[slot] = null; });
+
+  const slots = {}, counts = { swap: 0, farm: 0 };
+  for (const slot of RELIC_CAVERN.concat(RELIC_PLANAR)) {
+    const worn = all.find(r => r.owner === charId && r.slot === slot) || null;
+    const pick = best(slot, assign[slot]);
+    const mains = (allowedFor(slot) || []).map(m => (m === 'elem' ? 'dmg_' + opts.element : m));
+    const target = { set: assign[slot], mains: slot === 'head' || slot === 'hands' ? [] : mains };
+    const good = pick && LO_GOOD.includes(opts.grade(pick));
+    const state = !pick ? 'farm' : worn && pick.id === worn.id ? (good ? 'keep' : 'farm') : good ? 'swap' : 'swap_farm';
+    if (state === 'swap' || state === 'swap_farm') counts.swap++;
+    if (state === 'farm' || state === 'swap_farm') counts.farm++;
+    slots[slot] = { worn, pick, state, target, farm: state === 'farm' || state === 'swap_farm' ? target : null };
+  }
+  return { combo, slots, counts };
+}

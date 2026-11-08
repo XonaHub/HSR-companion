@@ -162,3 +162,104 @@ test('fallback_to_profile_without_advice', () => {
   // sans conseil, aucun set n'est « cassé »
   assert.deepEqual(r.priority.map(p => [p.relic.slot, p.main, p.set]), [['feet', true, false]]);
 });
+
+/* ---------- Équipement conseillé (relicLoadout) ---------- */
+const LO_OPTS = `{ element: 'lightning', profileMain: ${JSON.stringify(PROFILE_MAIN)}, value: r => r.q, grade: r => r.q >= 0.55 ? 'A' : r.q >= 0.4 ? 'B' : r.q >= 0.25 ? 'C' : 'D' }`;
+const loadout = (relics, advice = ADVICE) => ev(`relicLoadout(${JSON.stringify(advice)}, ${JSON.stringify(relics)}, 'acheron', ${LO_OPTS})`);
+const CAV = ['head', 'hands', 'body', 'feet'];
+const cav = (set, q, owner = 'acheron', level = 15) => CAV.map(s => R(s, set, MAINS[s], q, owner, level));
+const planar = (q, owner = 'acheron') => ['sphere', 'rope'].map(s => R(s, IZU, MAINS[s], q, owner));
+
+test('loadout_picks_best_full_set', () => {
+  const lo = loadout([...cav(PIO, 0.5, null), ...cav(SCH, 0.7), ...planar(0.6)]);
+  assert.deepEqual(lo.combo.cavern, [{ name: SCH, pieces: 4 }]);
+  assert.equal(lo.combo.rank, 2);
+  assert.equal(lo.combo.planar, IZU);
+  for (const s of CAV) assert.equal(lo.slots[s].state, 'keep');
+  assert.deepEqual(lo.counts, { swap: 0, farm: 0 });
+});
+
+test('loadout_swaps_free_better_piece', () => {
+  const free = R('hands', PIO, 'atk', 0.8, null);
+  const lo = loadout([...cav(PIO, 0.6), ...planar(0.6), free]);
+  assert.equal(lo.slots.hands.state, 'swap');
+  assert.equal(lo.slots.hands.pick.id, free.id);
+  assert.equal(lo.slots.hands.worn.owner, 'acheron');
+  assert.equal(lo.counts.swap, 1);
+});
+
+test('loadout_ignores_other_owners', () => {
+  const other = R('hands', PIO, 'atk', 0.95, 'other');
+  const lo = loadout([...cav(PIO, 0.6), ...planar(0.6), other]);
+  assert.notEqual(lo.slots.hands.pick.id, other.id);
+  assert.equal(lo.slots.hands.state, 'keep');
+});
+
+test('loadout_never_picks_unleveled_free_piece', () => {
+  const young = R('body', PIO, 'cr', 0.9, null, 0);
+  const lo = loadout([...cav(PIO, 0.45), ...planar(0.6), young]);
+  assert.equal(lo.slots.body.pick.owner, 'acheron');
+  assert.equal(lo.slots.body.state, 'keep');
+});
+
+test('loadout_keeps_worn_when_nothing_better', () => {
+  const kit6 = [...cav(PIO, 0.6), ...planar(0.6)];
+  kit6[2] = R('body', PIO, 'cr', 0.1);   // corps porté, note D
+  const lo = loadout(kit6);
+  assert.equal(lo.slots.body.state, 'farm');
+  assert.equal(lo.slots.body.pick.id, kit6[2].id);
+  assert.deepEqual(lo.slots.body.farm, { set: PIO, mains: ['cr', 'cd'] });
+  assert.equal(lo.counts.farm, 1);
+});
+
+test('loadout_swap_and_farm', () => {
+  const kit6 = [...cav(PIO, 0.6), ...planar(0.6)];
+  kit6[3] = R('feet', PIO, 'atk_pct', 0.1);
+  const free = R('feet', PIO, 'atk_pct', 0.3, null);   // meilleure, mais note C
+  const lo = loadout([...kit6, free]);
+  assert.equal(lo.slots.feet.state, 'swap_farm');
+  assert.equal(lo.slots.feet.pick.id, free.id);
+  assert.deepEqual(lo.counts, { swap: 1, farm: 1 });
+});
+
+test('loadout_flex_pair', () => {
+  const pieces = [R('head', MUS, 'hp', 0.6, null), R('hands', MUS, 'atk', 0.6, null),
+    R('body', PIO, 'cr', 0.6, null), R('feet', PIO, 'atk_pct', 0.6, null), ...planar(0.6, null)];
+  const lo = loadout(pieces);
+  assert.deepEqual(lo.combo.cavern.map(p => p.name + ':' + p.pieces).sort(), [MUS + ':2', PIO + ':2'].sort());
+  assert.equal(lo.combo.rank, null);
+  for (const s of CAV) assert.ok(lo.slots[s].pick, s);
+});
+
+test('loadout_planar_same_set', () => {
+  const lo = loadout([...cav(PIO, 0.6), R('sphere', IZU, 'dmg_lightning', 0.6), R('rope', 'Inert Salsotto', 'atk_pct', 0.9)]);
+  assert.equal(lo.combo.planar, IZU);
+  assert.equal(lo.slots.rope.state, 'farm');
+  assert.equal(lo.slots.rope.farm.set, IZU);
+});
+
+test('loadout_empty_inventory', () => {
+  const lo = loadout([]);
+  for (const s of ['head', 'hands', 'body', 'feet', 'sphere', 'rope']) {
+    assert.equal(lo.slots[s].state, 'farm', s);
+    assert.equal(lo.slots[s].pick, null);
+  }
+  assert.equal(lo.counts.farm, 6);
+});
+
+test('loadout_without_prydwen', () => {
+  const mixed = [R('head', MUS, 'hp', 0.7), R('hands', SCH, 'atk', 0.7), R('body', PIO, 'cr', 0.7), R('feet', PIO, 'spd', 0.7),
+    R('sphere', IZU, 'dmg_lightning', 0.7), R('rope', 'Inert Salsotto', 'atk_pct', 0.7), R('feet', MUS, 'spd', 0.9, null)];
+  const lo = loadout(mixed, null);
+  assert.equal(lo.combo.rank, null);
+  assert.equal(lo.slots.feet.state, 'swap');
+  assert.equal(lo.slots.rope.state, 'keep');
+  const weak = loadout([R('body', PIO, 'cr', 0.1)], null);
+  assert.deepEqual(weak.slots.body.farm, { set: null, mains: ['cr', 'cd'] });
+});
+
+test('loadout_tie_prefers_rank', () => {
+  const lo = loadout([...cav(PIO, 0.6, null), ...cav(SCH, 0.6, null), ...planar(0.6)]);
+  assert.equal(lo.combo.rank, 1);
+  assert.deepEqual(lo.combo.cavern, [{ name: PIO, pieces: 4 }]);
+});
