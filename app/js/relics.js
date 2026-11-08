@@ -195,3 +195,66 @@ function relicLoadout(advice, relics, charId, opts) {
   }
   return { combo, slots, counts };
 }
+
+/* ---------- Pièces à monter : chances qu'une pièce encore basse finisse meilleure (hasard des améliorations) ----------
+   Nécessite SUBSTATS et SUBSTAT_WEIGHTS (data.js). */
+
+/** Générateur pseudo-aléatoire déterministe (mulberry32) : même graine, mêmes tirages */
+function seededRng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Part des `n` simulations où la pièce, montée à +15, vaut plus que `rivalValue` selon `valueOf`.
+    Paliers à +3, +6, +9, +12, +15 : avec 3 sous-stats, le premier ajoute une 4e sous-stat (tirée selon
+    SUBSTAT_WEIGHTS, hors stat principale et sous-stats présentes) ; sinon une des 4 est améliorée au hasard,
+    d'une des 3 valeurs de SUBSTATS[stat].roll. */
+function upgradeChance(relic, rivalValue, valueOf, rng, n = 5000) {
+  const steps = Math.max(0, Math.floor((15 - (relic.level || 0)) / 3));
+  const start = (relic.subs || []).filter(s => s.stat && SUBSTATS[s.stat]);
+  if (!steps) return valueOf({ ...relic, subs: start }) > rivalValue ? 1 : 0;
+  const pick = list => list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
+  let wins = 0;
+  for (let i = 0; i < n; i++) {
+    const subs = start.map(s => ({ ...s }));
+    for (let k = 0; k < steps; k++) {
+      if (subs.length < 4) {
+        const pool = Object.keys(SUBSTAT_WEIGHTS).filter(id => id !== relic.main && !subs.some(s => s.stat === id));
+        let r = rng() * pool.reduce((s, id) => s + SUBSTAT_WEIGHTS[id], 0), id = pool[pool.length - 1];
+        for (const p of pool) { r -= SUBSTAT_WEIGHTS[p]; if (r < 0) { id = p; break; } }
+        subs.push({ stat: id, val: pick(SUBSTATS[id].roll) });
+      } else {
+        const s = pick(subs);
+        s.val += pick(SUBSTATS[s.stat].roll);
+      }
+    }
+    if (valueOf({ ...relic, level: 15, subs }) > rivalValue) wins++;
+  }
+  return wins / n;
+}
+
+/** Pièces libres encore basses qui pourraient battre la pièce conseillée de leur emplacement (ou, sans pièce
+    conseillée, devenir correctes : opts.correctValue). Même set et stat principale que la cible de l'emplacement,
+    chances ≥ 10 %, la meilleure par emplacement, au plus 3, triées par chances décroissantes.
+    opts = { value, valueOf, correctValue: r -> nombre, rng }. Renvoie [{ relic, slot, chance, rival }]. */
+function upgradeCandidates(loadout, relics, charId, opts) {
+  const bySlot = {};
+  for (const r of relics || []) {
+    const sl = loadout.slots[r.slot];
+    if (!sl || r.owner || (r.level || 0) >= 15) continue;
+    const tg = sl.target;
+    if (tg.set != null && normName(r.set) !== normName(tg.set)) continue;
+    if (tg.mains.length && !tg.mains.includes(r.main)) continue;
+    const rival = sl.pick || null;
+    const chance = upgradeChance(r, rival ? opts.value(rival) : opts.correctValue(r), opts.valueOf, opts.rng);
+    if (chance < 0.1) continue;
+    if (!bySlot[r.slot] || chance > bySlot[r.slot].chance) bySlot[r.slot] = { relic: r, slot: r.slot, chance, rival };
+  }
+  return Object.values(bySlot).sort((a, b) => b.chance - a.chance).slice(0, 3);
+}

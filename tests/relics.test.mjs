@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadScripts } from './helpers.mjs';
 
-const ev = loadScripts('gamechars.js', 'relics.js');
+const ev = loadScripts('data.js', 'gamechars.js', 'relics.js');
 
 // conseils d'Acheron tels que lus sur Prydwen (src-tauri/src/prydwen/parse.rs)
 const ADVICE = {
@@ -262,4 +262,59 @@ test('loadout_tie_prefers_rank', () => {
   const lo = loadout([...cav(PIO, 0.6, null), ...cav(SCH, 0.6, null), ...planar(0.6)]);
   assert.equal(lo.combo.rank, 1);
   assert.deepEqual(lo.combo.cavern, [{ name: PIO, pieces: 4 }]);
+});
+
+/* ---------- Pièces à monter (upgradeChance, upgradeCandidates) ---------- */
+// valeur de test : rolls utiles pour un perso critique (Taux CRIT et DGT CRIT, poids 1)
+const CRIT_VALUE = `r => r.subs.reduce((s, x) => s + (['cr', 'cd'].includes(x.stat) ? x.val / SUBSTATS[x.stat].roll[2] : 0), 0)`;
+const chance = (relic, rival, seed = 7) => ev(`upgradeChance(${JSON.stringify(relic)}, ${rival}, ${CRIT_VALUE}, seededRng(${seed}))`);
+const young = { id: 'y', slot: 'body', set: PIO, main: 'atk_pct', level: 0, owner: null,
+  subs: [{ stat: 'cr', val: 2.592 }, { stat: 'cd', val: 5.184 }, { stat: 'spd', val: 2 }] };
+
+test('upgrade_chance_maxed_piece', () => {
+  const done = { ...young, level: 15 };
+  assert.equal(chance(done, 1), 1);    // 0,8 + 0,8 = 1,6 > 1
+  assert.equal(chance(done, 2), 0);
+});
+
+test('upgrade_chance_is_deterministic', () => {
+  const a = chance(young, 3), b = chance(young, 3);
+  assert.equal(a, b);
+  assert.ok(a > 0 && a < 1, String(a));
+});
+
+test('upgrade_chance_good_start_beats_weak_rival', () => {
+  assert.ok(chance(young, 1) > 0.9);
+  assert.ok(chance(young, 9) < 0.05);
+});
+
+test('upgrade_three_subs_adds_fourth', () => {
+  const counts = ev(`(() => { const seen = new Set(); upgradeChance(${JSON.stringify(young)}, 0, r => { seen.add(r.subs.length + ':' + r.level); return 1; }, seededRng(3), 200); return [...seen]; })()`);
+  assert.deepEqual(counts, ['4:15']);
+});
+
+test('upgrade_candidates_filters', () => {
+  const pick = { id: 'p', slot: 'hands', set: PIO, main: 'atk', level: 15, owner: 'acheron', v: 5, subs: [] };
+  const lo = { slots: {
+    head: { pick: null, target: { set: PIO, mains: [] } },
+    hands: { pick, target: { set: PIO, mains: [] } },
+    body: { pick: null, target: { set: PIO, mains: ['cr', 'cd'] } },
+    feet: { pick: null, target: { set: PIO, mains: ['atk_pct', 'spd'] } },
+    sphere: { pick: null, target: { set: IZU, mains: ['atk_pct'] } },
+    rope: { pick: null, target: { set: IZU, mains: ['atk_pct'] } } } };
+  const C = (id, slot, set, main, v, extra = {}) => ({ id, slot, set, main, level: 3, owner: null, v, subs: [], ...extra });
+  const relics = [
+    C('ok-hands', 'hands', PIO, 'atk', 9), C('ok-hands-2', 'hands', PIO, 'atk', 8),   // 2 pour le même emplacement : 1 gardée
+    C('bad-set', 'head', MUS, 'hp', 9), C('bad-main', 'body', PIO, 'def_pct', 9),
+    C('too-low', 'feet', PIO, 'spd', 4),                                              // ne bat pas le seuil
+    C('maxed', 'head', PIO, 'hp', 9, { level: 15 }), C('other-owner', 'head', PIO, 'hp', 9, { owner: 'x' }),
+    C('ok-head', 'head', PIO, 'hp', 9), C('ok-body', 'body', PIO, 'cr', 9), C('ok-rope', 'rope', IZU, 'atk_pct', 9)];
+  const out = ev(`upgradeCandidates(${JSON.stringify(lo)}, ${JSON.stringify(relics)}, 'acheron',
+    { value: r => r.v, valueOf: r => r.v, correctValue: () => 6, rng: seededRng(1) })`);
+  assert.equal(out.length, 3);
+  const ids = out.map(x => x.relic.id);
+  assert.ok(!ids.some(id => ['bad-set', 'bad-main', 'too-low', 'maxed', 'other-owner', 'ok-hands-2'].includes(id)), ids.join());
+  assert.ok(out.every(x => x.chance === 1));
+  const hands = out.find(x => x.slot === 'hands');
+  if (hands) assert.equal(hands.rival.id, 'p');
 });

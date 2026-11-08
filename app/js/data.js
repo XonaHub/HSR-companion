@@ -276,6 +276,8 @@ const SUBSTATS = {
   be: { roll: [5.184, 5.832, 6.48], pct: true }
 };
 const SUBSTAT_IDS = Object.keys(SUBSTATS);
+/* Chance relative qu'une sous-stat soit tirée quand une pièce en gagne une nouvelle (poids connus du jeu) */
+const SUBSTAT_WEIGHTS = { hp: 10, atk: 10, def: 10, hp_pct: 10, atk_pct: 10, def_pct: 10, spd: 4, cr: 6, cd: 6, ehr: 8, res: 8, be: 8 };
 
 const RELIC_SETS = [
   'Passerby of Wandering Cloud', 'Musketeer of Wild Wheat', 'Knight of Purity Palace', 'Hunter of Glacial Forest',
