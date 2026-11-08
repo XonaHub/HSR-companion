@@ -48,6 +48,9 @@ pub fn run() {
             storage::backup_at_launch(app.handle()); // avant tout chargement : copie si la version a changé
             let saved = storage::load_state(app.handle()).unwrap_or_else(|| "null".into());
             let mut init = format!("window.__HSR_STATE__ = {saved};");
+            // version de l'app, connue sans réseau ; dev = build de développement (npm run dev), pas une version publiée
+            let app_info = serde_json::json!({ "version": app.package_info().version.to_string(), "dev": cfg!(debug_assertions) });
+            init.push_str(&format!("\nwindow.__HSR_APP__ = {app_info};"));
             if let Some(game) = gamedata::update::data_dir(app.handle()).ok().and_then(|d| gamedata::update::load_game(&d)) {
                 init.push_str(&format!("\nwindow.__HSR_GAME__ = {game};"));
             }

@@ -1918,7 +1918,7 @@
     </section>
     <section class="panel">
       <h3>${t('app_update_title')}</h3>
-      <p class="hint">${appVersion ? esc(t('app_version', { v: appVersion })) : ''} ${t('app_update_hint')}</p>
+      <p class="hint">${appVersion ? esc(t(APP.dev ? 'app_version_dev' : 'app_version', { v: appVersion })) : ''} ${t('app_update_hint')}</p>
       <button class="btn sm" data-action="checkAppUpdate">${t('app_update_check')}</button>
     </section>
     <section class="panel">
@@ -1950,7 +1950,8 @@
   }
 
   /* ---------------------------------------------------------- mise à jour de l'app (appupdate.rs) */
-  let appVersion = '';   // version installée, connue après la première vérification
+  const APP = window.__HSR_APP__ || {};   // injecté par lib.rs : { version, dev }
+  let appVersion = APP.version || '';   // version installée (aussi renvoyée par la vérification en ligne)
   /* Vérifie s'il existe une version plus récente sur GitHub et propose de l'installer.
      manual : clic sur « Rechercher une mise à jour » (on dit aussi quand l'app est à jour ou hors ligne).
      Renvoie true si une mise à jour a été proposée (pour ne pas enchaîner une autre question au lancement). */

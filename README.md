@@ -65,7 +65,7 @@ You need Node.js, Rust and (on Windows) the Visual Studio Build Tools.
 
 ```bash
 npm install
-npm run dev     # runs the app in development mode
+npm run dev     # runs the app in development mode (Settings shows "Development build")
 npm test        # JavaScript + Rust tests
 npm run build   # builds the Windows installer
 ```
@@ -151,7 +151,7 @@ Il faut Node.js, Rust et (sous Windows) les Visual Studio Build Tools.
 
 ```bash
 npm install
-npm run dev     # lance l'app en mode développement
+npm run dev     # lance l'app en mode développement (Paramètres affiche « Version de développement »)
 npm test        # tests JavaScript + tests Rust
 npm run build   # crée l'installateur Windows
 ```
