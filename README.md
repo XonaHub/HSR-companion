@@ -92,17 +92,17 @@ Une application de bureau Windows pour les joueurs de **Honkai: Star Rail**.
 Elle réunit au même endroit ce qu'on cherche d'habitude sur plusieurs sites :
 ses persos, ce qu'il reste à farmer, ses vœux, ses reliques, ses équipes et les actus du jeu.
 
-> Application de fan non officielle, sans lien avec HoYoverse. Tout reste sur ton PC.
+> Application de fan non officielle, sans lien avec HoYoverse. Tout reste sur le PC.
 
 ### Télécharger
 
-Prends la dernière version sur la page [Releases](https://github.com/XonaHub/HSR-companion/releases/latest) :
+La dernière version est sur la page [Releases](https://github.com/XonaHub/HSR-companion/releases/latest) :
 
 - **`…_x64-setup.exe`** : l'installateur (conseillé). L'app se met ensuite à jour toute seule : au lancement, elle propose les nouvelles versions.
-- **`…_x64-portable.exe`** : se lance sans rien installer. Il ne se met pas à jour tout seul : télécharge la nouvelle version à la main.
+- **`…_x64-portable.exe`** : se lance sans rien installer. Il ne se met pas à jour tout seul : la nouvelle version est à télécharger à la main.
 
 L'app n'est pas signée avec un certificat payant : Windows SmartScreen peut afficher « Windows a protégé votre ordinateur ».
-Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
+Cliquer alors sur **Informations complémentaires**, puis **Exécuter quand même**.
 
 ### Ce que fait l'app
 
@@ -110,23 +110,23 @@ L'app a 8 onglets :
 
 | Onglet | À quoi il sert |
 |---|---|
-| **Aujourd'hui** | Ouvert à chaque lancement : le perso que tu farmes et le temps qu'il reste, tes vœux disponibles, la bannière en cours, la prochaine version, le prochain mode d'endgame qui change de cycle et la dernière actu. |
-| **Personnages** | Tous les persos du jeu, ceux que tu possèdes, et tes cônes de lumière. Clique sur un perso pour ouvrir sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. Le bouton + en coin l'ajoute à tes persos (− pour le retirer). |
-| **Farm** | Tu choisis un perso et le niveau visé ; l'app dit ce qu'il te manque (en tenant compte de ton inventaire) et combien de jours d'énergie il faut. |
-| **Vœux** | Tes jades, tes passes et ton pity. Un simulateur te donne tes chances d'avoir un perso ou un cône avec ce que tu as. L'estimation de tes vœux à venir compte les jades des nouveaux cycles d'endgame, selon ce que tu obtiens d'habitude dans chaque mode. Tu peux importer ton historique de vœux. |
-| **Reliques** | Toutes tes reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
+| **Aujourd'hui** | Ouvert à chaque lancement : le perso en cours de farm et le temps restant, les vœux disponibles, la bannière en cours, la prochaine version, le prochain mode d'endgame qui change de cycle et la dernière actu. |
+| **Personnages** | Tous les persos du jeu, les persos possédés et les cônes de lumière. Un clic sur un perso ouvre sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. Le bouton + en coin l'ajoute aux persos possédés (− pour le retirer). |
+| **Farm** | Choix d'un perso et du niveau visé ; l'app indique ce qui manque (en tenant compte de l'inventaire) et combien de jours d'énergie il faut. |
+| **Vœux** | Jades, passes et pity. Un simulateur calcule les chances d'obtenir un perso ou un cône avec les tirages disponibles. L'estimation des vœux à venir compte les jades des nouveaux cycles d'endgame, selon ce qui est obtenu d'habitude dans chaque mode. L'historique des vœux peut être importé. |
+| **Reliques** | Toutes les reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
 | **Équipes** | Composer des équipes pour la Mémoire du chaos, la Fiction pure et l'Ombre apocalyptique, avec des conseils (pas de soigneur, trop de DPS…). |
 | **Actus** | Les annonces officielles regroupées par version : bannières, événements, combien de vœux on peut gagner pendant la version, et le cycle en cours de chaque mode d'endgame (Mémoire du chaos, Fiction pure, Ombre apocalyptique, Arbitre de l'instable) avec la date du suivant. |
-| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après ton UID), rendement de farm, export et import de tes données, copies de la sauvegarde pour revenir en arrière, version installée et bouton « Rechercher une mise à jour ». |
+| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après l'UID), rendement de farm, export et import des données, copies de la sauvegarde pour revenir en arrière, version installée et bouton « Rechercher une mise à jour ». |
 
-### Remplir l'app avec ton compte
+### Remplir l'app avec son compte
 
-Tu n'es pas obligé de tout saisir à la main :
+Inutile de tout saisir à la main :
 
-- **Ton compte complet** (persos, niveaux, traces, reliques, cônes, matériaux) : avec l'outil gratuit
+- **Le compte complet** (persos, niveaux, traces, reliques, cônes, matériaux) : avec l'outil gratuit
   [Reliquary Archiver](https://github.com/IceDynamix/reliquary-archiver).
-  Soit tu importes le fichier qu'il produit, soit tu le laisses tourner pendant que tu joues et l'app se met à jour en direct.
-- **Ton historique de vœux** : ouvre l'historique des vœux dans le jeu, puis clique sur « Détection auto » dans l'onglet Vœux.
+  Soit en important le fichier qu'il produit, soit en le laissant tourner pendant la partie : l'app se met alors à jour en direct.
+- **L'historique des vœux** : ouvrir l'historique des vœux dans le jeu, puis cliquer sur « Détection auto » dans l'onglet Vœux.
   L'app retrouve le lien toute seule dans le cache du jeu.
 
 ### D'où viennent les informations
@@ -138,12 +138,12 @@ Tu n'es pas obligé de tout saisir à la main :
 - **Estimations** : l'EXP par palier, le rendement du farm et le modèle de pity sont des estimations,
   pas des valeurs officielles.
 
-### Où sont mes données ?
+### Où sont les données ?
 
-Dans `%APPDATA%\fr.hsrcompanion.desktop\` sur ton PC. Rien n'est envoyé ailleurs.
+Dans `%APPDATA%\fr.hsrcompanion.desktop\` sur le PC. Rien n'est envoyé ailleurs.
 Pour changer de PC : **Paramètres → Exporter**, puis **Importer** sur l'autre PC.
 
-L'app garde aussi des copies de ta sauvegarde : une par jour, et une juste avant chaque import, remise à zéro ou mise à jour de l'app (les 5 dernières de chaque). En cas de problème, va dans **Paramètres → Copies de la sauvegarde** et clique sur **Restaurer** à côté de la copie voulue.
+L'app garde aussi des copies de la sauvegarde : une par jour, et une juste avant chaque import, remise à zéro ou mise à jour de l'app (les 5 dernières de chaque). En cas de problème : **Paramètres → Copies de la sauvegarde**, puis **Restaurer** à côté de la copie voulue.
 
 ### Pour les développeurs
 
