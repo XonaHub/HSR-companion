@@ -91,3 +91,22 @@ test('empty_inputs', () => {
   // versions sans le champ endgame (ancien fil en cache)
   assert.deepEqual(ev(`endgameCycles([{ version: '4.5' }], 1)`), { moc: [], pf: [], as: [] });
 });
+
+test('cycle_weak_resets_on_new_cycle', () => {
+  const cur = { startMs: 1000 * 86400000 }, other = { startMs: 1042 * 86400000 };
+  const e1 = call('toggleCycleWeak', null, cur, 0, 'fire');
+  assert.deepEqual(e1, { start: cur.startMs, sides: [['fire'], []] });
+  const e2 = call('toggleCycleWeak', e1, cur, 1, 'ice');
+  assert.deepEqual(call('cycleWeakSides', e2, cur), [['fire'], ['ice']]);
+  // même cycle, début décalé de quelques minutes (déduit puis officiel)
+  assert.deepEqual(call('cycleWeakSides', e2, { startMs: cur.startMs + 600000 }), [['fire'], ['ice']]);
+  // cycle suivant : plus rien
+  assert.deepEqual(call('cycleWeakSides', e2, other), [[], []]);
+  // décocher
+  assert.deepEqual(call('toggleCycleWeak', e2, cur, 0, 'fire').sides, [[], ['ice']]);
+  // cycles inconnus : le choix reste, puis il est rattaché au cycle quand il devient connu
+  const e3 = call('toggleCycleWeak', null, null, 0, 'wind');
+  assert.equal(e3.start, null);
+  assert.deepEqual(call('cycleWeakSides', e3, cur), [['wind'], []]);
+  assert.deepEqual(call('cycleWeakSides', e3, null), [['wind'], []]);
+});

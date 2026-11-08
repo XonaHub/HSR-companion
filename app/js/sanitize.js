@@ -102,7 +102,15 @@ function sanitizeState(s, base) {
   out.plans = keep(s.plans, cleanPlan);
   out.myTeams = keep(s.myTeams, x => cleanTeam(x, o.teamTypes));
   out.owned = cleanOwned(s.owned);
-  out.weak = arrOf(s.weak).filter(e => ELEMENTS.includes(e));
+  delete out.weak;   // ancien choix global des faiblesses, remplacé par cycleWeak (par cycle et par moitié)
+  out.cycleWeak = {};
+  for (const m of ['moc', 'pf', 'as']) {
+    const e = s.cycleWeak && s.cycleWeak[m];
+    if (!e || typeof e !== 'object') continue;
+    const start = Number.isFinite(e.start) ? e.start : null;
+    const sides = [0, 1].map(i => [...new Set(arrOf(Array.isArray(e.sides) ? e.sides[i] : []).filter(x => ELEMENTS.includes(x)))]);
+    out.cycleWeak[m] = { start, sides };
+  }
   out.mergeDeclined = arrOf(s.mergeDeclined).map(safeStr);
   out.teams = {};
   for (const m of ['moc', 'pf', 'as']) {

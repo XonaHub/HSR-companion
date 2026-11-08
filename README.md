@@ -29,7 +29,7 @@ The app has 8 tabs:
 | **Farming** | Pick a character and a target level; the app tells you what you're missing (taking your inventory into account) and how many days of energy it takes. |
 | **Warps** | Your Stellar Jade, your passes and your pity. A simulator gives your odds of getting a character or a light cone with what you have. The estimate of your upcoming warps counts the jades from new endgame cycles, based on what you usually earn in each mode. You can import your warp history. |
 | **Relics** | All your relics, graded from S to D based on the character type (crit, break, healer…). Each character's review is on their sheet. |
-| **Teams** | Build teams for Memory of Chaos, Pure Fiction and Apocalyptic Shadow, with tips (no healer, too many DPS…). |
+| **Teams** | Build teams for Memory of Chaos, Pure Fiction and Apocalyptic Shadow, with tips (no healer, too many DPS…). Each mode shows its current cycle (name, effect, end date) and the next one. Tick the enemy weaknesses of each half: the app checks which ones your team covers and suggests your characters of those elements; the choice resets at the next cycle. |
 | **News** | Official announcements grouped by version: banners, events, how many warps you can earn during the version, and the current cycle of each endgame mode (Memory of Chaos, Pure Fiction, Apocalyptic Shadow, Anomaly Arbitration) with the date of the next one. |
 | **Settings** | Language (French / English), game server (endgame reset times depend on it; detected automatically from your UID), farming yield, export and import of your data, save backups to go back in time, data status, installed version and "Check for updates" button. |
 
@@ -119,7 +119,7 @@ L'app a 8 onglets :
 | **Farm** | Choix d'un perso et du niveau visé ; l'app indique ce qui manque (en tenant compte de l'inventaire) et combien de jours d'énergie il faut. |
 | **Vœux** | Jades, passes et pity. Un simulateur calcule les chances d'obtenir un perso ou un cône avec les tirages disponibles. L'estimation des vœux à venir compte les jades des nouveaux cycles d'endgame, selon ce qui est obtenu d'habitude dans chaque mode. L'historique des vœux peut être importé. |
 | **Reliques** | Toutes les reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
-| **Équipes** | Composer des équipes pour la Mémoire du chaos, la Fiction pure et l'Ombre apocalyptique, avec des conseils (pas de soigneur, trop de DPS…). |
+| **Équipes** | Composer des équipes pour la Mémoire du chaos, la Fiction pure et l'Ombre apocalyptique, avec des conseils (pas de soigneur, trop de DPS…). Chaque mode affiche son cycle en cours (nom, effet, date de fin) et le suivant. Les faiblesses des ennemis se cochent pour chaque moitié : l'app indique celles que l'équipe couvre et propose les persos possédés de ces éléments ; le choix repart à zéro au cycle suivant. |
 | **Actus** | Les annonces officielles regroupées par version : bannières, événements, combien de vœux on peut gagner pendant la version, et le cycle en cours de chaque mode d'endgame (Mémoire du chaos, Fiction pure, Ombre apocalyptique, Arbitre de l'instable) avec la date du suivant. |
 | **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après l'UID), rendement de farm, export et import des données, copies de la sauvegarde pour revenir en arrière, statut des données, version installée et bouton « Rechercher une mise à jour ». |
 

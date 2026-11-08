@@ -823,3 +823,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
   border: 1px solid var(--line2); background: rgba(0, 0, 0, .45); color: var(--text); font-size: 22px; line-height: 1;
 }
 .sheet-step button:hover { background: var(--light); color: var(--ink); }
+
+/* Équipes : cycle en cours par mode et faiblesses par moitié */
+.eg-cycle { margin: 0 0 14px; padding: 10px 14px; border-left: 2px solid var(--gold); background: rgba(255, 255, 255, .03); }
+.eg-cycle .eg-effect { margin: 6px 0 0; }
+.side-weak { gap: 4px; margin: 4px 0 8px; }
+.chip-toggle.icon-only { padding: 4px 6px; }
+.team-box h4 small { color: var(--muted); font-weight: normal; }

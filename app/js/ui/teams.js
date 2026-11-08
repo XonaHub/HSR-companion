@@ -9,7 +9,8 @@ const isSustainChar = c => SUSTAIN_PATHS.includes(c.path) || ['healer', 'shielde
 const isDpsChar = c => !isSustainChar(c) && c.path !== 'harmony' &&
   (DPS_PATHS.includes(c.path) || ['crit_atk', 'crit_hp', 'dot', 'break'].includes(profileOf(c)));
 
-function analyzeTeam(ids) {
+/* weak : faiblesses ennemies de la moitié jouée par l'équipe (Équipes, par cycle) ; vide = pas de conseil */
+function analyzeTeam(ids, weak = []) {
   const m = ids.map(charById).filter(Boolean);
   const notes = [];
   if (!m.length) return notes;
@@ -24,9 +25,11 @@ function analyzeTeam(ids) {
   const isSupport = c => SUPPORT_PATHS.includes(c.path) || ['support', 'debuffer'].includes(profileOf(c));
   if (!elationTeam && !m.some(isSupport)) notes.push(['info', t('tip_support')]);
   if (elationTeam) notes.push(['info', t('elation_team')]);
-  if (S.weak.length) {
-    const hit = m.filter(c => S.weak.includes(c.element)).length;
+  if (weak.length) {
+    const hit = m.filter(c => weak.includes(c.element)).length;
+    const missing = weak.filter(e => !m.some(c => c.element === e));
     notes.push(hit ? ['ok', t('weak_match', { n: hit, total: m.length })] : ['warn', t('warn_no_weak')]);
+    if (hit && missing.length) notes.push(['info', t('weak_missing', { els: missing.map(e => t('el_' + e)).join(', ') })]);
   }
   const notOwned = m.filter(c => !S.owned[c.id]);
   if (notOwned.length) notes.push(['info', t('not_owned', { names: esc(notOwned.map(charName).join(', ')) })]);
@@ -146,7 +149,7 @@ function slotCell(id, attrs) {
     <select ${attrs}>${charOptions(id, { allowEmpty: true })}</select>
     ${c ? `<small>${elChip(c.element)} ${pathTag(c.path)}</small>` : ''}</div>`;
 }
-const teamNotes = ids => `<ul class="notes">${analyzeTeam(ids.filter(Boolean)).map(([k, txt]) => `<li class="note ${k}">${txt}</li>`).join('')}</ul>`;
+const teamNotes = (ids, weak) => `<ul class="notes">${analyzeTeam(ids.filter(Boolean), weak).map(([k, txt]) => `<li class="note ${k}">${txt}</li>`).join('')}</ul>`;
 function syncTeamEditor() {   // récupère ce qui a été tapé avant de redessiner
   if (!teamEdit || !$('#teName')) return;
   teamEdit.name = $('#teName').value.trim();
@@ -184,30 +187,49 @@ function saveTeamEditor() {
   save(); closeTeamEditor(); render(); toast(t('team_saved'));
 }
 
+/* Bandeau du cycle en cours (et du suivant) d'un mode, d'après les patch notes (endgame.js, comme Actus) */
+function teamsCycleBanner(st, now) {
+  const { current: c, next: x } = st;
+  if (!c && !x) return `<p class="hint small">${t('eg_unavailable')}</p>`;
+  return `<div class="eg-cycle">
+    ${c ? `<div class="eg-cur"><span>${c.deduced ? esc(t('eg_deduced')) : esc(c.name)}</span> <small>${t('eg_ends', { when: esc(egIn(c.endMs + 60000, now)) })}</small></div>
+      ${c.deduced ? `<p class="hint small">${t('teams_cycle_estimated')}</p>` : ''}
+      ${c.effect ? `<p class="eg-effect">${esc(c.effect).replace(/\n/g, '<br>')}</p>` : ''}` : ''}
+    ${x ? `<div class="eg-next"><small>${t('eg_next')} : ${x.deduced ? esc(t('eg_deduced')) : esc(x.name)} · ${esc(fmtWhen(x.startMs))} · ${esc(egIn(x.startMs, now))}</small></div>` : ''}
+  </div>`;
+}
+/* Faiblesses d'une moitié : icônes d'élément à cocher, puis persos possédés correspondants */
+function sideWeakPicker(mode, side, weak) {
+  const sugg = weak.length ? ownedChars().filter(c => weak.includes(c.element)).sort((a, b) => b.rarity - a.rarity || byName(a, b)) : [];
+  return `<div class="weak-picker side-weak"><span>${t('enemy_weak')}</span>
+      ${ELEMENTS.map(e => { const on = weak.includes(e), label = esc(t('el_' + e));
+        return `<button class="chip-toggle icon-only ${on ? 'on' : ''}" style="--el:${EL_COLORS[e]}" data-action="toggleSideWeak" data-mode="${mode}" data-side="${side}" data-el="${e}" title="${label}" aria-label="${label}" aria-pressed="${on}">${elIcon(e)}</button>`; }).join('')}
+    </div>
+    ${weak.length ? `<div class="sugg"><small>${t('sugg_title')}</small>${sugg.length ? sugg.map(c => `<span class="tag">${avatar(c, 'xs')} ${esc(charName(c))}</span>`).join('') : `<span class="hint small">${t('sugg_none')}</span>`}</div>` : ''}`;
+}
+
 function renderTeams(v) {
-  const owned = ownedChars();
-  const sugg = S.weak.length ? owned.filter(c => S.weak.includes(c.element)).sort((a, b) => b.rarity - a.rarity || byName(a, b)) : [];
+  const now = Date.now(), status = endgameStatus(egCycles(), now);
   v.innerHTML = `
   ${myTeamsSection()}
   <section class="panel">
     <h2>${t('teams_title')}</h2>
     <p class="hint">${t('teams_hint')}</p>
-    <div class="weak-picker"><span>${t('enemy_weak')}</span>
-      ${ELEMENTS.map(e => `<button class="chip-toggle ${S.weak.includes(e) ? 'on' : ''}" style="--el:${EL_COLORS[e]}" data-action="toggleWeak" data-el="${e}">${elIcon(e)}${t('el_' + e)}</button>`).join('')}
-    </div>
-    ${S.weak.length ? `<div class="sugg"><small>${t('sugg_title')}</small>${sugg.length ? sugg.map(c => `<span class="tag">${avatar(c, 'xs')} ${esc(charName(c))}<small>${t('path_' + c.path)}</small></span>`).join('') : `<span class="hint small">${t('sugg_none')}</span>`}</div>` : ''}
   </section>
   ${ENDGAME_MODES.map(mode => {
     const teams = S.teams[mode];
+    const weak = cycleWeakSides(S.cycleWeak[mode], status[mode].current);
     const used = teams.map(tm => tm.filter(Boolean));
     const dup = used[0].filter(id => used[1].includes(id));
     return `<section class="panel">
       <div class="panel-head"><h3>${t('mode_' + mode)}</h3><button class="btn sm" data-action="clearMode" data-mode="${mode}">${t('clear')}</button></div>
+      ${teamsCycleBanner(status[mode], now)}
       ${dup.length ? `<p class="note warn">${t('warn_dup', { names: esc(dup.map(id => charName(charById(id))).join(', ')) })}</p>` : ''}
       <div class="teams-row">${teams.map((tm, ti) => `<div class="team-box">
-        <h4>${t('team')} ${ti + 1}</h4>
+        <h4>${t('team')} ${ti + 1} <small>· ${t('teams_side', { n: ti + 1 })}</small></h4>
+        ${sideWeakPicker(mode, ti, weak[ti])}
         <div class="slots">${tm.map((id, si) => slotCell(id, `data-action="setSlot" data-mode="${mode}" data-team="${ti}" data-slot="${si}"`)).join('')}</div>
-        ${teamNotes(tm)}
+        ${teamNotes(tm, weak[ti])}
       </div>`).join('')}</div>
     </section>`;
   }).join('')}`;
@@ -215,9 +237,9 @@ function renderTeams(v) {
 
 /* actions des boutons et listes (data-action), branchées dans main.js */
 Object.assign(actions, {
-  toggleWeak: b => {
-    const e = b.dataset.el;
-    S.weak = S.weak.includes(e) ? S.weak.filter(x => x !== e) : S.weak.concat(e);
+  toggleSideWeak: b => {
+    const mode = b.dataset.mode, cur = endgameStatus(egCycles(), Date.now())[mode].current;
+    S.cycleWeak[mode] = toggleCycleWeak(S.cycleWeak[mode], cur, +b.dataset.side, b.dataset.el);
     save(); render();
   },
   setSlot: el => {

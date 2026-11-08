@@ -32,7 +32,7 @@ const defaultState = () => ({
   teams: emptyTeams(),
   myTeams: [],          // équipes personnelles : { id, name, type, members[4], main, note }
   teamFilter: 'all',
-  weak: [],
+  cycleWeak: {},        // faiblesses ennemies par mode : { moc: { start, sides: [[éléments], [éléments]] } } (endgame.js, cycleWeakSides)
   rates: { ...DEFAULT_RATES },
   rosterFilter: { q: '', el: '', path: '', rar: '', owned: false },
   rosterView: 'chars',  // 'chars' | 'cones' : sélecteur en haut de l'onglet Persos

@@ -88,3 +88,23 @@ function endgameJadesBetween(cycles, from, to, perMode) {
   const resets = endgameResetsBetween(cycles, from, to);
   return { jades: resets.reduce((a, r) => a + ((perMode && perMode[r.mode]) || 0), 0), count: resets.length };
 }
+
+/* Faiblesses ennemies choisies par le joueur pour chaque moitié du cycle en cours (onglet Équipes).
+   entry = { start: début du cycle (ms) ou null si choisies avant que les cycles soient connus, sides: [[éléments], [éléments]] }.
+   Les ennemis changent à chaque cycle : un choix fait pour un autre cycle ne compte plus. Deux débuts à moins d'un
+   jour l'un de l'autre sont le même cycle (un cycle déduit puis lu dans le patch note peut décaler de quelques minutes). */
+const sameCycleStart = (a, b) => a != null && b != null && Math.abs(a - b) < 86400000;
+
+/** Faiblesses valables pour le cycle `current` (ou null s'il est inconnu) : [[moitié 1], [moitié 2]] */
+function cycleWeakSides(entry, current) {
+  const sides = entry && Array.isArray(entry.sides) ? entry.sides : [[], []];
+  if (!entry || (current && entry.start != null && !sameCycleStart(entry.start, current.startMs))) return [[], []];
+  return [0, 1].map(i => (Array.isArray(sides[i]) ? sides[i] : []).slice());
+}
+
+/** Nouvelle entrée après avoir coché ou décoché l'élément `el` de la moitié `side` */
+function toggleCycleWeak(entry, current, side, el) {
+  const sides = cycleWeakSides(entry, current);
+  sides[side] = sides[side].includes(el) ? sides[side].filter(x => x !== el) : sides[side].concat(el);
+  return { start: current ? current.startMs : null, sides };
+}

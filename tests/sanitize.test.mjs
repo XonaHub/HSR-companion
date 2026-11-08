@@ -89,3 +89,10 @@ test('endgame : serveur connu ou automatique, jades par cycle entre 0 et 900', (
   assert.equal(clean({ server: 'america' }).server, 'america');
   assert.equal(clean({}).warp.egMoc, 800);
 });
+
+test('faiblesses par cycle : éléments inconnus retirés, ancien choix global supprimé', () => {
+  const s = clean({ weak: ['fire'], cycleWeak: { moc: { start: 123, sides: [['fire', XSS, 'fire'], ['ice']] }, pf: 'x', zz: { start: 1, sides: [] } } });
+  assert.equal(s.weak, undefined);
+  assert.deepEqual(s.cycleWeak, { moc: { start: 123, sides: [['fire'], ['ice']] } });
+  assert.deepEqual(clean({ cycleWeak: { as: { start: XSS, sides: XSS } } }).cycleWeak, { as: { start: null, sides: [[], []] } });
+});
