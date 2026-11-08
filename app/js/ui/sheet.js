@@ -258,14 +258,14 @@ function loadoutPiece(r, prof) {
       ${top.map(s => `· <b>${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}</b>`).join(' ')}</summary>
     <small>${subs.map(s => `${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}`).join(' · ') || esc(t('rl_lo_no_subs'))}</small></details>`;
 }
+const upgradeCache = new Map();   // upgradeCandidates : chances déjà calculées (pièce, niveau, sous-stats, cible)
 function loadoutBlock(c, advice, prof) {
   const relics = trialRelics(c.id);
   const value = x => relicScore(x, prof).useful;
   const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
   const lo = relicLoadout(advice, relics, c.id, opts);
-  // note B (ratio 0,4) d'une pièce à +15 : seuil « pièce correcte » quand l'emplacement n'a pas de pièce conseillée
-  const correctValue = x => 0.4 * Math.min(9, Math.max(x.subs.filter(s => s.stat).length, 3) + 5);
-  const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue, rng: seededRng(1) });
+  // graine fixe et résultats gardés entre deux rendus : les chances affichées ne bougent pas d'un rendu à l'autre
+  const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue: () => RELIC_CORRECT_AT_15, rng: seededRng(1), cache: upgradeCache });
   const comboText = !advice ? t('rl_lo_no_sets')
     : [lo.combo.cavern.map(p => `${p.name} (${p.pieces})`).join(' + '), lo.combo.planar ? `${lo.combo.planar} (2)` : ''].filter(Boolean).join(' + ');
   const farmText = f => t('rl_lo_farm', { what: [f.set, f.mains.map(statLabel).join(' / ')].filter(Boolean).join(' · ') || t('rl_lo_farm_any') });

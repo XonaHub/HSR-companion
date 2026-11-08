@@ -318,3 +318,29 @@ test('upgrade_candidates_filters', () => {
   const hands = out.find(x => x.slot === 'hands');
   if (hands) assert.equal(hands.rival.id, 'p');
 });
+
+test('upgrade_steps_count_partial_levels', () => {
+  // un palier à +15 reste à une pièce +13 : elle n'est pas « terminée »
+  const seen = lvl => ev(`(() => { let k = 0; upgradeChance({ ...${JSON.stringify(young)}, level: ${lvl} }, 0, r => { k = Math.max(k, r.subs.reduce((s, x) => s + x.val, 0)); return 1; }, seededRng(2), 50); return k; })()`);
+  const base = young.subs.reduce((s, x) => s + x.val, 0);
+  assert.ok(seen(13) > base, 'une +13 doit encore gagner un palier');
+  assert.equal(ev(`upgradeChance({ ...${JSON.stringify(young)}, level: 13 }, 999, ${CRIT_VALUE}, seededRng(2))`), 0);
+  // +1 : 5 paliers (4e sous-stat + 4 améliorations), comme +0
+  const steps = lvl => ev(`(() => { let n = 0; upgradeChance({ ...${JSON.stringify(young)}, level: ${lvl} }, 0, r => { n = r.subs.length; return 1; }, seededRng(2), 1); return n; })()`);
+  assert.equal(steps(1), 4);
+});
+
+test('relic_correct_value_is_grade_b_at_15', () => {
+  assert.equal(ev('RELIC_CORRECT_AT_15'), 0.4 * 9);
+});
+
+test('upgrade_candidates_reuse_cache', () => {
+  const lo = { slots: { head: { pick: null, target: { set: PIO, mains: [] } } } };
+  const relics = [{ id: 'c1', slot: 'head', set: PIO, main: 'hp', level: 3, owner: null, v: 9, subs: [] }];
+  const calls = ev(`(() => { let n = 0; const cache = new Map();
+    const opts = { value: r => r.v, valueOf: r => { n++; return r.v; }, correctValue: () => 6, rng: seededRng(1), cache };
+    upgradeCandidates(${JSON.stringify(lo)}, ${JSON.stringify(relics)}, 'acheron', opts); const first = n;
+    upgradeCandidates(${JSON.stringify(lo)}, ${JSON.stringify(relics)}, 'acheron', opts); return [first, n]; })()`);
+  assert.ok(calls[0] > 0);
+  assert.equal(calls[1], calls[0]);
+});

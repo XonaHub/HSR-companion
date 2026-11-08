@@ -199,6 +199,10 @@ function relicLoadout(advice, relics, charId, opts) {
 /* ---------- Pièces à monter : chances qu'une pièce encore basse finisse meilleure (hasard des améliorations) ----------
    Nécessite SUBSTATS et SUBSTAT_WEIGHTS (data.js). */
 
+/* Valeur (sous-stats utiles) d'une pièce +15 notée B : ratio 0,4 sur 9 améliorations attendues (4 sous-stats + 5 paliers).
+   Seuil « pièce correcte » quand l'emplacement n'a pas de pièce conseillée à battre. */
+const RELIC_CORRECT_AT_15 = 0.4 * 9;
+
 /** Générateur pseudo-aléatoire déterministe (mulberry32) : même graine, mêmes tirages */
 function seededRng(seed) {
   let a = seed >>> 0;
@@ -216,16 +220,18 @@ function seededRng(seed) {
     SUBSTAT_WEIGHTS, hors stat principale et sous-stats présentes) ; sinon une des 4 est améliorée au hasard,
     d'une des 3 valeurs de SUBSTATS[stat].roll. */
 function upgradeChance(relic, rivalValue, valueOf, rng, n = 5000) {
-  const steps = Math.max(0, Math.floor((15 - (relic.level || 0)) / 3));
+  // paliers restants : +3, +6, +9, +12, +15 (une pièce +13 a encore celui de +15)
+  const steps = Math.max(0, 5 - Math.floor((relic.level || 0) / 3));
   const start = (relic.subs || []).filter(s => s.stat && SUBSTATS[s.stat]);
   if (!steps) return valueOf({ ...relic, subs: start }) > rivalValue ? 1 : 0;
   const pick = list => list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
+  const weighted = Object.keys(SUBSTAT_WEIGHTS).filter(id => id !== relic.main);
   let wins = 0;
   for (let i = 0; i < n; i++) {
     const subs = start.map(s => ({ ...s }));
     for (let k = 0; k < steps; k++) {
       if (subs.length < 4) {
-        const pool = Object.keys(SUBSTAT_WEIGHTS).filter(id => id !== relic.main && !subs.some(s => s.stat === id));
+        const pool = weighted.filter(id => !subs.some(s => s.stat === id));
         let r = rng() * pool.reduce((s, id) => s + SUBSTAT_WEIGHTS[id], 0), id = pool[pool.length - 1];
         for (const p of pool) { r -= SUBSTAT_WEIGHTS[p]; if (r < 0) { id = p; break; } }
         subs.push({ stat: id, val: pick(SUBSTATS[id].roll) });
@@ -242,7 +248,7 @@ function upgradeChance(relic, rivalValue, valueOf, rng, n = 5000) {
 /** Pièces libres encore basses qui pourraient battre la pièce conseillée de leur emplacement (ou, sans pièce
     conseillée, devenir correctes : opts.correctValue). Même set et stat principale que la cible de l'emplacement,
     chances ≥ 10 %, la meilleure par emplacement, au plus 3, triées par chances décroissantes.
-    opts = { value, valueOf, correctValue: r -> nombre, rng }. Renvoie [{ relic, slot, chance, rival }]. */
+    opts = { value, valueOf, correctValue: r -> nombre, rng, cache?: Map (résultats déjà calculés) }. Renvoie [{ relic, slot, chance, rival }]. */
 function upgradeCandidates(loadout, relics, charId, opts) {
   const bySlot = {};
   for (const r of relics || []) {
@@ -252,7 +258,11 @@ function upgradeCandidates(loadout, relics, charId, opts) {
     if (tg.set != null && normName(r.set) !== normName(tg.set)) continue;
     if (tg.mains.length && !tg.mains.includes(r.main)) continue;
     const rival = sl.pick || null;
-    const chance = upgradeChance(r, rival ? opts.value(rival) : opts.correctValue(r), opts.valueOf, opts.rng);
+    const rivalValue = rival ? opts.value(rival) : opts.correctValue(r);
+    // le calcul est lourd (milliers de tirages) et la fiche se redessine souvent : résultat gardé par pièce et cible
+    const key = opts.cache && JSON.stringify([r.id, r.level, r.main, r.subs, rivalValue]);
+    let chance = key && opts.cache.has(key) ? opts.cache.get(key) : null;
+    if (chance === null) { chance = upgradeChance(r, rivalValue, opts.valueOf, opts.rng); if (key) opts.cache.set(key, chance); }
     if (chance < 0.1) continue;
     if (!bySlot[r.slot] || chance > bySlot[r.slot].chance) bySlot[r.slot] = { relic: r, slot: r.slot, chance, rival };
   }
