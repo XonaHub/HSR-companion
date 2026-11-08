@@ -88,7 +88,7 @@ function backupList() {
 }
 async function restoreBackup(id) {
   const b = (backups || []).find(x => x.id === id);
-  if (!b || !confirm(t('backup_confirm', { date: new Date(b.at).toLocaleString(locale()) }))) return;
+  if (!b || !await ask({ title: t('backup_restore'), text: t('backup_confirm', { date: new Date(b.at).toLocaleString(locale()) }), ok: t('backup_restore') })) return;
   try {
     const d = JSON.parse(await invoke('read_backup', { id }));   // lu avant la copie « restore » (qui peut supprimer la plus ancienne)
     await backup('restore');
@@ -108,11 +108,14 @@ function checkAppUpdate(manual) {
     setNet('app', true);
     if (u.current && u.current !== appVersion) { appVersion = u.current; if (S.tab === 'settings') render(); }
     if (!u.available) { if (manual) toast(t('app_update_none')); return false; }
-    const notes = u.notes ? '\n\n' + u.notes.slice(0, 600) : '';   // confirm() affiche du texte brut
-    if (confirm(t('app_update_found', { v: u.available, cur: u.current, notes }))) {
-      flushSave(); toast(t('app_update_downloading'));
-      invoke('app_update_install').catch(e => toast(String(e)));
-    }
+    // notes de la release : texte brut, échappé (retours à la ligne gardés par .ask-notes)
+    const notes = u.notes ? `<p class="ask-notes">${esc(u.notes.slice(0, 600))}</p>` : '';
+    ask({ title: t('app_update_ask_title'), text: t('app_update_found', { v: u.available, cur: u.current }), html: notes, ok: t('app_update_install'), cancel: t('later') })
+      .then(yes => {
+        if (!yes) return;
+        flushSave(); toast(t('app_update_downloading'));
+        invoke('app_update_install').catch(e => toast(String(e)));
+      });
     return true;
   }).catch(e => { setNet('app', false); if (manual) toast(String(e)); return false; });   // hors ligne : on réessaiera au prochain lancement
 }
@@ -136,8 +139,8 @@ Object.assign(actions, {
   resetRates: () => { S.rates = { ...DEFAULT_RATES }; save(); render(); },
   exportData: () => invoke('export_data', { name: `hsr-companion-${today()}.json`, content: JSON.stringify(S, null, 2) })   // « Enregistrer sous… »
     .then(p => p && toast(p)).catch(e => toast(String(e))),
-  resetData: () => {
-    if (!confirm(t('confirm_reset'))) return;
+  resetData: async () => {
+    if (!await ask({ title: t('reset_all'), text: t('confirm_reset'), ok: t('reset_all'), danger: true })) return;
     backup('reset');
     const lang = S.lang; S = defaultState(); S.lang = lang; S.tab = 'settings'; save(); render();
   },

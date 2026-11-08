@@ -24,11 +24,13 @@ function bindValue(el) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (sheet) closeSheet(); else if (teamEdit) closeTeamEditor();
+  if (askPending) answerAsk(false);   // la question passe avant les fenêtres en dessous
+  else if (sheet) closeSheet(); else if (teamEdit) closeTeamEditor();
 });
 document.addEventListener('click', e => {
   if (e.target.id === 'sheet') return closeSheet();   // clic sur le fond
   if (e.target.id === 'teamEditor') return closeTeamEditor();
+  if (e.target.id === 'askDialog') return answerAsk(false);
   const b = e.target.closest('[data-action]');
   if (!b || b.tagName === 'SELECT' || b.tagName === 'INPUT') return;
   actions[b.dataset.action] && actions[b.dataset.action](b, e);
@@ -96,18 +98,20 @@ if (S.cones.length) setTimeout(() => ownedChars().forEach(c => loadRanking(c)), 
 loadNews(false);   // en arrière-plan : point rouge sur l'onglet Actus s'il y a du nouveau
 loadGameStatus();  // statut des données du jeu (Paramètres, avertissement de Personnages et Farm)
 
-/* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord) */
-for (const d of findCustomDuplicates(S.custom, BASE_CHARS, S.mergeDeclined)) {
-  const cu = S.custom.find(c => c.id === d.customId);
-  if (!cu) continue;
-  if (confirm(t('merge_custom', { name: cu.name }))) mergeCustomInto(S, d.customId, d.officialId);
-  else S.mergeDeclined = (S.mergeDeclined || []).concat(d.customId + '>' + d.officialId);   // ne plus redemander
-  save(); render();
-}
-
-/* D'abord la mise à jour de l'app ; si elle est proposée, pas de seconde question sur les données du jeu
-   (une nouvelle version les rapporte de toute façon). */
-checkAppUpdate(false).then(proposed => {
+(async () => {
+  /* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord).
+     Une question à la fois : chacune attend la réponse à la précédente. */
+  for (const d of findCustomDuplicates(S.custom, BASE_CHARS, S.mergeDeclined)) {
+    const cu = S.custom.find(c => c.id === d.customId);
+    if (!cu) continue;
+    if (await ask({ title: t('merge_title'), text: t('merge_custom', { name: cu.name }), ok: t('merge_ok'), cancel: t('merge_no') })) mergeCustomInto(S, d.customId, d.officialId);
+    else S.mergeDeclined = (S.mergeDeclined || []).concat(d.customId + '>' + d.officialId);   // ne plus redemander
+    save(); render();
+  }
+  return checkAppUpdate(false);
+})().then(proposed => {
+  /* D'abord la mise à jour de l'app ; si elle est proposée, pas de seconde question sur les données du jeu
+     (une nouvelle version les rapporte de toute façon). */
   if (proposed) return;
   /* Données du jeu : vérification en arrière-plan (au plus toutes les 6 h, voir gamedata/update.rs) ;
      les nouvelles données sont chargées au prochain lancement */

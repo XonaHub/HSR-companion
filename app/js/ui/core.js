@@ -124,9 +124,52 @@ function gameAlertNote() {
   if (a === 'failing') return `<p class="note warn status-note">${esc(t('status_game_failing', { ago: ago(gameStatus.checkedAt) }))} <button class="btn sm" data-action="openStatus">${t('status_title')}</button></p>`;
   return '';
 }
+/* Fenêtres (fiche perso, équipe, confirmation) : fond commun .sheet-backdrop */
+function modalRoot(id) {
+  let root = document.getElementById(id);
+  if (!root) {
+    root = document.createElement('div'); root.id = id; root.className = 'sheet-backdrop';
+    document.body.appendChild(root); document.body.classList.add('no-scroll');
+  }
+  return root;
+}
+function closeModal(id) {
+  const el = document.getElementById(id); if (el) el.remove();
+  if (!$('.sheet-backdrop')) document.body.classList.remove('no-scroll');   // plus aucune fenêtre ouverte
+}
+
+/* Confirmation dans l'app, à la place de confirm() : dans l'app de bureau, le plugin dialog de Tauri remplace
+   window.confirm par une fonction asynchrone (une promesse, donc toujours « vraie » dans un if), et la page n'a pas
+   la permission d'afficher sa fenêtre : confirm() ne demandait rien et répondait oui. Ne jamais utiliser
+   confirm/alert/prompt (tests/ui-load.test.mjs le vérifie).
+   ask({ title, text, html, ok, cancel, danger }) → Promise<boolean> ; Échap, Annuler ou clic sur le fond = non.
+   html est inséré tel quel : n'y mettre que du texte passé par esc(). */
+let askPending = null;
+function ask({ title, text = '', html = '', ok = t('ok_btn'), cancel = t('cancel'), danger = false }) {
+  if (askPending) answerAsk(false);   // une seule question à la fois
+  return new Promise(resolve => {
+    askPending = resolve;
+    const root = modalRoot('askDialog');
+    root.innerHTML = `<div class="team-editor ask-dialog" role="alertdialog" aria-modal="true" aria-labelledby="askTitle">
+      <h2 id="askTitle">${esc(title)}</h2>
+      ${text ? `<p class="ask-text">${esc(text)}</p>` : ''}${html}
+      <div class="form-row te-actions">
+        <button class="btn" data-action="askNo">${esc(cancel)}</button>
+        <button class="btn ${danger ? 'danger' : 'primary'}" data-action="askYes">${esc(ok)}</button>
+      </div></div>`;
+    // action dangereuse : le focus va sur « Annuler », pour qu'Entrée ne détruise rien
+    root.querySelector(danger ? '[data-action=askNo]' : '[data-action=askYes]').focus();
+  });
+}
+function answerAsk(yes) {
+  const resolve = askPending; askPending = null;
+  closeModal('askDialog');
+  if (resolve) resolve(yes);
+}
 function offerGameRestart(u) {
   const names = (u.newChars || []).join(', ');
-  if (confirm(t(names ? 'gamedata_new_chars' : 'gamedata_updated', { names }))) { flushSave(); invoke('restart_app'); }
+  return ask({ title: t('gamedata_title'), text: t(names ? 'gamedata_new_chars' : 'gamedata_updated', { names }), ok: t('restart_now'), cancel: t('later') })
+    .then(yes => { if (yes) { flushSave(); invoke('restart_app'); } });
 }
 /* Copie « avant opération » de l'état actuel : appeler AVANT de modifier S (l'état est figé ici) */
 function backup(reason) {
@@ -319,6 +362,8 @@ const actions = {};
 
 /* actions des boutons et listes (data-action), branchées dans main.js */
 Object.assign(actions, {
+  askYes: () => answerAsk(true),
+  askNo: () => answerAsk(false),
   tab: b => { S.tab = b.dataset.tab; save(); render(); window.scrollTo({ top: 0 }); },
   lang: el => setLang(el.value),
 });

@@ -39,3 +39,14 @@ test('all_scripts_compile_together', () => {
   // un seul script : toute déclaration en double ou erreur de syntaxe fait échouer la compilation
   assert.doesNotThrow(() => new vm.Script(scripts.map(read).join('\n;\n'), { filename: 'index.html (scripts)' }));
 });
+
+test('no_native_confirm_alert_prompt', () => {
+  // Dans l'app de bureau, le plugin dialog de Tauri rend window.confirm asynchrone (une promesse, toujours « vraie »)
+  // et la page n'a pas le droit d'afficher sa fenêtre : confirm() répondait oui sans rien demander. Utiliser ask().
+  const found = [];
+  for (const s of scripts) {
+    const code = read(s).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');   // sans les commentaires
+    for (const m of code.matchAll(/(^|[^\w$.])(confirm|alert|prompt)\s*\(|window\.(confirm|alert|prompt)\b/g)) found.push(`${s} : ${m[0].trim()}`);
+  }
+  assert.deepEqual(found, []);
+});

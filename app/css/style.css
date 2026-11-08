@@ -453,6 +453,10 @@ select optgroup { color: var(--gold); font-style: normal; }
 .team-editor .sheet-close { top: 12px; right: 14px; }
 .te-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .te-actions { justify-content: flex-end; }
+.ask-dialog { width: min(480px, 100%); }
+.ask-dialog h2 { margin: 0; }
+.ask-text { margin: 0; line-height: 1.5; }
+.ask-notes { margin: 0; padding: 10px 12px; white-space: pre-line; font-size: 13px; line-height: 1.5; color: var(--dim); background: rgba(255, 255, 255, .04); border-left: 2px solid var(--line2); max-height: 40vh; overflow: auto; }
 
 /* ---------- imports (vitrine, vœux) ---------- */
 .grow { flex: 1; min-width: 200px; }

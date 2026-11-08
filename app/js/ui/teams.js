@@ -138,18 +138,6 @@ function closeTeamEditor() {
 }
 
 /* Fenêtres par-dessus la page (fiche perso, éditeur d'équipe) */
-function modalRoot(id) {
-  let root = document.getElementById(id);
-  if (!root) {
-    root = document.createElement('div'); root.id = id; root.className = 'sheet-backdrop';
-    document.body.appendChild(root); document.body.classList.add('no-scroll');
-  }
-  return root;
-}
-function closeModal(id) {
-  const el = document.getElementById(id); if (el) el.remove();
-  if (!$('.sheet-backdrop')) document.body.classList.remove('no-scroll');   // plus aucune fenêtre ouverte
-}
 
 /* Case d'équipe : avatar, choix du perso, élément et Voie (attrs = data-* du <select>) */
 function slotCell(id, attrs) {
@@ -243,9 +231,9 @@ Object.assign(actions, {
   teamCancel: () => closeTeamEditor(),
   teamSave: () => saveTeamEditor(),
   teMember: el => { syncTeamEditor(); teamEdit.members[+el.dataset.i] = el.value || null; renderTeamEditor(); },
-  teamDel: b => {
+  teamDel: async b => {
     const tm = S.myTeams.find(x => x.id === b.dataset.id);
-    if (!tm || !confirm(t('confirm_del_team', { name: teamName(tm) }))) return;
+    if (!tm || !await ask({ title: t('delete'), text: t('confirm_del_team', { name: teamName(tm) }), ok: t('delete'), danger: true })) return;
     S.myTeams = S.myTeams.filter(x => x !== tm); save(); render();
   },
   teamStar: b => { const tm = S.myTeams.find(x => x.id === b.dataset.id); if (tm) { tm.main = !tm.main; save(); render(); } },
