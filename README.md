@@ -31,7 +31,7 @@ The app has 8 tabs:
 | **Relics** | All your relics, graded from S to D based on the character type (crit, break, healer…). Each character's review is on their sheet. |
 | **Teams** | Build teams for Memory of Chaos, Pure Fiction and Apocalyptic Shadow, with tips (no healer, too many DPS…). |
 | **News** | Official announcements grouped by version: banners, events, how many warps you can earn during the version, and the current cycle of each endgame mode (Memory of Chaos, Pure Fiction, Apocalyptic Shadow, Anomaly Arbitration) with the date of the next one. |
-| **Settings** | Language (French / English), game server (endgame reset times depend on it; detected automatically from your UID), farming yield, backup and restore of your data, installed version and "Check for updates" button. |
+| **Settings** | Language (French / English), game server (endgame reset times depend on it; detected automatically from your UID), farming yield, export and import of your data, save backups to go back in time, installed version and "Check for updates" button. |
 
 ## Fill the app with your account
 
@@ -56,6 +56,8 @@ You don't have to enter everything by hand:
 
 In `%APPDATA%\fr.hsrcompanion.desktop\` on your PC. Nothing is sent anywhere else.
 To move to another PC: **Settings → Export**, then **Import** on the other PC.
+
+The app also keeps copies of your save: one per day, and one right before every import, reset or app update (the last 5 of each). If something goes wrong, go to **Settings → Save backups** and click **Restore** next to the copy you want.
 
 ## For developers
 
@@ -115,7 +117,7 @@ L'app a 8 onglets :
 | **Reliques** | Toutes tes reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
 | **Équipes** | Composer des équipes pour la Mémoire du chaos, la Fiction pure et l'Ombre apocalyptique, avec des conseils (pas de soigneur, trop de DPS…). |
 | **Actus** | Les annonces officielles regroupées par version : bannières, événements, combien de vœux on peut gagner pendant la version, et le cycle en cours de chaque mode d'endgame (Mémoire du chaos, Fiction pure, Ombre apocalyptique, Arbitre de l'instable) avec la date du suivant. |
-| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après ton UID), rendement de farm, sauvegarde et restauration de tes données, version installée et bouton « Rechercher une mise à jour ». |
+| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après ton UID), rendement de farm, export et import de tes données, copies de la sauvegarde pour revenir en arrière, version installée et bouton « Rechercher une mise à jour ». |
 
 ### Remplir l'app avec ton compte
 
@@ -140,6 +142,8 @@ Tu n'es pas obligé de tout saisir à la main :
 
 Dans `%APPDATA%\fr.hsrcompanion.desktop\` sur ton PC. Rien n'est envoyé ailleurs.
 Pour changer de PC : **Paramètres → Exporter**, puis **Importer** sur l'autre PC.
+
+L'app garde aussi des copies de ta sauvegarde : une par jour, et une juste avant chaque import, remise à zéro ou mise à jour de l'app (les 5 dernières de chaque). En cas de problème, va dans **Paramètres → Copies de la sauvegarde** et clique sur **Restaurer** à côté de la copie voulue.
 
 ### Pour les développeurs
 

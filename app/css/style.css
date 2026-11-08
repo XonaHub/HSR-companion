@@ -477,6 +477,8 @@ select optgroup { color: var(--gold); font-style: normal; }
 .num small.inv-ok { color: var(--ok); }
 .num small.inv-miss { color: var(--warn); }
 .import-result { display: flex; flex-direction: column; gap: 10px; }
+.backup-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.backup-list li { display: grid; grid-template-columns: minmax(150px, auto) 1fr auto; gap: 12px; align-items: center; }
 .import-result p { margin: 0; }
 .note code, .hint code { background: rgba(255, 255, 255, .08); padding: 1px 6px; font-size: 12px; }
 

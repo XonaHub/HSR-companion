@@ -84,7 +84,16 @@
     S.savedAt = Date.now();
     const json = JSON.stringify(S);
     try { localStorage.setItem(KEY, json); } catch (e) { /* ignore */ }
-    invoke('save_state', { json }).catch(() => { /* localStorage reste à jour */ });
+    invoke('save_state', { json, day: localDay() }).catch(() => { /* localStorage reste à jour */ });
+  }
+  /* Copies de la sauvegarde (storage.rs) : jour local (pas UTC) pour la « copie du jour » */
+  const localDay = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+  let backups = null;   // liste des copies (Paramètres), relue après chaque nouvelle copie
+  /* Copie « avant opération » de l'état actuel : appeler AVANT de modifier S (l'état est figé ici) */
+  function backup(reason) {
+    const json = JSON.stringify(S);
+    backups = null;
+    return invoke('backup_state', { reason, json }).catch(() => { /* la copie ne doit pas bloquer l'opération */ });
   }
   function save() {
     resetCaches();   // l'état a changé (persos possédés, profils, reliques, langue…)
@@ -1677,6 +1686,7 @@
       }
       out.innerHTML = `<p class="hint">${t('gacha_loading')}</p>`;
       const r = await invoke('gacha_fetch', { url, lang: S.lang });
+      backup('gacha');
       const n = applyGacha(r.items || []);
       S = sanitizeState(S, defaultState());   // réponse du serveur : forme garantie (js/sanitize.js)
       save(); render(); toast(t('gacha_done', { n }));
@@ -1802,6 +1812,9 @@
     </div>`;
   }
   function importArchiveData(ex, isLive) {
+    // fichier : une copie à chaque import ; flux live : une seule par connexion (il envoie des mises à jour en continu)
+    if (!isLive) backup('archive');
+    else if (live && !live.backedUp) { live.backedUp = true; backup('archive'); }
     S.lastArchive = { ...applyArchive(ex), live: !!isLive };
     S = sanitizeState(S, defaultState());   // fichier ou flux live : forme garantie (js/sanitize.js)
     save();
@@ -1899,6 +1912,11 @@
       </div>
     </section>
     <section class="panel">
+      <h3>${t('backups_title')}</h3>
+      <p class="hint">${t('backups_hint')}</p>
+      ${backupList()}
+    </section>
+    <section class="panel">
       <h3>${t('app_update_title')}</h3>
       <p class="hint">${appVersion ? esc(t('app_version', { v: appVersion })) : ''} ${t('app_update_hint')}</p>
       <button class="btn sm" data-action="checkAppUpdate">${t('app_update_check')}</button>
@@ -1907,6 +1925,28 @@
       <h3>${t('about_title')}</h3>
       <p class="hint">${t('about_text')}</p>
     </section>`;
+  }
+
+  function backupList() {
+    if (!backups) {
+      invoke('list_backups').then(l => { backups = l; if (S.tab === 'settings') render(); }).catch(() => { backups = []; if (S.tab === 'settings') render(); });
+      return `<p class="hint small">${t('backups_loading')}</p>`;
+    }
+    if (!backups.length) return `<p class="hint small">${t('backups_none')}</p>`;
+    return `<ul class="backup-list">${backups.map(b => `<li>
+      <span>${esc(new Date(b.at).toLocaleString(locale()))}</span>
+      <span class="hint">${esc(t(b.kind === 'daily' ? 'backup_daily' : 'backup_r_' + b.reason))}</span>
+      <button class="btn sm" data-action="restoreBackup" data-id="${esc(b.id)}">${t('backup_restore')}</button></li>`).join('')}</ul>`;
+  }
+  async function restoreBackup(id) {
+    const b = (backups || []).find(x => x.id === id);
+    if (!b || !confirm(t('backup_confirm', { date: new Date(b.at).toLocaleString(locale()) }))) return;
+    try {
+      const d = JSON.parse(await invoke('read_backup', { id }));   // lu avant la copie « restore » (qui peut supprimer la plus ancienne)
+      await backup('restore');
+      S = migrate(merge(defaultState(), d)); S.tab = 'settings';
+      save(); render(); toast(t('backup_done'));
+    } catch (e) { toast(String(e) || t('err_unknown')); }
   }
 
   /* ---------------------------------------------------------- mise à jour de l'app (appupdate.rs) */
@@ -2066,11 +2106,13 @@
       toast(t('team_sent', { mode: t('mode_' + mode), n: +side + 1 }));
     },
     checkAppUpdate: () => checkAppUpdate(true),
+    restoreBackup: b => restoreBackup(b.dataset.id),
     resetRates: () => { S.rates = { ...DEFAULT_RATES }; save(); render(); },
     exportData: () => invoke('export_data', { name: `hsr-companion-${today()}.json`, content: JSON.stringify(S, null, 2) })   // « Enregistrer sous… »
       .then(p => p && toast(p)).catch(e => toast(String(e))),
     resetData: () => {
       if (!confirm(t('confirm_reset'))) return;
+      backup('reset');
       const lang = S.lang; S = defaultState(); S.lang = lang; S.tab = 'settings'; save(); render();
     }
   };
@@ -2138,7 +2180,7 @@
     if (el.id === 'langSelect') return setLang(el.value);
     if (el.id === 'archFile' && el.files[0]) return importArchiveFile(el.files[0]);
     if (el.id === 'importFile' && el.files[0]) {
-      return readJsonFile(el.files[0], d => { S = migrate(merge(defaultState(), d)); save(); render(); toast(t('import_ok')); }, 'import_err');
+      return readJsonFile(el.files[0], d => { backup('import'); S = migrate(merge(defaultState(), d)); save(); render(); toast(t('import_ok')); }, 'import_err');
     }
     if (el.dataset.cfilter) {
       S.coneFilter[el.dataset.cfilter] = el.type === 'checkbox' ? el.checked : el.value;

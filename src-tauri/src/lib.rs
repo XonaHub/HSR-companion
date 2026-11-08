@@ -31,6 +31,9 @@ pub fn run() {
             gacha::gacha_find,
             gacha::gacha_fetch,
             storage::save_state,
+            storage::backup_state,
+            storage::list_backups,
+            storage::read_backup,
             storage::export_data,
             gamedata::update::game_data_update,
             gamedata::update::game_details,
@@ -42,6 +45,7 @@ pub fn run() {
         .setup(|app| {
             // Données injectées avant le chargement de la page, pour qu'app.js les lise de façon
             // synchrone : la sauvegarde du joueur et, si elles ont été téléchargées, les données du jeu.
+            storage::backup_at_launch(app.handle()); // avant tout chargement : copie si la version a changé
             let saved = storage::load_state(app.handle()).unwrap_or_else(|| "null".into());
             let mut init = format!("window.__HSR_STATE__ = {saved};");
             if let Some(game) = gamedata::update::data_dir(app.handle()).ok().and_then(|d| gamedata::update::load_game(&d)) {
