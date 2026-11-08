@@ -226,19 +226,6 @@ function sheetRelics(c) {
   const empty = SLOTS.filter(s => !rev.slots[s]);
   const pieces = SLOTS.map(s => rev.slots[s] ? relicCard(rev.slots[s], { readOnly: true })
     : `<div class="relic-card rl-empty"><b>${t('slot_' + s)}</b><small>${t('rl_empty')}</small></div>`).join('');
-  const short = x => `${t('slot_' + x.slot)} +${x.level} · ${esc(x.set || t('unknown_set'))} · ${statLabel(x.main)}`;
-  const prio = rev.priority.map(p => {
-    const why = [p.main && t('rl_why_main'), p.set && t('rl_why_set'), p.low && t('rl_why_low', { grade: gradeOf(score(p.relic)) })].filter(Boolean);
-    const b = p.better;
-    const by = b && b.owner ? ' · ' + t('cone_carried', { name: charName(charById(b.owner)) }) : '';
-    return `<div class="rl-prio">
-      <div><b>${short(p.relic)}</b> <span class="grade-pill grade-${gradeOf(score(p.relic))}"><span>${gradeOf(score(p.relic))}</span></span>
-        <small class="rl-why">${why.map(esc).join(' · ')}</small></div>
-      ${b ? `<div class="rl-better"><small>${t('rl_better')}</small> ${short(b)} <span class="grade-pill grade-${gradeOf(score(b))}"><span>${gradeOf(score(b))}</span></span>${esc(by)}
-          <button class="btn sm" data-action="tryRelic" data-slot="${b.slot}" data-id="${b.id}">${t('sim_try_it')}</button></div>`
-        : `<small class="rl-none">${t('rl_no_better')}</small>`}
-    </div>`;
-  }).join('');
   const equippedCount = SLOTS.length - empty.length;
   const trying = Object.keys(trialOf()).length > 0;
   return `${trying ? `<p class="sim-banner">${t('sim_banner')} <button class="btn sm" data-action="resetTrial">${t('sim_reset')}</button></p>` : ''}
@@ -249,10 +236,55 @@ function sheetRelics(c) {
       ${line(setOk(rev.planar), t('rl_planar'), setText(rev.planar))}
     </ul>
     <h4>${t('rl_main')}</h4><ul class="rl-check">${mains}</ul>
-    ${equippedCount ? `<h3>${t('rl_priority')}</h3>${prio || `<p class="hint small">${t('rl_all_good')}</p>`}` : ''}
+    ${loadoutBlock(c, advice, prof)}
     ${simulator(c, advice)}
     <h3>${t('rl_pieces')}</h3><div class="relic-grid">${pieces}</div>
     <p class="lc-src">${advice ? esc(t('rl_source', { date: prydwenDate(r) })) + (r.stale ? ' · ' + esc(t('cones_offline')) : '') : esc(t('rl_no_advice', { profile: t('prof_' + prof) }))}</p>`;
+}
+
+/* ---- Équipement conseillé (relicLoadout, upgradeCandidates : relics.js) : tableau avant / après ---- */
+/** Les `n` sous-stats les plus utiles de la pièce pour ce profil (poids × part d'un roll maximal) */
+function topSubs(relic, prof, n = 2) {
+  const w = (PROFILES[prof] && PROFILES[prof].weights) || {};
+  return relic.subs.filter(s => s.stat && s.val > 0 && SUBSTATS[s.stat])
+    .map(s => ({ ...s, k: (w[s.stat] || 0) * s.val / SUBSTATS[s.stat].roll[2] }))
+    .sort((a, b) => b.k - a.k).slice(0, n);
+}
+/* Une pièce, repérable en jeu : set · stat principale · +niveau · 2 sous-stats utiles ; dépliable (4 sous-stats) */
+function loadoutPiece(r, prof) {
+  const top = topSubs(r, prof);
+  const subs = r.subs.filter(s => s.stat && s.val > 0 && SUBSTATS[s.stat]);
+  return `<details class="lo-piece"><summary>${esc(r.set || t('unknown_set'))} · ${esc(statLabel(r.main))} · +${r.level}
+      ${top.map(s => `· <b>${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}</b>`).join(' ')}</summary>
+    <small>${subs.map(s => `${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}`).join(' · ') || esc(t('rl_lo_no_subs'))}</small></details>`;
+}
+function loadoutBlock(c, advice, prof) {
+  const relics = trialRelics(c.id);
+  const value = x => relicScore(x, prof).useful;
+  const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
+  const lo = relicLoadout(advice, relics, c.id, opts);
+  // note B (ratio 0,4) d'une pièce à +15 : seuil « pièce correcte » quand l'emplacement n'a pas de pièce conseillée
+  const correctValue = x => 0.4 * Math.min(9, Math.max(x.subs.filter(s => s.stat).length, 3) + 5);
+  const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue, rng: seededRng(1) });
+  const comboText = !advice ? t('rl_lo_no_sets')
+    : [lo.combo.cavern.map(p => `${p.name} (${p.pieces})`).join(' + '), lo.combo.planar ? `${lo.combo.planar} (2)` : ''].filter(Boolean).join(' + ');
+  const farmText = f => t('rl_lo_farm', { what: [f.set, f.mains.map(statLabel).join(' / ')].filter(Boolean).join(' · ') || t('rl_lo_farm_any') });
+  const rows = SLOTS.map(slot => {
+    const s = lo.slots[slot], gone = s.state === 'swap' || s.state === 'swap_farm';
+    const worn = s.worn ? `<span class="${gone ? 'lo-old' : ''}">${loadoutPiece(s.worn, prof)}</span>` : `<small class="hint">${t('rl_empty')}</small>`;
+    const by = s.pick && s.pick.owner === c.id ? '' : s.pick ? `<button class="btn sm" data-action="tryRelic" data-slot="${slot}" data-id="${esc(s.pick.id)}">${t('sim_try_it')}</button>` : '';
+    const pick = s.state === 'keep' ? `<span class="lo-st lo-keep">✓ ${t('rl_lo_keep')}</span>`
+      : `${gone ? `<span class="lo-st lo-swap">⇄ ${t('rl_lo_swap')}</span>${loadoutPiece(s.pick, prof)} ${by}` : ''}
+         ${s.farm ? `<span class="lo-st lo-farm">⚒ ${esc(farmText(s.farm))}</span>` : ''}`;
+    return `<tr class="lo-${s.state}"><th>${t('slot_' + slot)}</th><td>${worn}</td><td>${pick}</td></tr>`;
+  }).join('');
+  const upRows = ups.map(u => `<div class="lo-up"><span class="lo-st lo-upg">⬆ ${t('slot_' + u.slot)}</span> ${loadoutPiece(u.relic, prof)}
+      <small>${t(u.rival ? 'rl_lo_up_beat' : 'rl_lo_up_correct', { n: Math.round(u.chance * 100) })}</small>
+      <div class="lo-bar" role="img" aria-label="${Math.round(u.chance * 100)} %"><i style="width:${Math.round(u.chance * 100)}%"></i></div></div>`).join('');
+  return `<h3>${t('rl_loadout')}</h3>
+    <p class="lo-sum"><span>${esc(comboText)}</span> <small>${t('rl_lo_counts', { swap: lo.counts.swap, farm: lo.counts.farm, up: ups.length })}</small></p>
+    <table class="lo-table"><thead><tr><th></th><th>${t('rl_lo_worn')}</th><th>${t('rl_lo_pick')}</th></tr></thead><tbody>${rows}</tbody></table>
+    ${upRows ? `<h4>${t('rl_lo_upgrade')}</h4>${upRows}<p class="hint small">${t('rl_lo_up_hint')}</p>` : ''}`;
 }
 
 /* Bandeau sous le portrait : cône équipé et, s'il y a mieux dans l'inventaire, un lien vers l'onglet Cônes */

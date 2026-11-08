@@ -743,13 +743,6 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
 .rl-check li span { color: var(--muted); font-size: 12px; min-width: 110px; }
 .rl-check li span:empty { display: none; }
 .rl-check li b { font-weight: 500; }
-.rl-prio { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--inset); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--warn); }
-.rl-prio .grade-pill { width: 20px; height: 20px; margin: 0 6px 0 8px; vertical-align: middle; }
-.rl-prio .grade-pill > span { font-size: 11px; }
-.rl-why { display: block; color: var(--warn); }
-.rl-better { color: var(--ok); }
-.rl-better small { color: var(--muted); }
-.rl-none { color: var(--dim); }
 /* simulateur de build */
 .sim-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; background: rgba(178, 150, 242, .1); border: 1px solid var(--violet); color: var(--violet); font-size: 13px; margin: 0; }
 .sim-stats { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -767,7 +760,6 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
 .sim-picks select { width: 100%; }
 .sim-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .rl-check li small { margin-left: auto; color: var(--muted); }
-.rl-better .btn { margin-left: 8px; }
 .relic-card.rl-empty { justify-content: center; align-items: center; min-height: 80px; color: var(--muted); opacity: .6; }
 
 /* Onglet Persos : sélecteur Personnages / Cônes et inventaire des cônes */
@@ -830,3 +822,30 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .side-weak { gap: 4px; margin: 4px 0 8px; }
 .chip-toggle.icon-only { padding: 4px 6px; }
 .team-box h4 small { color: var(--muted); font-weight: normal; }
+
+/* Fiche, onglet Reliques : équipement conseillé (tableau avant / après) */
+.lo-sum { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin: 0 0 8px; }
+.lo-sum small { color: var(--muted); }
+.lo-table { width: 100%; border-collapse: collapse; }
+.lo-table th, .lo-table td { text-align: left; vertical-align: top; padding: 7px 8px; border-top: 1px solid var(--line); }
+.lo-table thead th { border-top: 0; color: var(--muted); font-size: 11px; font-weight: normal; letter-spacing: .1em; text-transform: uppercase; }
+.lo-table tbody th { width: 70px; color: var(--muted); font-weight: normal; }
+.lo-piece summary { cursor: pointer; }
+.lo-piece small { display: block; color: var(--muted); margin-top: 3px; }
+.lo-old { opacity: .55; text-decoration: line-through; }
+.lo-st { display: block; font-size: 12px; margin-bottom: 2px; }
+.lo-keep { color: var(--ok); }
+.lo-swap { color: var(--gold); }
+.lo-farm { color: var(--warn); }
+.lo-upg { display: inline; color: var(--gold); }
+.lo-table .btn { margin-top: 4px; }
+.lo-up { padding: 8px 10px; margin: 6px 0; background: var(--inset); border: 1px solid var(--line); }
+.lo-up small { display: block; color: var(--muted); }
+.lo-bar { height: 4px; margin-top: 5px; background: var(--line); }
+.lo-bar i { display: block; height: 4px; background: var(--gold); }
+@media (max-width: 560px) {
+  .lo-table thead { display: none; }
+  .lo-table tr, .lo-table th, .lo-table td { display: block; }
+  .lo-table tbody th { width: auto; padding-bottom: 0; }
+  .lo-table td { border-top: 0; padding-top: 3px; }
+}
