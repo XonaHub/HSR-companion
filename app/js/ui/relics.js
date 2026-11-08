@@ -92,7 +92,7 @@ function relicCard(r, o = {}) {   // o.readOnly : sans bouton de suppression (fi
     <ul class="rc-subs">${r.subs.filter(x => x.stat).map(x => `<li class="${(w[x.stat] || 0) >= 0.75 ? 'good' : (w[x.stat] || 0) > 0 ? 'mid' : 'dead'}">${statIcon(x.stat)}<span>${statLabel(x.stat)}</span><b>${fmtStat(x.stat, x.val)}</b></li>`).join('')}</ul>
     <div class="rc-foot"><small>${owner ? esc(charName(owner)) : t('nobody')} · ${isBest ? t('best_for') + ' ' : ''}${t('prof_' + prof)}</small>
       <small>${t('useful_rolls', { n: s.useful.toFixed(1) })}</small>
-      ${o.readOnly ? '' : `<button class="btn sm danger" data-action="delRelic" data-id="${r.id}">×</button>`}</div>
+      ${o.readOnly ? '' : `<button class="btn sm danger" data-action="delRelic" data-id="${r.id}" title="${esc(t('delete'))}" aria-label="${esc(t('delete'))}">×</button>`}</div>
   </div>`;
 }
 /* Icône de la pièce : icon/relic/{set}_{index} (tête/sphère 0, mains/corde 1, torse 2, pieds 3) */

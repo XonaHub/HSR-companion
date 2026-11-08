@@ -813,3 +813,13 @@ details[open] > :not(summary) { animation: unfold .35s var(--ease-out); }
 .eg-server { color: var(--dim); }
 .eg-warp select { margin-bottom: 4px; }
 @media (max-width: 640px) { .eg-row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* Navigation au clavier : contour visible sur l'élément actif (seulement au clavier, pas au clic) */
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
+.sheet-step { position: absolute; top: 14px; right: 66px; z-index: 2; display: flex; gap: 6px; }
+.sheet-step button {
+  width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--line2); background: rgba(0, 0, 0, .45); color: var(--text); font-size: 22px; line-height: 1;
+}
+.sheet-step button:hover { background: var(--light); color: var(--ink); }

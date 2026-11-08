@@ -51,18 +51,22 @@ function renderRoster(v) {
       <select id="cuPath">${PATHS.map(p => opt(p, t('path_' + p))).join('')}</select>
       <button class="btn primary" data-action="addCustom">${t('add')}</button>
     </div>
-    ${S.custom.length ? `<div class="chip-list">${S.custom.map(c => `<span class="tag">${esc(c.name)} · ${c.rarity}★ · ${t('el_' + c.element)} · ${t('path_' + c.path)} <button class="x" data-action="delCustom" data-id="${c.id}" title="${esc(t('delete'))}">×</button></span>`).join('')}</div>` : ''}
+    ${S.custom.length ? `<div class="chip-list">${S.custom.map(c => `<span class="tag">${esc(c.name)} · ${c.rarity}★ · ${t('el_' + c.element)} · ${t('path_' + c.path)} <button class="x" data-action="delCustom" data-id="${c.id}" title="${esc(t('delete'))}" aria-label="${esc(t('delete'))} — ${esc(c.name)}">×</button></span>`).join('')}</div>` : ''}
   </section>`;
   renderRosterGrid();
 }
 
-function renderRosterGrid() {
+/* Persos de la grille, filtrés et triés comme affichés (aussi l'ordre des flèches dans la fiche) */
+function rosterOrder() {
   const f = S.rosterFilter, q = f.q.trim().toLowerCase();
-  const list = allChars().filter(c =>
+  return allChars().filter(c =>
     (!q || charName(c).toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) &&
     (!f.el || c.element === f.el) && (!f.path || c.path === f.path) &&
     (!f.rar || c.rarity === +f.rar) && (!f.owned || S.owned[c.id])
   ).sort((a, b) => b.rarity - a.rarity || byName(a, b));
+}
+function renderRosterGrid() {
+  const list = rosterOrder();
   const ownedCount = ownedChars().length;
   $('#ownedBadge').textContent = t('owned_count', { n: ownedCount, total: allChars().length });
   $('#rosterGrid').innerHTML = list.length ? list.map(charCard).join('') : `<p class="empty">${t('no_results')}</p>`;

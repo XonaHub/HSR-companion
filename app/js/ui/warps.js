@@ -107,7 +107,7 @@ function historyBlock() {
   <tbody>${h.map(x => `<tr><td>${esc(x.date)}</td><td>${t('banner_' + x.banner)}</td><td><b>${esc(x.name)}</b></td>
     <td><span class="pity-pill ${x.pity >= 75 ? 'hi' : x.pity && x.pity <= 50 ? 'lo' : ''}">${x.pity || '—'}</span></td>
     <td><span class="res res-${x.result}">${t('res_' + x.result)}</span></td>
-    <td><button class="btn sm danger" data-action="delWish" data-id="${x.id}">×</button></td></tr>`).join('')}</tbody></table>`;
+    <td><button class="btn sm danger" data-action="delWish" data-id="${x.id}" title="${esc(t('delete'))}" aria-label="${esc(t('delete'))}">×</button></td></tr>`).join('')}</tbody></table>`;
 }
 
 function updateWarpDerived() {

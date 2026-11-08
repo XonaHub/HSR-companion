@@ -23,9 +23,17 @@ function bindValue(el) {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Escape') return;
-  if (askPending) answerAsk(false);   // la question passe avant les fenêtres en dessous
-  else if (sheet) closeSheet(); else if (teamEdit) closeTeamEditor();
+  if (e.key === 'Tab') return trapTab(e);
+  if (e.key === 'Escape') {
+    if (askPending) answerAsk(false);   // la question passe avant les fenêtres en dessous
+    else if (sheet) closeSheet(); else if (teamEdit) closeTeamEditor();
+    return;
+  }
+  // ← → dans la fiche : perso précédent / suivant (pas pendant la saisie, ni sous une autre fenêtre)
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && sheet && !askPending && !teamEdit
+      && !e.altKey && !e.ctrlKey && !e.metaKey && !e.target.closest('input, select, textarea, [contenteditable]')) {
+    e.preventDefault(); sheetStep(e.key === 'ArrowLeft' ? -1 : 1);
+  }
 });
 document.addEventListener('click', e => {
   if (e.target.id === 'sheet') return closeSheet();   // clic sur le fond

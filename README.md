@@ -25,7 +25,7 @@ The app has 8 tabs:
 | Tab | What it's for |
 |---|---|
 | **Today** | Opens on every launch: the character you're farming and the time left, your available warps, the current banner, the next version, the next endgame mode to start a new cycle and the latest news. |
-| **Characters** | Every character in the game, the ones you own, and your light cones. Click a character to open their sheet: abilities, traces, eidolons, recommended light cones, relic review, materials. The + button in the corner adds them to your characters (− removes them). |
+| **Characters** | Every character in the game, the ones you own, and your light cones. Click a character to open their sheet: abilities, traces, eidolons, recommended light cones, relic review, materials. The ‹ › buttons (or the ← → keys) go to the previous or next character. The + button in the corner adds them to your characters (− removes them). |
 | **Farming** | Pick a character and a target level; the app tells you what you're missing (taking your inventory into account) and how many days of energy it takes. |
 | **Warps** | Your Stellar Jade, your passes and your pity. A simulator gives your odds of getting a character or a light cone with what you have. The estimate of your upcoming warps counts the jades from new endgame cycles, based on what you usually earn in each mode. You can import your warp history. |
 | **Relics** | All your relics, graded from S to D based on the character type (crit, break, healer…). Each character's review is on their sheet. |
@@ -115,7 +115,7 @@ L'app a 8 onglets :
 | Onglet | À quoi il sert |
 |---|---|
 | **Aujourd'hui** | Ouvert à chaque lancement : le perso en cours de farm et le temps restant, les vœux disponibles, la bannière en cours, la prochaine version, le prochain mode d'endgame qui change de cycle et la dernière actu. |
-| **Personnages** | Tous les persos du jeu, les persos possédés et les cônes de lumière. Un clic sur un perso ouvre sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. Le bouton + en coin l'ajoute aux persos possédés (− pour le retirer). |
+| **Personnages** | Tous les persos du jeu, les persos possédés et les cônes de lumière. Un clic sur un perso ouvre sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. Les boutons ‹ › (ou les touches ← →) passent au perso précédent ou suivant. Le bouton + en coin l'ajoute aux persos possédés (− pour le retirer). |
 | **Farm** | Choix d'un perso et du niveau visé ; l'app indique ce qui manque (en tenant compte de l'inventaire) et combien de jours d'énergie il faut. |
 | **Vœux** | Jades, passes et pity. Un simulateur calcule les chances d'obtenir un perso ou un cône avec les tirages disponibles. L'estimation des vœux à venir compte les jades des nouveaux cycles d'endgame, selon ce qui est obtenu d'habitude dans chaque mode. L'historique des vœux peut être importé. |
 | **Reliques** | Toutes les reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |

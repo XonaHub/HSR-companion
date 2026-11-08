@@ -125,17 +125,43 @@ function gameAlertNote() {
   return '';
 }
 /* Fenêtres (fiche perso, équipe, confirmation) : fond commun .sheet-backdrop */
+/* Focus des fenêtres (clavier, lecteurs d'écran) : à l'ouverture le focus entre dans la fenêtre, à la fermeture il
+   revient sur l'élément qui l'a ouverte. Chaque rendu remplace innerHTML (le focus tomberait sur <body>) : modalRoot
+   note l'élément qui a le focus avant le rendu et le retrouve juste après (même data-action et mêmes data-*). */
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+const focusables = root => [...root.querySelectorAll(FOCUSABLE)].filter(el => !el.closest('[hidden]'));
+const focusKey = el => el && el.dataset ? JSON.stringify(el.dataset) : null;
+const modalOpener = new Map();   // id de fenêtre -> élément qui avait le focus à l'ouverture
 function modalRoot(id) {
   let root = document.getElementById(id);
   if (!root) {
+    modalOpener.set(id, document.activeElement);
     root = document.createElement('div'); root.id = id; root.className = 'sheet-backdrop';
     document.body.appendChild(root); document.body.classList.add('no-scroll');
   }
+  const before = root.contains(document.activeElement) ? focusKey(document.activeElement) : null;
+  queueMicrotask(() => {   // après le rendu synchrone qui suit l'appel
+    if (!root.isConnected || root.contains(document.activeElement)) return;
+    const list = focusables(root);
+    const same = before && list.find(el => focusKey(el) === before);
+    const first = list.find(el => !el.classList.contains('sheet-close')) || list[0];
+    if (same || first) (same || first).focus({ preventScroll: true });
+  });
   return root;
 }
 function closeModal(id) {
   const el = document.getElementById(id); if (el) el.remove();
   if (!$('.sheet-backdrop')) document.body.classList.remove('no-scroll');   // plus aucune fenêtre ouverte
+  const opener = modalOpener.get(id); modalOpener.delete(id);
+  if (opener && opener.isConnected && opener.focus) opener.focus({ preventScroll: true });
+}
+/* Tab reste dans la fenêtre du dessus (la dernière ouverte) */
+function trapTab(e) {
+  const backs = $$('.sheet-backdrop'); if (!backs.length) return;
+  const list = focusables(backs[backs.length - 1]); if (!list.length) return;
+  const first = list[0], last = list[list.length - 1], inside = backs[backs.length - 1].contains(document.activeElement);
+  if (e.shiftKey && (document.activeElement === first || !inside)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (document.activeElement === last || !inside)) { e.preventDefault(); first.focus(); }
 }
 
 /* Confirmation dans l'app, à la place de confirm() : dans l'app de bureau, le plugin dialog de Tauri remplace

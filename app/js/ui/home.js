@@ -147,7 +147,7 @@ function planCard(p, f) {
       ${avatar(c, 'sm')}
       <div class="plan-info"><b>${esc(charName(c))}</b><small>${part(t('lvl'), st.lvl, p.lvTo)} · ${tr}${lcOn ? ` · ${esc(t('lc_short'))} → ${p.lc.lvTo}` : ''}</small>${time ? `<div class="plan-time">${time}</div>` : ''}</div>
       <label class="check" title="${esc(t('include'))}"><input type="checkbox" data-action="togglePlan" data-id="${p.id}" ${p.on !== false ? 'checked' : ''}></label>
-      <button class="btn sm danger" data-action="delPlan" data-id="${p.id}" title="${esc(t('delete'))}">×</button>
+      <button class="btn sm danger" data-action="delPlan" data-id="${p.id}" title="${esc(t('delete'))}" aria-label="${esc(t('delete'))}">×</button>
     </summary>
     <label class="check lc-card"><input type="checkbox" data-action="togglePlanLc" data-id="${p.id}" ${lcOn ? 'checked' : ''} ${lcOk ? '' : 'disabled'}> ${t('include_lc')} <small>${esc(lcOk ? coneName(gC, eq.name) : lcWhy)}</small></label>
     <label class="field lc-card">${t('lc_to')} <select data-action="planLcTo" data-id="${p.id}" ${lcOn ? '' : 'disabled'}>${LEVELS.map(l => opt(l, l, p.lc ? p.lc.lvTo : 80)).join('')}</select></label>

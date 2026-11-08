@@ -49,6 +49,17 @@ async function openSheet(id) {
   try { await loadDetails(S.lang); } catch (e) { if (sheet) sheet.err = true; }
   if (sheet && sheet.id === id) renderSheet();
 }
+/* Perso précédent / suivant (flèches ← →, boutons ‹ ›) dans l'ordre de la grille Personnages ; si le perso
+   ouvert n'y est pas (filtré, ou fiche ouverte depuis un autre onglet), dans l'ordre de tous les persos. */
+function sheetStep(dir) {
+  if (!sheet) return;
+  let list = rosterOrder();
+  if (!list.some(c => c.id === sheet.id)) list = allChars().sort((a, b) => b.rarity - a.rarity || byName(a, b));
+  const i = list.findIndex(c => c.id === sheet.id);
+  if (list.length < 2 || i < 0) return;
+  const tab = sheet.tab, next = list[(i + dir + list.length) % list.length];
+  openSheet(next.id); sheet.tab = tab; renderSheet();
+}
 function closeSheet() {
   sheet = null;
   closeModal('sheet');
@@ -274,6 +285,10 @@ function renderSheet() {
   else body = ({ skills: sheetSkills, traces: sheetTraces, eidolons: sheetRanks })[sheet.tab](d, D);
   root.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(charName(c))}">
     <button class="sheet-close" data-action="closeSheet" title="${esc(t('close'))}" aria-label="${esc(t('close'))}">×</button>
+    <div class="sheet-step">
+      <button data-action="sheetStep" data-dir="-1" title="${esc(t('prev_char'))} (←)" aria-label="${esc(t('prev_char'))}">‹</button>
+      <button data-action="sheetStep" data-dir="1" title="${esc(t('next_char'))} (→)" aria-label="${esc(t('next_char'))}">›</button>
+    </div>
     <header class="sheet-hero r${c.rarity}">
       <div class="hero-art">${g ? img(g.preview || g.icon, 'hero-img', charName(c)) : `<span class="ini">${esc(initials(c))}</span>`}</div>
       <div class="hero-info">
@@ -324,6 +339,7 @@ function sheetRanks(d) {
 Object.assign(actions, {
   openSheet: b => openSheet(b.dataset.id),
   closeSheet: () => closeSheet(),
+  sheetStep: b => sheetStep(+b.dataset.dir),
   sheetTab: b => { sheet.tab = b.dataset.tab; renderSheet(); },
   // simulateur de build (onglet Reliques) : l'essai ne change rien d'autre que l'affichage
   trySlot: el => { sheet.trial = { ...trialOf() }; if (el.value) sheet.trial[el.dataset.slot] = el.value; else delete sheet.trial[el.dataset.slot]; renderSheet(); },

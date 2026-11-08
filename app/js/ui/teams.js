@@ -91,7 +91,7 @@ function myTeamRow(tm, dups) {
   const dupNames = tm.main ? tm.members.filter(id => id && dups.has(id)).map(id => charName(charById(id))) : [];
   const type = teamType(tm);
   return `<div class="myteam ${tm.main ? 'main' : ''}">
-    <button class="star-btn ${tm.main ? 'on' : ''}" data-action="teamStar" data-id="${tm.id}" title="${esc(t('team_main'))}" aria-pressed="${!!tm.main}">★</button>
+    <button class="star-btn ${tm.main ? 'on' : ''}" data-action="teamStar" data-id="${tm.id}" title="${esc(t('team_main'))}" aria-label="${esc(t('team_main'))}" aria-pressed="${!!tm.main}">★</button>
     <div class="mt-members">${tm.members.map(teamMemberCell).join('')}</div>
     <div class="mt-info">
       <div class="mt-title"><b>${esc(teamName(tm))}</b><span class="type-tag">${t('type_' + type)}</span></div>
@@ -159,7 +159,7 @@ function renderTeamEditor() {
   const tm = teamEdit, guess = guessTeamType(tm.members);
   const autoName = teamName({ ...tm, name: '' });
   root.innerHTML = `<div class="team-editor" role="dialog" aria-modal="true" aria-label="${esc(t(tm.id ? 'team_edit_title' : 'team_new_title'))}">
-    <button class="sheet-close" data-action="teamCancel" aria-label="${esc(t('close'))}">×</button>
+    <button class="sheet-close" data-action="teamCancel" title="${esc(t('close'))}" aria-label="${esc(t('close'))}">×</button>
     <h2>${t(tm.id ? 'team_edit_title' : 'team_new_title')}</h2>
     <div class="te-slots">${tm.members.map((id, i) => slotCell(id, `data-action="teMember" data-i="${i}"`)).join('')}</div>
     <div class="field-grid">

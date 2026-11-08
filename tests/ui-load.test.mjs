@@ -50,3 +50,16 @@ test('no_native_confirm_alert_prompt', () => {
   }
   assert.deepEqual(found, []);
 });
+
+test('icon_only_buttons_have_a_label', () => {
+  // un bouton dont le texte n'est qu'un symbole (×, ★, ‹ ›, +…) doit avoir un aria-label pour les lecteurs d'écran
+  const missing = [];
+  for (const s of scripts.filter(s => s.startsWith('js/ui/')).concat([])) {
+    for (const m of read(s).matchAll(/<button\b([^>]*)>([^<]*)<\/button>/g)) {
+      const text = m[2].replace(/\$\{[^}]*\}/g, 'x').trim();
+      if (/[A-Za-zÀ-ÿ0-9]/.test(text)) continue;   // texte lisible (ou ${…} interpolé)
+      if (!/aria-label=/.test(m[1])) missing.push(`${s} : ${m[0].slice(0, 90)}`);
+    }
+  }
+  assert.deepEqual(missing, []);
+});
