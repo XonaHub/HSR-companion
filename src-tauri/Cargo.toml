@@ -6,6 +6,16 @@ edition = "2021"
 license = "MIT"
 default-run = "hsr-companion"
 
+# Outil de développement (régénère app/js/assets.js) : compilé seulement avec `--features tools`,
+# sinon Tauri l'embarquerait dans l'installateur des joueurs.
+[[bin]]
+name = "build_assets"
+path = "src/bin/build_assets.rs"
+required-features = ["tools"]
+
+[features]
+tools = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -13,6 +23,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 unicode-normalization = "0.1"

@@ -8,6 +8,16 @@ your characters, what's left to farm, your warps, your relics, your teams and th
 
 > Unofficial fan app, not affiliated with HoYoverse. Everything stays on your PC.
 
+## Download
+
+Get the latest version from the [Releases](https://github.com/XonaHub/HSR-companion/releases/latest) page:
+
+- **`…_x64-setup.exe`**: the installer (recommended). The app then updates itself: on launch, it offers new versions.
+- **`…_x64-portable.exe`**: runs without installing anything. It doesn't update itself: download the new version by hand.
+
+The app isn't signed with a paid certificate, so Windows SmartScreen may show "Windows protected your PC":
+click **More info**, then **Run anyway**.
+
 ## What the app does
 
 The app has 8 tabs:
@@ -21,7 +31,7 @@ The app has 8 tabs:
 | **Relics** | All your relics, graded from S to D based on the character type (crit, break, healer…). Each character's review is on their sheet. |
 | **Teams** | Build teams for Memory of Chaos, Pure Fiction and Apocalyptic Shadow, with tips (no healer, too many DPS…). |
 | **News** | Official announcements grouped by version: banners, events, how many warps you can earn during the version, and the current cycle of each endgame mode (Memory of Chaos, Pure Fiction, Apocalyptic Shadow, Anomaly Arbitration) with the date of the next one. |
-| **Settings** | Language (French / English), game server (endgame reset times depend on it; detected automatically from your UID), farming yield, backup and restore of your data. |
+| **Settings** | Language (French / English), game server (endgame reset times depend on it; detected automatically from your UID), farming yield, backup and restore of your data, installed version and "Check for updates" button. |
 
 ## Fill the app with your account
 
@@ -58,6 +68,11 @@ npm test        # JavaScript + Rust tests
 npm run build   # builds the Windows installer
 ```
 
+Publishing a version (maintainer only, needs the private signing key): bump the version in
+`src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and `package.json`, then run
+`npm run release -- --notes "What's new"` and upload the 3 files from `release/v<version>/` to a GitHub release
+tagged `v<version>`.
+
 ## License
 
 Code under the [MIT](LICENSE) license. Honkai: Star Rail, its characters and its images
@@ -75,6 +90,16 @@ ses persos, ce qu'il reste à farmer, ses vœux, ses reliques, ses équipes et l
 
 > Application de fan non officielle, sans lien avec HoYoverse. Tout reste sur ton PC.
 
+### Télécharger
+
+Prends la dernière version sur la page [Releases](https://github.com/XonaHub/HSR-companion/releases/latest) :
+
+- **`…_x64-setup.exe`** : l'installateur (conseillé). L'app se met ensuite à jour toute seule : au lancement, elle propose les nouvelles versions.
+- **`…_x64-portable.exe`** : se lance sans rien installer. Il ne se met pas à jour tout seul : télécharge la nouvelle version à la main.
+
+L'app n'est pas signée avec un certificat payant : Windows SmartScreen peut afficher « Windows a protégé votre ordinateur ».
+Clique sur **Informations complémentaires**, puis **Exécuter quand même**.
+
 ### Ce que fait l'app
 
 L'app a 8 onglets :
@@ -88,7 +113,7 @@ L'app a 8 onglets :
 | **Reliques** | Toutes tes reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
 | **Équipes** | Composer des équipes pour la Mémoire du chaos, la Fiction pure et l'Ombre apocalyptique, avec des conseils (pas de soigneur, trop de DPS…). |
 | **Actus** | Les annonces officielles regroupées par version : bannières, événements, combien de vœux on peut gagner pendant la version, et le cycle en cours de chaque mode d'endgame (Mémoire du chaos, Fiction pure, Ombre apocalyptique, Arbitre de l'instable) avec la date du suivant. |
-| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après ton UID), rendement de farm, sauvegarde et restauration de tes données. |
+| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après ton UID), rendement de farm, sauvegarde et restauration de tes données, version installée et bouton « Rechercher une mise à jour ». |
 
 ### Remplir l'app avec ton compte
 
@@ -124,6 +149,11 @@ npm run dev     # lance l'app en mode développement
 npm test        # tests JavaScript + tests Rust
 npm run build   # crée l'installateur Windows
 ```
+
+Publier une version (mainteneur seulement, il faut la clé privée de signature) : changer la version dans
+`src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` et `package.json`, puis lancer
+`npm run release -- --notes "Nouveautés"` et envoyer les 3 fichiers de `release/v<version>/` dans une release GitHub
+avec le tag `v<version>`.
 
 ### Licence
 

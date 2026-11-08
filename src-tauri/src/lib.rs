@@ -5,8 +5,10 @@
 //!   * `gacha_find` / `gacha_fetch` : import de l'historique des vœux (API officielle HoYoverse) ;
 //!   * `save_state` / `export_data` : sauvegarde dans %APPDATA%\fr.hsrcompanion.desktop\ et export ;
 //!   * `game_data_update` / `game_details` / `restart_app` : données du jeu à jour (StarRailRes) ;
-//!   * `news_feed` : actus officielles HoYoLAB regroupées par version.
+//!   * `news_feed` : actus officielles HoYoLAB regroupées par version ;
+//!   * `app_update_check` / `app_update_install` : mise à jour de l'app depuis les releases GitHub.
 
+mod appupdate;
 mod gacha;
 pub mod gamedata;
 pub mod net;
@@ -21,7 +23,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         // liens externes (target="_blank") ouverts dans le navigateur du système, voir app.js
         .plugin(tauri_plugin_opener::init())
+        // mise à jour de l'app : utilisée seulement côté Rust (appupdate.rs), aucune permission côté page
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            appupdate::app_update_check,
+            appupdate::app_update_install,
             gacha::gacha_find,
             gacha::gacha_fetch,
             storage::save_state,

@@ -2,7 +2,7 @@
 //! depuis le dernier commit de StarRailRes. L'app se met à jour seule ; cette commande sert
 //! seulement à rafraîchir les données de repli avant une nouvelle compilation.
 //!
-//! Usage (depuis src-tauri) : cargo run --bin build_assets
+//! Usage (depuis src-tauri) : cargo run --features tools --bin build_assets
 
 use std::path::PathBuf;
 

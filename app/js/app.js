@@ -1899,9 +1899,32 @@
       </div>
     </section>
     <section class="panel">
+      <h3>${t('app_update_title')}</h3>
+      <p class="hint">${appVersion ? esc(t('app_version', { v: appVersion })) : ''} ${t('app_update_hint')}</p>
+      <button class="btn sm" data-action="checkAppUpdate">${t('app_update_check')}</button>
+    </section>
+    <section class="panel">
       <h3>${t('about_title')}</h3>
       <p class="hint">${t('about_text')}</p>
     </section>`;
+  }
+
+  /* ---------------------------------------------------------- mise à jour de l'app (appupdate.rs) */
+  let appVersion = '';   // version installée, connue après la première vérification
+  /* Vérifie s'il existe une version plus récente sur GitHub et propose de l'installer.
+     manual : clic sur « Rechercher une mise à jour » (on dit aussi quand l'app est à jour ou hors ligne).
+     Renvoie true si une mise à jour a été proposée (pour ne pas enchaîner une autre question au lancement). */
+  function checkAppUpdate(manual) {
+    return invoke('app_update_check').then(u => {
+      if (u.current && u.current !== appVersion) { appVersion = u.current; if (S.tab === 'settings') render(); }
+      if (!u.available) { if (manual) toast(t('app_update_none')); return false; }
+      const notes = u.notes ? '\n\n' + u.notes.slice(0, 600) : '';   // confirm() affiche du texte brut
+      if (confirm(t('app_update_found', { v: u.available, cur: u.current, notes }))) {
+        flushSave(); toast(t('app_update_downloading'));
+        invoke('app_update_install').catch(e => toast(String(e)));
+      }
+      return true;
+    }).catch(e => { if (manual) toast(String(e)); return false; });   // hors ligne : on réessaiera au prochain lancement
   }
 
   /* ================================================================== ACTIONS */
@@ -2042,6 +2065,7 @@
       save(); render();
       toast(t('team_sent', { mode: t('mode_' + mode), n: +side + 1 }));
     },
+    checkAppUpdate: () => checkAppUpdate(true),
     resetRates: () => { S.rates = { ...DEFAULT_RATES }; save(); render(); },
     exportData: () => invoke('export_data', { name: `hsr-companion-${today()}.json`, content: JSON.stringify(S, null, 2) })   // « Enregistrer sous… »
       .then(p => p && toast(p)).catch(e => toast(String(e))),
@@ -2151,11 +2175,16 @@
     save(); render();
   }
 
-  /* Données du jeu : vérification en arrière-plan (au plus toutes les 6 h, voir gamedata/update.rs) ;
-     les nouvelles données sont chargées au prochain lancement */
-  invoke('game_data_update').then(u => {
-    if (!u || !u.updated) return;
-    const names = u.newChars.join(', ');
-    if (confirm(t(names ? 'gamedata_new_chars' : 'gamedata_updated', { names }))) { flushSave(); invoke('restart_app'); }
-  }).catch(() => { /* hors ligne : on garde les données actuelles */ });
+  /* D'abord la mise à jour de l'app ; si elle est proposée, pas de seconde question sur les données du jeu
+     (une nouvelle version les rapporte de toute façon). */
+  checkAppUpdate(false).then(proposed => {
+    if (proposed) return;
+    /* Données du jeu : vérification en arrière-plan (au plus toutes les 6 h, voir gamedata/update.rs) ;
+       les nouvelles données sont chargées au prochain lancement */
+    invoke('game_data_update').then(u => {
+      if (!u || !u.updated) return;
+      const names = u.newChars.join(', ');
+      if (confirm(t(names ? 'gamedata_new_chars' : 'gamedata_updated', { names }))) { flushSave(); invoke('restart_app'); }
+    }).catch(() => { /* hors ligne : on garde les données actuelles */ });
+  });
 })();

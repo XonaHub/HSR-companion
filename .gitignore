@@ -3,6 +3,7 @@ src-tauri/gen/
 node_modules/
 .superpowers/
 tools/__pycache__/
+release/
 
 # Données personnelles / secrets : ne jamais commiter (voir CLAUDE.md)
 data.json
