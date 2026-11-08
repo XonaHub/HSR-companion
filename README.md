@@ -31,7 +31,7 @@ The app has 8 tabs:
 | **Relics** | All your relics, graded from S to D based on the character type (crit, break, healer…). Each character's review is on their sheet. |
 | **Teams** | Build teams for Memory of Chaos, Pure Fiction and Apocalyptic Shadow, with tips (no healer, too many DPS…). |
 | **News** | Official announcements grouped by version: banners, events, how many warps you can earn during the version, and the current cycle of each endgame mode (Memory of Chaos, Pure Fiction, Apocalyptic Shadow, Anomaly Arbitration) with the date of the next one. |
-| **Settings** | Language (French / English), game server (endgame reset times depend on it; detected automatically from your UID), farming yield, export and import of your data, save backups to go back in time, installed version and "Check for updates" button. |
+| **Settings** | Language (French / English), game server (endgame reset times depend on it; detected automatically from your UID), farming yield, export and import of your data, save backups to go back in time, data status, installed version and "Check for updates" button. |
 
 ## Fill the app with your account
 
@@ -51,6 +51,9 @@ You don't have to enter everything by hand:
 - **Light cone and relic recommendations**: the Prydwen website.
 - **Estimates**: EXP per level bracket, farming yield and the pity model are estimates,
   not official values.
+
+**Settings → Data status** shows how recent each source is and whether the last check worked, with a **Check now** button.
+An **Offline** badge appears at the top when a source could not be reached.
 
 ## Where is my data?
 
@@ -117,7 +120,7 @@ L'app a 8 onglets :
 | **Reliques** | Toutes les reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
 | **Équipes** | Composer des équipes pour la Mémoire du chaos, la Fiction pure et l'Ombre apocalyptique, avec des conseils (pas de soigneur, trop de DPS…). |
 | **Actus** | Les annonces officielles regroupées par version : bannières, événements, combien de vœux on peut gagner pendant la version, et le cycle en cours de chaque mode d'endgame (Mémoire du chaos, Fiction pure, Ombre apocalyptique, Arbitre de l'instable) avec la date du suivant. |
-| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après l'UID), rendement de farm, export et import des données, copies de la sauvegarde pour revenir en arrière, version installée et bouton « Rechercher une mise à jour ». |
+| **Paramètres** | Langue (français / anglais), serveur du jeu (les heures de reset de l'endgame en dépendent ; trouvé tout seul d'après l'UID), rendement de farm, export et import des données, copies de la sauvegarde pour revenir en arrière, statut des données, version installée et bouton « Rechercher une mise à jour ». |
 
 ### Remplir l'app avec son compte
 
@@ -137,6 +140,9 @@ Inutile de tout saisir à la main :
 - **Conseils de cônes et de reliques** : le site Prydwen.
 - **Estimations** : l'EXP par palier, le rendement du farm et le modèle de pity sont des estimations,
   pas des valeurs officielles.
+
+**Paramètres → Statut des données** indique l'âge de chaque source et si la dernière vérification a réussi, avec un bouton **Vérifier maintenant**.
+Un repère **Hors ligne** apparaît en haut quand une source n'a pas pu être jointe.
 
 ### Où sont les données ?
 

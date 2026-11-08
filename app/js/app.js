@@ -89,6 +89,44 @@
   /* Copies de la sauvegarde (storage.rs) : jour local (pas UTC) pour la « copie du jour » */
   const localDay = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
   let backups = null;   // liste des copies (Paramètres), relue après chaque nouvelle copie
+  /* Statut des données (js/status.js) */
+  const STARTED_AT = Date.now();
+  let gameStatus = null;     // game_data_status (gamedata/update.rs) : { downloaded, updatedAt, checkedAt, failedAt, error }
+  let checkingData = false;  // bouton « Vérifier maintenant » en cours
+  const net = {};            // dernier résultat réseau par source : 'ok' | 'offline' (repère de l'en-tête)
+  function setNet(src, ok) {
+    const was = isOffline(net);
+    net[src] = ok ? 'ok' : 'offline';
+    if (isOffline(net) !== was) renderNetBadge();
+  }
+  function renderNetBadge() {
+    const b = $('#netBadge');
+    if (!b) return;
+    b.hidden = !isOffline(net);
+    b.textContent = t('net_offline'); b.title = t('net_offline_title');
+  }
+  function loadGameStatus() {
+    return invoke('game_data_status').then(st => {
+      const before = gameDataAlert(gameStatus, Date.now(), STARTED_AT);
+      gameStatus = st;
+      const changed = gameDataAlert(st, Date.now(), STARTED_AT) !== before;
+      if ((S.tab === 'settings' || (changed && (S.tab === 'roster' || S.tab === 'planner'))) && !typing()) render();
+    }).catch(() => { /* hors app de bureau */ });
+  }
+  /* une saisie est en cours : ne pas redessiner l'onglet (focus et texte perdus) */
+  const typing = () => { const a = document.activeElement; return !!a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.id !== 'langSelect'; };
+  const ago = ts => { const p = agoParts(ts, Date.now()); return p ? t(p[0], { n: p[1] }) : t('never'); };
+  /* Avertissement « données du jeu pas à jour » en haut de Personnages et Farm (rien quand tout va bien) */
+  function gameAlertNote() {
+    const a = gameDataAlert(gameStatus, Date.now(), STARTED_AT);
+    if (a === 'pending') return `<p class="note warn status-note">${t('status_pending')} <button class="btn sm" data-action="restartApp">${t('status_restart')}</button></p>`;
+    if (a === 'failing') return `<p class="note warn status-note">${esc(t('status_game_failing', { ago: ago(gameStatus.checkedAt) }))} <button class="btn sm" data-action="openStatus">${t('status_title')}</button></p>`;
+    return '';
+  }
+  function offerGameRestart(u) {
+    const names = (u.newChars || []).join(', ');
+    if (confirm(t(names ? 'gamedata_new_chars' : 'gamedata_updated', { names }))) { flushSave(); invoke('restart_app'); }
+  }
   /* Copie « avant opération » de l'état actuel : appeler AVANT de modifier S (l'état est figé ici) */
   function backup(reason) {
     const json = JSON.stringify(S);
@@ -200,6 +238,7 @@
     renderTabs();
     resetCaches();
     $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    renderNetBadge();
     RENDERERS[S.tab]($('#view'));
     if (shownTab !== S.tab) { shownTab = S.tab; enterView(); }
   }
@@ -256,7 +295,7 @@
   function renderRoster(v) {
     if (S.rosterView === 'cones') return renderConeInventory(v);
     const f = S.rosterFilter;
-    v.innerHTML = rosterSwitch() + `
+    v.innerHTML = rosterSwitch() + gameAlertNote() + `
     <section class="panel">
       <h3>${t('acc_title')}</h3>
       <div class="import-box">
@@ -519,7 +558,7 @@
     }, { exp: 0, lcExp: 0, items: {}, gen: {} }));
     const ft = farmTimes(miss, S.rates, new Date(), G.items);   // par plan actif (cumulé) et total : mêmes chiffres partout
     const info = new Map(active.map((p, i) => [p.id, { ...ft.perPlan[i], miss: miss[i] }]));
-    v.innerHTML = `
+    v.innerHTML = gameAlertNote() + `
     <section class="panel">
       <div class="panel-head"><h2>${t('planner_title')}</h2></div>
       <p class="hint">${t('planner_hint')}</p>
@@ -1242,6 +1281,7 @@
   function newsArrived() {
     if (S.tab === 'news') renderNews($('#view'));
     else if (S.tab === 'today') { renderTabs(); renderToday($('#view')); }
+    else if (S.tab === 'settings' && !typing()) render();   // ligne « Actus » du statut des données
     else renderTabs();
   }
   function loadNews(force) {
@@ -1251,8 +1291,8 @@
     const shown = news ? Promise.resolve() : invoke('news_cached', { lang }).then(f => {
       if (f && lang === S.lang && !news) { news = f; newsArrived(); }
     }).catch(() => { /* pas de cache lisible : on attend le réseau */ });
-    shown.then(() => invoke('news_feed', { lang, force: !!force })).then(f => { if (lang === S.lang) news = f; })
-      .catch(e => { newsError = String(e); })
+    shown.then(() => invoke('news_feed', { lang, force: !!force })).then(f => { setNet('news', !f.stale); if (lang === S.lang) news = f; })
+      .catch(e => { setNet('news', false); newsError = String(e); })
       .finally(() => {
         newsLoading = false;
         if (lang !== S.lang) return loadNews(false);   // langue changée pendant le chargement
@@ -1322,6 +1362,7 @@
     if (!news && !newsLoading && !newsError) loadNews(false);
     const head = `<div class="panel-head"><h2>${t('tab_news')}</h2>
       <button class="btn sm" data-action="newsRefresh" ${newsLoading ? 'disabled' : ''}>${t(newsLoading ? 'news_loading' : 'news_refresh')}</button></div>
+      ${news && news.fetchedAt ? `<p class="hint small">${esc(t('news_fetched', { ago: ago(news.fetchedAt) }))}</p>` : ''}
       ${news && news.stale ? `<p class="note warn">${t('news_offline')}</p>` : ''}
       ${newsError && news ? `<p class="note warn">${t('news_error', { e: esc(newsError) })}</p>` : ''}`;
     if (!news) {
@@ -1418,7 +1459,7 @@
     rankPending.add(c.id);
     rankQueue = rankQueue
       .then(() => invoke('prydwen_ranking', { nameEn: g.en, force: false }))
-      .then(r => rankings.set(c.id, r), () => rankings.set(c.id, 'error'))
+      .then(r => { setNet('prydwen', !r.stale); rankings.set(c.id, r); }, () => rankings.set(c.id, 'error'))
       .then(() => { rankPending.delete(c.id); if (sheet && sheet.id === c.id) renderSheet(); });
   }
   const coneName = (lc, fallback) => (lc && (S.lang === 'fr' ? lc.fr : lc.en)) || (lc && lc.en) || fallback || '?';
@@ -1911,6 +1952,7 @@
         <button class="btn danger" data-action="resetData">${t('reset_all')}</button>
       </div>
     </section>
+    ${dataStatusPanel()}
     <section class="panel">
       <h3>${t('backups_title')}</h3>
       <p class="hint">${t('backups_hint')}</p>
@@ -1927,6 +1969,27 @@
     </section>`;
   }
 
+  function dataStatusPanel() {
+    const st = gameStatus, fmtDay = ts => new Date(ts).toLocaleDateString(locale());
+    let game = t('status_loading'), gameExtra = '';
+    if (st) {
+      game = (st.downloaded && st.updatedAt ? t('status_game_downloaded', { date: fmtDay(st.updatedAt) }) : t('status_game_embedded'))
+        + ' · ' + t('status_checked', { ago: ago(st.checkedAt) });
+      if (st.failedAt && (!st.checkedAt || st.failedAt > st.checkedAt)) gameExtra += `<p class="note warn">${esc(t('status_failed', { ago: ago(st.failedAt), e: st.error || t('err_unknown') }))}</p>`;
+      if (gameDataAlert(st, Date.now(), STARTED_AT) === 'pending') gameExtra += `<p class="note warn">${t('status_pending')} <button class="btn sm" data-action="restartApp">${t('status_restart')}</button></p>`;
+    }
+    const newsLine = news && news.fetchedAt ? t('status_fetched_f', { ago: ago(news.fetchedAt) }) + (news.stale ? ' · ' + t('cones_offline') : '')
+      : newsError ? t('status_news_error') : t('status_loading');
+    const pr = prydwenSummary(rankings.values());
+    const prLine = pr.fetchedAt ? t('status_fetched_m', { ago: ago(pr.fetchedAt) }) + (pr.stale ? ' · ' + t('cones_offline') : '') : t('status_prydwen_none');
+    const row = (label, line, extra = '') => `<li><b>${t(label)}</b><span>${esc(line)}</span>${extra}</li>`;
+    return `<section class="panel" id="dataStatus">
+      <h3>${t('status_title')}</h3>
+      <p class="hint">${t('status_hint')}</p>
+      <ul class="status-list">${row('status_game', game, gameExtra)}${row('status_news', newsLine)}${row('status_prydwen', prLine)}</ul>
+      <button class="btn sm" data-action="checkDataNow" ${checkingData ? 'disabled' : ''}>${t(checkingData ? 'status_checking' : 'status_check')}</button>
+    </section>`;
+  }
   function backupList() {
     if (!backups) {
       invoke('list_backups').then(l => { backups = l; if (S.tab === 'settings') render(); }).catch(() => { backups = []; if (S.tab === 'settings') render(); });
@@ -1957,6 +2020,7 @@
      Renvoie true si une mise à jour a été proposée (pour ne pas enchaîner une autre question au lancement). */
   function checkAppUpdate(manual) {
     return invoke('app_update_check').then(u => {
+      setNet('app', true);
       if (u.current && u.current !== appVersion) { appVersion = u.current; if (S.tab === 'settings') render(); }
       if (!u.available) { if (manual) toast(t('app_update_none')); return false; }
       const notes = u.notes ? '\n\n' + u.notes.slice(0, 600) : '';   // confirm() affiche du texte brut
@@ -1965,7 +2029,7 @@
         invoke('app_update_install').catch(e => toast(String(e)));
       }
       return true;
-    }).catch(e => { if (manual) toast(String(e)); return false; });   // hors ligne : on réessaiera au prochain lancement
+    }).catch(e => { setNet('app', false); if (manual) toast(String(e)); return false; });   // hors ligne : on réessaiera au prochain lancement
   }
 
   /* ================================================================== ACTIONS */
@@ -2108,6 +2172,17 @@
     },
     checkAppUpdate: () => checkAppUpdate(true),
     restoreBackup: b => restoreBackup(b.dataset.id),
+    openStatus: () => { S.tab = 'settings'; save(); render(); const el = $('#dataStatus'); if (el) el.scrollIntoView({ block: 'start' }); },
+    restartApp: () => { flushSave(); invoke('restart_app'); },
+    checkDataNow: () => {
+      if (checkingData) return;
+      checkingData = true; render();
+      loadNews(true);
+      invoke('game_data_update', { force: true })
+        .then(u => { setNet('game', true); if (u && u.updated) offerGameRestart(u); else toast(t('status_game_uptodate')); })
+        .catch(() => { setNet('game', false); toast(t('status_check_failed')); })
+        .finally(() => { checkingData = false; loadGameStatus(); });
+    },
     resetRates: () => { S.rates = { ...DEFAULT_RATES }; save(); render(); },
     exportData: () => invoke('export_data', { name: `hsr-companion-${today()}.json`, content: JSON.stringify(S, null, 2) })   // « Enregistrer sous… »
       .then(p => p && toast(p)).catch(e => toast(String(e))),
@@ -2208,6 +2283,7 @@
   // classements de cônes des persos possédés, en arrière-plan et un par un (le cache de 24 h est côté Rust)
   if (S.cones.length) setTimeout(() => ownedChars().forEach(c => loadRanking(c)), 1500);
   loadNews(false);   // en arrière-plan : point rouge sur l'onglet Actus s'il y a du nouveau
+  loadGameStatus();  // statut des données du jeu (Paramètres, avertissement de Personnages et Farm)
 
   /* Persos créés à la main avant leur sortie officielle : on propose de fusionner (rien sans accord) */
   for (const d of findCustomDuplicates(S.custom, BASE_CHARS, S.mergeDeclined)) {
@@ -2225,9 +2301,9 @@
     /* Données du jeu : vérification en arrière-plan (au plus toutes les 6 h, voir gamedata/update.rs) ;
        les nouvelles données sont chargées au prochain lancement */
     invoke('game_data_update').then(u => {
-      if (!u || !u.updated) return;
-      const names = u.newChars.join(', ');
-      if (confirm(t(names ? 'gamedata_new_chars' : 'gamedata_updated', { names }))) { flushSave(); invoke('restart_app'); }
-    }).catch(() => { /* hors ligne : on garde les données actuelles */ });
+      setNet('game', true);
+      if (u && u.updated) offerGameRestart(u);
+    }).catch(() => { setNet('game', false); /* hors ligne : on garde les données actuelles */ })
+      .finally(loadGameStatus);   // l'échec ou la réussite vient d'être noté dans meta.json
   });
 })();

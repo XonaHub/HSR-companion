@@ -36,6 +36,7 @@ pub fn run() {
             storage::read_backup,
             storage::export_data,
             gamedata::update::game_data_update,
+            gamedata::update::game_data_status,
             gamedata::update::game_details,
             gamedata::update::restart_app,
             news::news_feed,

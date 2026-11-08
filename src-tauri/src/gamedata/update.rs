@@ -141,15 +141,73 @@ pub fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map(|d| d.join("gamedata")).map_err(|e| e.to_string())
 }
 
-/// Vérifie StarRailRes (au plus toutes les 6 h) et installe les nouvelles données s'il a changé.
-/// Les nouvelles données sont prises en compte au prochain lancement de l'app.
+/// État des données du jeu, pour le panneau « Statut des données » de Paramètres.
+#[derive(Serialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GameStatus {
+    /// des données téléchargées utilisables existent (sinon : données intégrées à l'app)
+    pub downloaded: bool,
+    /// date des données téléchargées
+    pub updated_at: Option<i64>,
+    /// dernière vérification réussie de StarRailRes
+    pub checked_at: Option<i64>,
+    /// dernier échec, effacé par la vérification réussie suivante
+    pub failed_at: Option<i64>,
+    pub error: Option<String>,
+}
+
+pub fn status(dir: &Path) -> GameStatus {
+    let meta = read_meta(dir);
+    let downloaded = load_game(dir).is_some();
+    GameStatus {
+        downloaded,
+        updated_at: if downloaded { meta["updatedAt"].as_i64() } else { None },
+        checked_at: meta["checkedAt"].as_i64(),
+        failed_at: meta["failedAt"].as_i64(),
+        error: meta["error"].as_str().map(str::to_string),
+    }
+}
+
+/// Note l'échec d'une vérification dans meta.json (ou l'efface après une réussite), sans toucher au reste.
+pub fn note_result<T>(dir: &Path, r: &Result<T, String>, now: i64) {
+    let mut meta = read_meta(dir);
+    match r {
+        Err(e) => {
+            meta["failedAt"] = json!(now);
+            meta["error"] = json!(e.chars().take(300).collect::<String>());
+        }
+        Ok(_) => {
+            let Some(m) = meta.as_object_mut() else { return };
+            let had_failure = m.remove("failedAt").is_some();
+            if m.remove("error").is_none() && !had_failure {
+                return;
+            }
+        }
+    }
+    let _ = fs::create_dir_all(dir);
+    let _ = fs::write(dir.join("meta.json"), meta.to_string());
+}
+
 #[tauri::command]
-pub async fn game_data_update(app: AppHandle) -> Result<GameUpdate, String> {
+pub fn game_data_status(app: AppHandle) -> Result<GameStatus, String> {
+    Ok(status(&data_dir(&app)?))
+}
+
+/// Vérifie StarRailRes (au plus toutes les 6 h, sauf `force` : bouton « Vérifier maintenant ») et installe les
+/// nouvelles données s'il a changé. Les nouvelles données sont prises en compte au prochain lancement de l'app.
+#[tauri::command]
+pub async fn game_data_update(app: AppHandle, force: Option<bool>) -> Result<GameUpdate, String> {
     let dir = data_dir(&app)?;
+    let r = check_and_install(dir.clone(), force.unwrap_or(false)).await;
+    note_result(&dir, &r, now_ms());
+    r
+}
+
+async fn check_and_install(dir: PathBuf, force: bool) -> Result<GameUpdate, String> {
     let mut meta = read_meta(&dir);
     // données téléchargées inutilisables (autre version de l'app) : la référence redevient les données intégrées
     let current = if load_game(&dir).is_some() { meta["sha"].as_str().map(str::to_string) } else { embedded_sha() };
-    if now_ms() - meta["checkedAt"].as_i64().unwrap_or(0) < CHECK_EVERY_MS {
+    if !force && now_ms() - meta["checkedAt"].as_i64().unwrap_or(0) < CHECK_EVERY_MS {
         return Ok(GameUpdate { sha: current.unwrap_or_default(), ..Default::default() });
     }
     let client = net::client()?;
@@ -267,5 +325,44 @@ mod tests {
         fs::write(dir.join("meta.json"), json!({ "sha": "sha2", "format": DATA_FORMAT, "appVersion": env!("CARGO_PKG_VERSION") }).to_string()).unwrap();
         let r = install(&dir, "sha3", fixture_getter()).unwrap();
         assert_eq!(r.new_chars, vec!["Acheron".to_string()]);
+    }
+
+    #[test]
+    fn status_without_any_check_is_embedded_and_unknown() {
+        let dir = tempdir("status-empty");
+        let st = status(&dir);
+        assert!(!st.downloaded);
+        assert_eq!((st.updated_at, st.checked_at, st.failed_at), (None, None, None));
+    }
+
+    #[test]
+    fn failure_is_recorded_then_cleared_by_a_success() {
+        let dir = tempdir("status-fail");
+        fs::write(dir.join("meta.json"), json!({ "checkedAt": 1_000 }).to_string()).unwrap();
+        note_result(&dir, &Err::<GameUpdate, String>("réseau indisponible".into()), 5_000);
+        let st = status(&dir);
+        assert_eq!((st.checked_at, st.failed_at, st.error.as_deref()), (Some(1_000), Some(5_000), Some("réseau indisponible")));
+        note_result(&dir, &Ok(GameUpdate::default()), 9_000);
+        let st = status(&dir);
+        assert_eq!((st.checked_at, st.failed_at, st.error), (Some(1_000), None, None));
+    }
+
+    #[test]
+    fn failure_before_any_download_keeps_embedded_data() {
+        let dir = tempdir("status-fail-first");
+        note_result(&dir, &Err::<GameUpdate, String>("hors ligne".into()), 5_000);
+        assert!(load_game(&dir).is_none());
+        let st = status(&dir);
+        assert_eq!((st.downloaded, st.failed_at), (false, Some(5_000)));
+    }
+
+    #[test]
+    fn status_after_install_reports_downloaded_data() {
+        let dir = tempdir("status-installed");
+        install(&dir, "sha9", fixture_getter()).unwrap();
+        note_result(&dir, &Err::<GameUpdate, String>("x".into()), i64::MAX);   // un échec ensuite ne touche pas aux données
+        let st = status(&dir);
+        assert!(st.downloaded && st.updated_at.is_some() && st.checked_at == st.updated_at);
+        assert!(load_game(&dir).is_some());
     }
 }

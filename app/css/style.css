@@ -477,6 +477,13 @@ select optgroup { color: var(--gold); font-style: normal; }
 .num small.inv-ok { color: var(--ok); }
 .num small.inv-miss { color: var(--warn); }
 .import-result { display: flex; flex-direction: column; gap: 10px; }
+#dataStatus { scroll-margin-top: 140px; }
+.status-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.status-list li { display: grid; grid-template-columns: minmax(180px, auto) 1fr; gap: 4px 12px; align-items: baseline; }
+.status-list li .note { grid-column: 1 / -1; }
+.status-note { margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.net-badge { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--warn); color: var(--warn); background: rgba(241, 194, 107, .08); cursor: pointer; white-space: nowrap; }
+.net-badge[hidden] { display: none; }
 .backup-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .backup-list li { display: grid; grid-template-columns: minmax(150px, auto) 1fr auto; gap: 12px; align-items: center; }
 .import-result p { margin: 0; }
