@@ -79,7 +79,11 @@ function loadRanking(c, retryError) {
   rankQueue = rankQueue
     .then(() => invoke('prydwen_ranking', { nameEn: g.en, force: false }))
     .then(r => { setNet('prydwen', !r.stale); rankings.set(c.id, r); }, () => rankings.set(c.id, 'error'))
-    .then(() => { rankPending.delete(c.id); if (sheet && sheet.id === c.id) renderSheet(); });
+    .then(() => {
+      rankPending.delete(c.id);
+      if (sheet && sheet.id === c.id) renderSheet();
+      else if (!sheet && S.tab === 'today') renderToday($('#view'));   // carte « Reliques à revoir »
+    });
 }
 const coneName = (lc, fallback) => (lc && (S.lang === 'fr' ? lc.fr : lc.en)) || (lc && lc.en) || fallback || '?';
 const ownerLabel = (cone, charId) => cone.owner === charId ? t('cone_tag_equipped')
@@ -263,15 +267,20 @@ const upgradeCache = new Map();
    Une pièce déjà affichée reste suivie (keep) tant que la fiche de ce perso est ouverte, même sous le seuil ou à +15. */
 let upgradeTrack = null;   // { charId, seen: Map id -> { level, chance } }
 const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup »   // upgradeCandidates : chances déjà calculées (pièce, niveau, sous-stats, cible)
-function loadoutBlock(c, advice, prof) {
-  const relics = trialRelics(c.id);
+/** Équipement conseillé et pièces à monter d'un perso : partagé par la fiche et la carte « Reliques à revoir »
+    d'Aujourd'hui (mêmes chiffres partout). keep : ids suivis en direct (fiche seulement). */
+function loadoutFor(c, advice, prof, relics, keep) {
   const value = x => relicScore(x, prof).useful;
   const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
   const lo = relicLoadout(advice, relics, c.id, opts);
   // graine fixe et résultats gardés entre deux rendus : les chances affichées ne bougent pas d'un rendu à l'autre
+  const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue: () => RELIC_CORRECT_AT_15, rng: seededRng(1), cache: upgradeCache, keep });
+  return { lo, ups };
+}
+function loadoutBlock(c, advice, prof) {
   if (!upgradeTrack || upgradeTrack.charId !== c.id) upgradeTrack = { charId: c.id, seen: new Map() };
   const seen = upgradeTrack.seen;
-  const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue: () => RELIC_CORRECT_AT_15, rng: seededRng(1), cache: upgradeCache, keep: new Set(seen.keys()) });
+  const { lo, ups } = loadoutFor(c, advice, prof, trialRelics(c.id), new Set(seen.keys()));
   const comboText = !advice ? t('rl_lo_no_sets')
     : [lo.combo.cavern.map(p => `${p.name} (${p.pieces})`).join(' + '), lo.combo.planar ? `${lo.combo.planar} (2)` : ''].filter(Boolean).join(' + ');
   const farmText = f => t('rl_lo_farm', { what: [f.set, f.mains.map(statLabel).join(' / ')].filter(Boolean).join(' · ') || t('rl_lo_farm_any') });
@@ -391,6 +400,7 @@ function sheetRanks(d) {
 /* actions des boutons et listes (data-action), branchées dans main.js */
 Object.assign(actions, {
   openSheet: b => openSheet(b.dataset.id),
+  openSheetRelics: b => { openSheet(b.dataset.id); sheet.tab = 'relics'; renderSheet(); },
   closeSheet: () => closeSheet(),
   sheetStep: b => sheetStep(+b.dataset.dir),
   sheetTab: b => { sheet.tab = b.dataset.tab; renderSheet(); },

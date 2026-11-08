@@ -76,3 +76,17 @@ function topPost(tp) {
 function farmFocus(perPlan) {
   return (perPlan || []).findIndex(p => p.tp > 0);
 }
+
+/* ---- Carte « Reliques à revoir » : persos des équipes marquées ★ dans Mes équipes ---- */
+/** Ids des persos possédés des équipes ★ (S.myTeams, main), sans doublon, dans l'ordre des équipes */
+function relicReviewChars(myTeams, owned) {
+  const out = [];
+  for (const tm of myTeams || []) if (tm && tm.main)
+    for (const id of tm.members || []) if (id && owned && owned[id] && !out.includes(id)) out.push(id);
+  return out;
+}
+/** Lignes { id, counts: { swap, farm, up } | null (chargement) } : le plus à faire d'abord, chargement à la fin */
+function relicReviewSort(rows) {
+  const load = r => (r.counts ? r.counts.swap + r.counts.farm + r.counts.up : -1);
+  return rows.slice().sort((a, b) => load(b) - load(a));
+}

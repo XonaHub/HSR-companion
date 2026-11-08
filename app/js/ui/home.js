@@ -99,12 +99,43 @@ function todayNewsCards() {
   return card('', t('today_banner'), banner) + (next ? card('', t('today_next'), nextBody) : '') + todayEndgame(card) + card('wide', t('today_latest'), lastBody);
 }
 
+/* Carte « Reliques à revoir » : persos des équipes ★ (relicReviewChars, today.js) et compteurs de leur équipement
+   conseillé (loadoutFor, sheet.js : mêmes chiffres que la fiche). Pas un bouton entier : chaque ligne ouvre la fiche. */
+function todayRelics() {
+  const head = `<small class="today-label">${TAB_ICONS.relics}${esc(t('today_relics'))}</small>`;
+  const ids = relicReviewChars(S.myTeams, S.owned);
+  let body;
+  if (!ids.length) body = `<p class="hint small">${t('today_relics_no_star')}</p>
+    <button class="btn sm" data-action="tab" data-tab="teams">${t('today_relics_go_teams')}</button>`;
+  else if (!S.relics.length) body = `<p class="hint small">${t('rl_none_imported')}</p>`;
+  else {
+    const rows = relicReviewSort(ids.map(id => {
+      const c = charById(id); if (!c) return null;
+      loadRanking(c, false);   // conseils Prydwen chargés un par un (cache 24 h côté Rust)
+      const r = rankings.get(c.id);
+      if (!r) return { id, c, counts: null };
+      const advice = r !== 'error' && r.relics ? r.relics : null;
+      const { lo, ups } = loadoutFor(c, advice, profileOf(c), S.relics);
+      return { id, c, counts: { swap: lo.counts.swap, farm: lo.counts.farm, up: ups.length } };
+    }).filter(Boolean));
+    body = `<div class="today-relics">${rows.map(x => {
+      const n = x.counts, todo = n && n.swap + n.farm + n.up;
+      const txt = !n ? t('computing') : todo ? t('rl_lo_counts', n) : '✓ ' + t('today_relics_ok');
+      return `<button class="today-rl-row ${n && !todo ? 'ok' : ''}" data-action="openSheetRelics" data-id="${esc(x.id)}">${avatar(x.c, 'xs')}
+        <b>${esc(charName(x.c))}</b><small>${esc(txt)}</small></button>`;
+    }).join('')}</div>`;
+  }
+  return `<div class="today-card wide today-card-static">${head}${body}
+    <small class="hint">${t('today_relics_hint')}</small></div>`;
+}
+
 function renderToday(v) {
   v.innerHTML = `<section class="panel today">
     <div class="panel-head"><h2>${t('tab_today')}</h2></div>
     <div class="today-grid">
       ${todayCard('planner', 'wide', TAB_ICONS.planner, t('today_farm'), todayFarm())}
       ${todayCard('warps', '', TAB_ICONS.warps, t('today_warps'), todayWarps())}
+      ${todayRelics()}
       ${todayNewsCards()}
     </div>
   </section>`;

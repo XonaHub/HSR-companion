@@ -111,3 +111,22 @@ test('latest_news_counts_characters_like_news_tab', () => {
   const x = { ...v('3.8', '2026-11-19T02:00:00Z'), phases: [ph(undefined, undefined, [it('A'), it('B'), it('Cône 1', 5, 'lc'), it('Cône 2', 5, 'lc')])] };
   assert.equal(call('latestNews', [x]).newFive, 2);
 });
+
+test('relic_review_chars_from_starred_teams', () => {
+  const teams = [
+    { id: 't1', main: true, members: ['acheron', 'jiaoqiu', null, 'aventurine'] },
+    { id: 't2', main: false, members: ['firefly', 'ruan_mei'] },
+    { id: 't3', main: true, members: ['acheron', 'sparkle', 'not_owned'] }];
+  const owned = { acheron: {}, jiaoqiu: {}, aventurine: {}, sparkle: {}, firefly: {} };
+  assert.deepEqual(call('relicReviewChars', teams, owned), ['acheron', 'jiaoqiu', 'aventurine', 'sparkle']);
+  assert.deepEqual(call('relicReviewChars', [], owned), []);
+});
+
+test('relic_review_sort_most_work_first_loading_last', () => {
+  const rows = [
+    { id: 'a', counts: { swap: 0, farm: 0, up: 0 } },
+    { id: 'b', counts: null },
+    { id: 'c', counts: { swap: 2, farm: 1, up: 0 } },
+    { id: 'd', counts: { swap: 0, farm: 1, up: 1 } }];
+  assert.deepEqual(call('relicReviewSort', rows).map(r => r.id), ['c', 'd', 'a', 'b']);
+});

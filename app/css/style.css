@@ -860,3 +860,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .lo-live { margin-top: 10px; font-size: 12px; color: var(--muted); }
 .lo-live.on { color: var(--ok); }
 .lo-live .steps { margin: 4px 0 8px; }
+
+/* Aujourd'hui : carte « Reliques à revoir » (bloc, pas un bouton : chaque ligne ouvre la fiche) */
+.today-card-static { cursor: default; }
+.today-card-static:hover { border-color: var(--line); background: var(--inset); }
+.today-relics { display: flex; flex-direction: column; gap: 4px; }
+.today-rl-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: none; border: 1px solid transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.today-rl-row:hover, .today-rl-row:focus-visible { border-color: var(--gold); }
+.today-rl-row small { margin-left: auto; color: var(--warn); }
+.today-rl-row.ok small { color: var(--ok); }
+.today-card-static > .btn { align-self: flex-start; }
