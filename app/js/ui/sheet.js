@@ -246,14 +246,14 @@ function sheetRelics(c) {
 /** Les `n` sous-stats les plus utiles de la pièce pour ce profil (poids × part d'un roll maximal) */
 function topSubs(relic, prof, n = 2) {
   const w = (PROFILES[prof] && PROFILES[prof].weights) || {};
-  return relic.subs.filter(s => s.stat && s.val > 0 && SUBSTATS[s.stat])
+  return (relic.subs || []).filter(s => s.stat && s.val > 0 && SUBSTATS[s.stat])
     .map(s => ({ ...s, k: (w[s.stat] || 0) * s.val / SUBSTATS[s.stat].roll[2] }))
     .sort((a, b) => b.k - a.k).slice(0, n);
 }
 /* Une pièce, repérable en jeu : set · stat principale · +niveau · 2 sous-stats utiles ; dépliable (4 sous-stats) */
 function loadoutPiece(r, prof) {
   const top = topSubs(r, prof);
-  const subs = r.subs.filter(s => s.stat && s.val > 0 && SUBSTATS[s.stat]);
+  const subs = (r.subs || []).filter(s => s.stat && s.val > 0 && SUBSTATS[s.stat]);
   return `<details class="lo-piece"><summary>${esc(r.set || t('unknown_set'))} · ${esc(statLabel(r.main))} · +${r.level}
       ${top.map(s => `· <b>${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}</b>`).join(' ')}</summary>
     <small>${subs.map(s => `${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}`).join(' · ') || esc(t('rl_lo_no_subs'))}</small></details>`;

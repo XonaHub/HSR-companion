@@ -6,7 +6,7 @@
 const gradeOf = ratio => ratio >= 0.7 ? 'S' : ratio >= 0.55 ? 'A' : ratio >= 0.4 ? 'B' : ratio >= 0.25 ? 'C' : 'D';
 function relicScore(r, prof) {
   const P = PROFILES[prof]; if (!P) return null;
-  const subs = r.subs.filter(s => s.stat && s.val > 0);
+  const subs = (r.subs || []).filter(s => s.stat && SUBSTATS[s.stat] && s.val > 0);   // sous-stat inconnue : ignorée
   let useful = 0;
   for (const s of subs) useful += (s.val / SUBSTATS[s.stat].roll[2]) * (P.weights[s.stat] || 0);
   const expected = Math.min(9, Math.max(subs.length, 3) + Math.floor(r.level / 3));

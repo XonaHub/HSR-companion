@@ -124,7 +124,9 @@ function loadoutCavernCombos(advice) {
   const out = [];
   ((advice && advice.sets) || []).forEach((entry, i) => {
     const used = entry.reduce((s, p) => s + p.pieces, 0);
-    if (used >= 4) out.push({ sets: entry.map(p => ({ name: p.name, pieces: p.pieces })), rank: i + 1 });
+    const alone = { sets: entry.map(p => ({ name: p.name, pieces: p.pieces })), rank: i + 1 };
+    // entrée « 2 pièces + Flex » sans liste flex : l'entrée seule (les 2 autres pièces restent libres)
+    if (used >= 4 || !flex.length) out.push(alone);
     else for (const f of flex) if (!entry.some(p => normName(p.name) === normName(f)))
       out.push({ sets: entry.map(p => ({ name: p.name, pieces: p.pieces })).concat({ name: f, pieces: 2 }), rank: i + 1 });
   });
@@ -187,7 +189,8 @@ function relicLoadout(advice, relics, charId, opts) {
     const pick = best(slot, assign[slot]);
     const mains = (allowedFor(slot) || []).map(m => (m === 'elem' ? 'dmg_' + opts.element : m));
     const target = { set: assign[slot], mains: slot === 'head' || slot === 'hands' ? [] : mains };
-    const good = pick && LO_GOOD.includes(opts.grade(pick));
+    // une pièce encore basse (portée) est jugée sur sa valeur réelle, pas sur sa note par amélioration
+    const good = pick && ((pick.level || 0) >= 15 ? LO_GOOD.includes(opts.grade(pick)) : opts.value(pick) >= RELIC_CORRECT_AT_15);
     const state = !pick ? 'farm' : worn && pick.id === worn.id ? (good ? 'keep' : 'farm') : good ? 'swap' : 'swap_farm';
     if (state === 'swap' || state === 'swap_farm') counts.swap++;
     if (state === 'farm' || state === 'swap_farm') counts.farm++;

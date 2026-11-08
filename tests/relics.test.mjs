@@ -365,3 +365,20 @@ test('tracked_piece_that_became_the_pick_counts_as_won', () => {
   assert.equal(out.length, 1);
   assert.equal(out[0].chance, 1);
 });
+
+test('loadout_two_piece_entry_without_flex_still_gives_a_combo', () => {
+  const advice = { ...ADVICE, sets: [[{ name: SCH, pieces: 2 }]], flex: [] };
+  const lo = loadout([...cav(SCH, 0.6), ...planar(0.6)], advice);
+  assert.deepEqual(lo.combo.cavern, [{ name: SCH, pieces: 2 }]);
+  assert.equal(lo.combo.rank, 1);
+});
+
+test('loadout_worn_low_level_piece_is_not_kept_as_good', () => {
+  // portée à +3 : bonne note par amélioration (ratio), mais valeur absolue faible → à farmer, pas « garder »
+  const kit6 = [...cav(PIO, 0.6), ...planar(0.6)];
+  kit6[0] = R('head', PIO, 'hp', 0.6, 'acheron', 3);
+  const lo = ev(`relicLoadout(${JSON.stringify(ADVICE)}, ${JSON.stringify(kit6)}, 'acheron',
+    { element: 'lightning', profileMain: ${JSON.stringify(PROFILE_MAIN)}, value: r => r.level === 15 ? 5 : 1, grade: () => 'A' })`);
+  assert.equal(lo.slots.head.state, 'farm');
+  assert.equal(lo.slots.body.state, 'keep');
+});
