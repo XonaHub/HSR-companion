@@ -71,6 +71,7 @@ npm install
 npm run dev     # runs the app in development mode (Settings shows "Development build")
 npm test        # JavaScript + Rust tests
 npm run build   # builds the Windows installer
+npm run build:dev  # builds a development .exe in release/dev/ (Settings shows "Development build")
 ```
 
 The tests also run on GitHub (Actions tab) after every push to `master` and on every pull request.
@@ -160,6 +161,7 @@ npm install
 npm run dev     # lance l'app en mode développement (Paramètres affiche « Version de développement »)
 npm test        # tests JavaScript + tests Rust
 npm run build   # crée l'installateur Windows
+npm run build:dev  # crée un .exe de développement dans release/dev/ (Paramètres affiche « Version de développement »)
 ```
 
 Les tests tournent aussi sur GitHub (onglet Actions) après chaque push sur `master` et à chaque pull request.
