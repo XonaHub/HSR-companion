@@ -68,6 +68,8 @@ npm test        # JavaScript + Rust tests
 npm run build   # builds the Windows installer
 ```
 
+The tests also run on GitHub (Actions tab) after every push to `master` and on every pull request.
+
 Publishing a version (maintainer only, needs the private signing key): bump the version in
 `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and `package.json`, then run
 `npm run release -- --notes "What's new"` and upload the 3 files from `release/v<version>/` to a GitHub release
@@ -149,6 +151,8 @@ npm run dev     # lance l'app en mode développement
 npm test        # tests JavaScript + tests Rust
 npm run build   # crée l'installateur Windows
 ```
+
+Les tests tournent aussi sur GitHub (onglet Actions) après chaque push sur `master` et à chaque pull request.
 
 Publier une version (mainteneur seulement, il faut la clé privée de signature) : changer la version dans
 `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` et `package.json`, puis lancer
