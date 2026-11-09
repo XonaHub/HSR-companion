@@ -153,7 +153,17 @@ function closeModal(id) {
   const el = document.getElementById(id); if (el) el.remove();
   if (!$('.sheet-backdrop')) document.body.classList.remove('no-scroll');   // plus aucune fenêtre ouverte
   const opener = modalOpener.get(id); modalOpener.delete(id);
-  if (opener && opener.isConnected && opener.focus) opener.focus({ preventScroll: true });
+  // l'onglet derrière a pu être redessiné pendant que la fenêtre était ouverte : même bouton retrouvé par ses data-*
+  const key = opener && opener.isConnected === false ? focusKey(opener) : null;
+  const back = key ? focusables(document).find(el => focusKey(el) === key) : opener;
+  if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+}
+/** Redessine `root` avec render() en gardant le focus sur le même élément (même data-*), s'il y était */
+function keepFocus(root, render) {
+  const before = root && root.contains(document.activeElement) ? focusKey(document.activeElement) : null;
+  render();
+  const same = before && focusables(root).find(el => focusKey(el) === before);
+  if (same) same.focus({ preventScroll: true });
 }
 /* Tab reste dans la fenêtre du dessus (la dernière ouverte) */
 function trapTab(e) {

@@ -16,7 +16,7 @@ const hasUnseenNews = () => !!(news && news.latestId && idNewer(news.latestId, S
 /* Redessine ce qui affiche les actus : l'onglet Actus, l'accueil, ou seulement le point de l'onglet */
 function newsArrived() {
   if (S.tab === 'news') renderNews($('#view'));
-  else if (S.tab === 'today') { renderTabs(); renderToday($('#view')); }
+  else if (S.tab === 'today') { renderTabs(); refreshToday(); }
   else if (S.tab === 'settings' && !typing()) render();   // ligne « Actus » du statut des données
   else renderTabs();
 }

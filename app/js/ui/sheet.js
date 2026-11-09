@@ -62,6 +62,9 @@ function sheetStep(dir) {
 }
 function closeSheet() {
   sheet = null; upgradeTrack = null;
+  // avant closeModal : le focus revient alors sur le bouton redessiné (retrouvé par ses data-*)
+  if (todayStale && S.tab === 'today') renderToday($('#view'));
+  todayStale = false;
   closeModal('sheet');
 }
 
@@ -82,9 +85,11 @@ function loadRanking(c, retryError) {
     .then(() => {
       rankPending.delete(c.id);
       if (sheet && sheet.id === c.id) renderSheet();
-      else if (!sheet && S.tab === 'today') renderToday($('#view'));   // carte « Reliques à revoir »
+      else if (S.tab === 'today') { if (sheet) todayStale = true; else refreshToday(); }   // carte « Reliques à revoir »
     });
 }
+/* l'accueil attend un conseil arrivé pendant qu'une fiche était ouverte : redessiné à la fermeture (closeSheet) */
+let todayStale = false;
 const coneName = (lc, fallback) => (lc && (S.lang === 'fr' ? lc.fr : lc.en)) || (lc && lc.en) || fallback || '?';
 const ownerLabel = (cone, charId) => cone.owner === charId ? t('cone_tag_equipped')
   : cone.owner ? t('cone_carried', { name: charName(charById(cone.owner)) }) : '';
@@ -262,17 +267,19 @@ function loadoutPiece(r, prof) {
       ${top.map(s => `· <b>${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}</b>`).join(' ')}</summary>
     <small>${subs.map(s => `${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}`).join(' · ') || esc(t('rl_lo_no_subs'))}</small></details>`;
 }
-const upgradeCache = new Map();
+const upgradeCache = new Map();   // upgradeCandidates : chances déjà calculées (pièce, niveau, sous-stats, cible)
+const UPGRADE_CACHE_MAX = 3000;   // au-delà (longue session en direct) : vidé, recalculé à la demande
 /* Suivi en direct des pièces « à monter » de la fiche ouverte : niveau et chances au rendu précédent, par id.
    Une pièce déjà affichée reste suivie (keep) tant que la fiche de ce perso est ouverte, même sous le seuil ou à +15. */
-let upgradeTrack = null;   // { charId, seen: Map id -> { level, chance } }
-const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup »   // upgradeCandidates : chances déjà calculées (pièce, niveau, sous-stats, cible)
+let upgradeTrack = null;   // { charId, seen: Map id -> { level, chance, from } } (from : chances avant la dernière amélioration)
+const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup »
 /** Équipement conseillé et pièces à monter d'un perso : partagé par la fiche et la carte « Reliques à revoir »
     d'Aujourd'hui (mêmes chiffres partout). keep : ids suivis en direct (fiche seulement). */
 function loadoutFor(c, advice, prof, relics, keep) {
   const value = x => relicScore(x, prof).useful;
   const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
   const lo = relicLoadout(advice, relics, c.id, opts);
+  if (upgradeCache.size > UPGRADE_CACHE_MAX) upgradeCache.clear();
   // graine fixe et résultats gardés entre deux rendus : les chances affichées ne bougent pas d'un rendu à l'autre
   const ups = upgradeCandidates(lo, relics, c.id, { ...opts, valueOf: value, correctValue: () => RELIC_CORRECT_AT_15, rng: seededRng(1), cache: upgradeCache, keep });
   return { lo, ups };
@@ -295,12 +302,14 @@ function loadoutBlock(c, advice, prof) {
   }).join('');
   const pct = x => Math.round(x * 100);
   const upRows = ups.map(u => {
-    const prev = seen.get(u.relic.id), moved = prev && u.relic.level > prev.level;
-    seen.set(u.relic.id, { level: u.relic.level, chance: u.chance });
+    // « avant → après » gardé jusqu'à l'amélioration suivante (pas effacé par un autre rendu) ; l'éclat, seulement au moment où elle arrive
+    const prev = seen.get(u.relic.id), moved = !!prev && u.relic.level > prev.level;
+    const from = moved ? prev.chance : prev ? prev.from : null;
+    seen.set(u.relic.id, { level: u.relic.level, chance: u.chance, from });
     const done = u.relic.level >= 15;
     const good = done ? u.chance >= 1 : u.chance >= UPGRADE_STOP;
     const verdict = t(done ? (good ? 'rl_lo_up_done_ok' : 'rl_lo_up_done_ko') : (good ? 'rl_lo_up_go' : 'rl_lo_up_stop'));
-    const n = (moved ? pct(prev.chance) + ' % → ' : '') + pct(u.chance);
+    const n = (from != null ? pct(from) + ' % → ' : '') + pct(u.chance);
     return `<div class="lo-up ${moved ? 'lo-up-moved' : ''}"><span class="lo-st lo-upg">⬆ ${t('slot_' + u.slot)}</span> ${loadoutPiece(u.relic, prof)}
       ${done ? '' : `<small>${t(u.rival ? 'rl_lo_up_beat' : 'rl_lo_up_correct', { n })}</small>`}
       <b class="lo-verdict ${good ? 'lo-go' : 'lo-stop'}">${verdict}</b>

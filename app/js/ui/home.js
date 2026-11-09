@@ -129,6 +129,9 @@ function todayRelics() {
     <small class="hint">${t('today_relics_hint')}</small></div>`;
 }
 
+/** Redessine l'accueil quand des données arrivent (actus, conseils Prydwen) sans perdre le focus clavier */
+function refreshToday() { const v = $('#view'); keepFocus(v, () => renderToday(v)); }
+
 function renderToday(v) {
   v.innerHTML = `<section class="panel today">
     <div class="panel-head"><h2>${t('tab_today')}</h2></div>
