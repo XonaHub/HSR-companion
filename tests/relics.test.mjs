@@ -382,3 +382,30 @@ test('loadout_worn_low_level_piece_is_not_kept_as_good', () => {
   assert.equal(lo.slots.head.state, 'farm');
   assert.equal(lo.slots.body.state, 'keep');
 });
+
+/* ---------- Aléas et reliques (Relic Recon) ---------- */
+const gchance = (main, rival, relevant = ['cr', 'cd'], seed = 1) =>
+  ev(`guaranteedChance('${main}', ${rival}, ${CRIT_VALUE}, ${JSON.stringify(relevant)}, seededRng(${seed}))`);
+
+test('guaranteed_chance_bounds', () => {
+  assert.equal(gchance('atk_pct', -1), 1);      // toute pièce bat une valeur négative
+  assert.equal(gchance('atk_pct', 100), 0);     // 9 rolls au plus : impossible
+});
+test('guaranteed_chance_has_two_relevant_subs', () => {
+  // Taux CRIT et DGT CRIT toujours présents : au moins 2 rolls minimaux (2 × 0,8)
+  const min = ev(`(() => { let lo = 99; guaranteedChance('atk_pct', 0, r => { const v = (${CRIT_VALUE})(r); lo = Math.min(lo, v); return v; }, ['cr', 'cd'], seededRng(2), 500); return lo; })()`);
+  assert.ok(min >= 1.6 - 1e-9);
+});
+test('guaranteed_chance_four_subs_nine_rolls', () => {
+  const shapes = ev(`(() => { const s = new Set(); guaranteedChance('atk_pct', 0, r => { s.add(r.subs.length + ':' + r.level); return 0; }, ['cr', 'cd'], seededRng(3), 200); return [...s]; })()`);
+  assert.deepEqual(shapes, ['4:15']);
+});
+test('guaranteed_chance_excludes_main_and_is_deterministic', () => {
+  const hit = ev(`(() => { let hit = false; guaranteedChance('cr', 0, r => { if (r.subs.some(x => x.stat === 'cr')) hit = true; return 0; }, ['cd', 'spd'], seededRng(4), 300); return hit; })()`);
+  assert.equal(hit, false);
+  assert.equal(gchance('atk_pct', 3), gchance('atk_pct', 3));
+});
+test('relic_event_active_until_end', () => {
+  assert.equal(ev(`relicEventActive(new Date('2026-12-22T20:00:00'))`), true);
+  assert.equal(ev(`relicEventActive(new Date('2026-12-23T00:00:01'))`), false);
+});

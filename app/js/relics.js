@@ -227,23 +227,52 @@ function upgradeChance(relic, rivalValue, valueOf, rng, n = 5000) {
   const steps = Math.max(0, 5 - Math.floor((relic.level || 0) / 3));
   const start = (relic.subs || []).filter(s => s.stat && SUBSTATS[s.stat]);
   if (!steps) return valueOf({ ...relic, subs: start }) > rivalValue ? 1 : 0;
-  const pick = list => list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
-  const weighted = Object.keys(SUBSTAT_WEIGHTS).filter(id => id !== relic.main);
   let wins = 0;
   for (let i = 0; i < n; i++) {
     const subs = start.map(s => ({ ...s }));
-    for (let k = 0; k < steps; k++) {
-      if (subs.length < 4) {
-        const pool = weighted.filter(id => !subs.some(s => s.stat === id));
-        let r = rng() * pool.reduce((s, id) => s + SUBSTAT_WEIGHTS[id], 0), id = pool[pool.length - 1];
-        for (const p of pool) { r -= SUBSTAT_WEIGHTS[p]; if (r < 0) { id = p; break; } }
-        subs.push({ stat: id, val: pick(SUBSTATS[id].roll) });
-      } else {
-        const s = pick(subs);
-        s.val += pick(SUBSTATS[s.stat].roll);
-      }
-    }
+    rollUpgrades(subs, steps, relic.main, rng);
     if (valueOf({ ...relic, level: 15, subs }) > rivalValue) wins++;
+  }
+  return wins / n;
+}
+
+const rngPick = (list, rng) => list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
+/** Sous-stat tirée selon SUBSTAT_WEIGHTS, hors stat principale et sous-stats présentes */
+function drawSubstat(subs, main, rng) {
+  const pool = Object.keys(SUBSTAT_WEIGHTS).filter(id => id !== main && !subs.some(s => s.stat === id));
+  let r = rng() * pool.reduce((s, id) => s + SUBSTAT_WEIGHTS[id], 0), id = pool[pool.length - 1];
+  for (const p of pool) { r -= SUBSTAT_WEIGHTS[p]; if (r < 0) { id = p; break; } }
+  return { stat: id, val: rngPick(SUBSTATS[id].roll, rng) };
+}
+/** `steps` paliers sur `subs` (modifié) : 4e sous-stat si la pièce n'en a que 3, sinon une des 4 améliorée au hasard */
+function rollUpgrades(subs, steps, main, rng) {
+  for (let k = 0; k < steps; k++) {
+    if (subs.length < 4) subs.push(drawSubstat(subs, main, rng));
+    else { const s = rngPick(subs, rng); s.val += rngPick(SUBSTATS[s.stat].roll, rng); }
+  }
+  return subs;
+}
+
+/* ---------- Aléas et reliques (Relic Recon, spec 2026-11-14-aleas-reliques) ---------- */
+/** L'événement est-il en cours ? (RELIC_EVENT.end, heure locale) */
+function relicEventActive(now) {
+  return now <= new Date(RELIC_EVENT.end);
+}
+
+/** Part des `n` tirages où une pièce d'ouverture Garantie (stat principale `main`, RELIC_EVENT_START_SUBS
+    sous-stats de départ dont au moins 2 de `relevant`, montée de +0 à +15) vaut plus que `rivalValue`. */
+function guaranteedChance(main, rivalValue, valueOf, relevant, rng, n = 5000) {
+  // moins de 2 stats pertinentes tirables : la condition est impossible, on ne l'impose pas
+  const need = relevant.filter(id => id !== main && SUBSTAT_WEIGHTS[id]).length >= 2 ? 2 : 0;
+  let wins = 0;
+  for (let i = 0; i < n; i++) {
+    let subs;
+    do {
+      subs = [];
+      while (subs.length < RELIC_EVENT_START_SUBS) subs.push(drawSubstat(subs, main, rng));
+    } while (subs.filter(s => relevant.includes(s.stat)).length < need);
+    rollUpgrades(subs, 5, main, rng);
+    if (valueOf({ main, level: 15, subs }) > rivalValue) wins++;
   }
   return wins / n;
 }
