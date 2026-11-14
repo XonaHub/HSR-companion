@@ -239,11 +239,16 @@ function upgradeChance(relic, rivalValue, valueOf, rng, n = 5000) {
 const rngPick = (list, rng) => list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
 /** Sous-stat tirée selon SUBSTAT_WEIGHTS, hors stat principale et sous-stats présentes */
 function drawSubstat(subs, main, rng) {
-  const pool = Object.keys(SUBSTAT_WEIGHTS).filter(id => id !== main && !subs.some(s => s.stat === id));
-  let r = rng() * pool.reduce((s, id) => s + SUBSTAT_WEIGHTS[id], 0), id = pool[pool.length - 1];
-  for (const p of pool) { r -= SUBSTAT_WEIGHTS[p]; if (r < 0) { id = p; break; } }
-  return { stat: id, val: rngPick(SUBSTATS[id].roll, rng) };
+  // appelée des centaines de milliers de fois par fiche : pas de tableau intermédiaire
+  const ids = WEIGHTED_SUBS || (WEIGHTED_SUBS = Object.keys(SUBSTAT_WEIGHTS));
+  const free = id => id !== main && !subs.some(s => s.stat === id);
+  let total = 0, last = null;
+  for (const id of ids) if (free(id)) { total += SUBSTAT_WEIGHTS[id]; last = id; }
+  let r = rng() * total, pick = last;
+  for (const id of ids) if (free(id)) { r -= SUBSTAT_WEIGHTS[id]; if (r < 0) { pick = id; break; } }
+  return { stat: pick, val: rngPick(SUBSTATS[pick].roll, rng) };
 }
+let WEIGHTED_SUBS = null;   // clés de SUBSTAT_WEIGHTS, calculées une fois
 /** `steps` paliers sur `subs` (modifié) : 4e sous-stat si la pièce n'en a que 3, sinon une des 4 améliorée au hasard */
 function rollUpgrades(subs, steps, main, rng) {
   for (let k = 0; k < steps; k++) {
@@ -317,18 +322,45 @@ function relicEventActive(now) {
   return now <= new Date(RELIC_EVENT.end);
 }
 
+/** Combinaisons de RELIC_EVENT_START_SUBS sous-stats de départ admises pour une Garantie (au moins 2 de `relevant`,
+    condition levée si moins de 2 sont tirables) avec leur probabilité de tirage sans remise selon SUBSTAT_WEIGHTS.
+    Calculé une fois par (stat principale, stats pertinentes). Renvoie { sets: [[id]], cum: [somme cumulée], total }. */
+const startSubsCache = new Map();
+function startSubsTable(main, relevant) {
+  const key = main + '|' + relevant.join(',');
+  if (startSubsCache.has(key)) return startSubsCache.get(key);
+  const pool = Object.keys(SUBSTAT_WEIGHTS).filter(id => id !== main);
+  const need = relevant.filter(id => pool.includes(id)).length >= 2 ? 2 : 0;
+  const k = RELIC_EVENT_START_SUBS, W = SUBSTAT_WEIGHTS, all = pool.reduce((s, id) => s + W[id], 0);
+  // probabilité d'un ensemble = somme, sur ses ordres de tirage, des produits w / (poids restant)
+  const prob = (set, left) => !set.length ? 1
+    : set.reduce((s, id, i) => s + W[id] / left * prob(set.filter((_, j) => j !== i), left - W[id]), 0);
+  const sets = [], cum = [];
+  let total = 0;
+  const walk = (start, cur) => {
+    if (cur.length === k) {
+      if (cur.filter(id => relevant.includes(id)).length < need) return;
+      total += prob(cur, all); sets.push(cur.slice()); cum.push(total); return;
+    }
+    for (let i = start; i < pool.length; i++) { cur.push(pool[i]); walk(i + 1, cur); cur.pop(); }
+  };
+  walk(0, []);
+  const table = { sets, cum, total };
+  startSubsCache.set(key, table);
+  return table;
+}
+
 /** Part des `n` tirages où une pièce d'ouverture Garantie (stat principale `main`, RELIC_EVENT_START_SUBS
     sous-stats de départ dont au moins 2 de `relevant`, montée de +0 à +15) vaut plus que `rivalValue`. */
-function guaranteedChance(main, rivalValue, valueOf, relevant, rng, n = 5000) {
-  // moins de 2 stats pertinentes tirables : la condition est impossible, on ne l'impose pas
-  const need = relevant.filter(id => id !== main && SUBSTAT_WEIGHTS[id]).length >= 2 ? 2 : 0;
+function guaranteedChance(main, rivalValue, valueOf, relevant, rng, n = 2000) {
+  const table = startSubsTable(main, relevant);
   let wins = 0;
   for (let i = 0; i < n; i++) {
-    let subs;
-    do {
-      subs = [];
-      while (subs.length < RELIC_EVENT_START_SUBS) subs.push(drawSubstat(subs, main, rng));
-    } while (subs.filter(s => relevant.includes(s.stat)).length < need);
+    // combinaison de départ tirée selon sa probabilité exacte (même loi qu'un tirage refait tant que la condition échoue)
+    const r = rng() * table.total;
+    let lo = 0, hi = table.cum.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (table.cum[mid] > r) hi = mid; else lo = mid + 1; }
+    const subs = table.sets[lo].map(id => ({ stat: id, val: rngPick(SUBSTATS[id].roll, rng) }));
     rollUpgrades(subs, 5, main, rng);
     if (valueOf({ main, level: 15, subs }) > rivalValue) wins++;
   }
