@@ -102,6 +102,9 @@ function sanitizeState(s, base) {
   out.plans = keep(s.plans, cleanPlan);
   out.myTeams = keep(s.myTeams, x => cleanTeam(x, o.teamTypes));
   out.owned = cleanOwned(s.owned);
+  // profil de reliques choisi pour un perso non possédé (celui d'un perso possédé est dans owned[id].profile)
+  out.profiles = {};
+  for (const k in isObj(s.profiles) ? s.profiles : {}) if (safeId(k) && PROFILE_IDS.includes(s.profiles[k])) out.profiles[safeId(k)] = s.profiles[k];
   delete out.weak;   // ancien choix global des faiblesses, remplacé par cycleWeak (par cycle et par moitié)
   out.cycleWeak = {};
   for (const m of ['moc', 'pf', 'as']) {

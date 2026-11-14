@@ -318,41 +318,73 @@ function relicEventPlan(advice, relics, charId, opts) {
   return { sets, differs, slots, useful };
 }
 
+/** Sans conseil Prydwen : sets de l'événement déduits des pièces reçues pendant le suivi (le set le plus fréquent
+    parmi les pièces de caverne, puis parmi les planaires ; à égalité, le plus récent). */
+function inferEventSets(pulls) {
+  const top = slots => {
+    const n = new Map();
+    for (const r of pulls || []) if (slots.includes(r.slot) && r.set) n.set(r.set, (n.get(r.set) || 0) + 1);
+    let best = null;
+    for (const [set, k] of n) if (!best || k > n.get(best)) best = set;
+    return best;
+  };
+  const cavern = top(RELIC_CAVERN);
+  return { cavern, planar: top(RELIC_PLANAR), fourPiece: !!cavern };
+}
+/** Conseil construit sur des sets déduits (stats principales : celles du profil du perso) ; null sans set */
+function inferredAdvice(sets) {
+  if (!sets.cavern && !sets.planar) return null;
+  return { sets: sets.cavern ? [[{ name: sets.cavern, pieces: 4 }]] : [], flex: [], planars: sets.planar ? [sets.planar] : [], main: {} };
+}
+
 /** Numéro d'une pièce importée de Reliquary Archiver (`a<_uid>`), NaN pour toute autre source */
 function relicNum(id) {
   const m = /^a(\d+)$/.exec(String(id));
   return m ? +m[1] : NaN;
 }
 
-/** Suivi des pièces arrivées pendant la session (track = { base: null | numéro, first: Map id -> niveau }), appelé
-    à chaque import. `how` : 'file' (fichier), 'full' (envoi complet en direct, InitialScan), 'update' (mise à jour en
-    direct). La base est fixée au premier import en direct (avant, les données peuvent dater). Ensuite, une nouvelle
-    pièce reçue par 'update' garde son niveau d'arrivée ; découverte dans un envoi complet ou un fichier, son origine
-    est inconnue (gagnée pendant une déconnexion, farmée…) : -1, jamais comptée comme tirée. */
+/** Suivi des pièces arrivées pendant la session (track = { base: null | numéro, first: Map id -> niveau, dans l'ordre
+    d'arrivée ; sig: Map id -> contenu d'une pièce +15 }), appelé à chaque import. `how` : 'file' (fichier), 'full'
+    (envoi complet en direct, InitialScan), 'update' (mise à jour en direct). La base est fixée au premier import en
+    direct (avant, les données peuvent dater). Ensuite, une nouvelle pièce reçue par 'update' garde son niveau
+    d'arrivée ; découverte dans un envoi complet ou un fichier, son origine est inconnue (gagnée pendant une
+    déconnexion, farmée…) : -1, jamais comptée comme tirée. « Remplacer par la nouvelle relique » (jeu) garde
+    l'identifiant et change le contenu d'une pièce déjà +15 : reçu par 'update', c'est une nouvelle pièce tirée. */
 function noteArrivals(track, relics, how) {
+  const sig = r => JSON.stringify([r.set, r.slot, r.main, r.subs]);
+  if (!track.sig) track.sig = new Map();
   const nums = (relics || []).map(r => relicNum(r.id)).filter(n => !Number.isNaN(n));
   if (track.base == null) {
     if (how !== 'file') track.base = nums.length ? Math.max(...nums) : 0;
-    return track;
+  } else {
+    for (const r of relics || []) {
+      if (Number.isNaN(relicNum(r.id))) continue;
+      const before = track.sig.get(r.id);
+      if (relicNum(r.id) > track.base && !track.first.has(r.id)) track.first.set(r.id, how === 'update' ? (r.level || 0) : -1);
+      else if (how === 'update' && before != null && (r.level || 0) >= 15 && before !== sig(r)) {
+        track.first.delete(r.id); track.first.set(r.id, 15);   // remplacée : la plus récente
+      }
+    }
   }
-  for (const r of relics || [])
-    if (relicNum(r.id) > track.base && !track.first.has(r.id)) track.first.set(r.id, how === 'update' ? (r.level || 0) : -1);
+  // contenu des pièces déjà +15 (une pièce encore en amélioration change de sous-stats sans être remplacée)
+  for (const r of relics || []) if ((r.level || 0) >= 15) track.sig.set(r.id, sig(r)); else track.sig.delete(r.id);
   return track;
 }
 
-/** Pièces tirées dans l'événement : numéro au-delà de `base` (plus grand numéro connu au début du suivi),
-    déjà +15 à leur première apparition (`firstLevel(id)`) — une pièce farmée puis montée n'en est pas une —
-    et d'un des sets visés (tout set si aucun). Triées de la plus récente à la plus ancienne. */
-function pulledRelics(relics, base, firstLevel, sets) {
+/** Pièces tirées dans l'événement : pièces de `first` (Map id -> niveau à l'arrivée, dans l'ordre d'arrivée, tenue
+    par noteArrivals) déjà +15 à leur arrivée — une pièce farmée puis montée n'en est pas une — et d'un des sets
+    visés (tout set si aucun). De la plus récente à la plus ancienne. */
+function pulledRelics(relics, first, sets) {
   const inSets = r => (!sets.cavern && !sets.planar)
     || [sets.cavern, sets.planar].some(s => s && normName(s) === normName(r.set));
-  return (relics || []).filter(r => relicNum(r.id) > base && firstLevel(r.id) === 15 && (r.level || 0) >= 15 && inSets(r))
-    .sort((a, b) => relicNum(b.id) - relicNum(a.id));
+  const order = [...first.keys()];
+  return (relics || []).filter(r => first.get(r.id) === 15 && (r.level || 0) >= 15 && inSets(r))
+    .sort((a, b) => order.indexOf(b.id) - order.indexOf(a.id));
 }
 
-/** Verdict de chaque pièce tirée : 'bad_main' (stat principale non admise), sinon 'better' si elle bat la
-    meilleure pièce de son emplacement dans l'équipement de l'événement calculé sans elle ni les pièces tirées
-    après elle (emplacement vide compris), sinon 'worse'. opts = options de relicLoadout. */
+/** Verdict de chaque pièce tirée (`pulls` : de la plus récente à la plus ancienne, comme pulledRelics) :
+    'bad_main' (stat principale non admise), sinon 'better' si elle bat la meilleure pièce de son emplacement dans
+    l'équipement de l'événement calculé sans elle ni les pièces tirées après elle (emplacement vide compris), sinon 'worse'. opts = options de relicLoadout. */
 function pullVerdicts(advice, relics, pulls, charId, opts) {
   const sets = eventSets(advice), adv = eventAdvice(advice, sets);
   const allowed = slot => (advice && advice.main && advice.main[slot] && advice.main[slot].length ? advice.main[slot] : null)
@@ -360,7 +392,9 @@ function pullVerdicts(advice, relics, pulls, charId, opts) {
   const out = {};
   for (const p of pulls) {
     if (!relicMainOk(p.slot, p.main, allowed(p.slot), opts.element)) { out[p.id] = 'bad_main'; continue; }
-    const before = relics.filter(r => r.id !== p.id && !(relicNum(r.id) > relicNum(p.id) && pulls.some(q => q.id === r.id)));
+    // `pulls` va de la plus récente à la plus ancienne : celles placées avant `p` sont arrivées après elle
+    const later = new Set(pulls.slice(0, pulls.indexOf(p)).map(q => q.id));
+    const before = relics.filter(r => r.id !== p.id && !later.has(r.id));
     const pick = relicLoadout(adv, before, charId, opts).slots[p.slot].pick;
     out[p.id] = !pick || opts.value(p) > opts.value(pick) ? 'better' : 'worse';
   }

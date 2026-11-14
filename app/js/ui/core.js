@@ -26,6 +26,7 @@ const defaultState = () => ({
   server: '',           // serveur du jeu pour les heures de reset : '' = d'après l'UID (endgame.js)
   history: [],
   relics: [],
+  profiles: {},         // profil de reliques choisi pour un perso non possédé : { charId: profil }
   cones: [],            // cônes de lumière importés : { uid, id, name, level, asc, sup, owner }
   builds: {},           // builds gardés du simulateur : id de perso -> { emplacement: id de relique }
   relicOwnerFilter: '',
@@ -265,7 +266,7 @@ const charName = c => {
   return c.name;
 };
 const byName = (a, b) => charName(a).localeCompare(charName(b));
-const profileOf = c => (S.owned[c.id] && S.owned[c.id].profile) || c.profile || DEFAULT_PROFILE_BY_PATH[c.path];
+const profileOf = c => (S.owned[c.id] && S.owned[c.id].profile) || (S.profiles && S.profiles[c.id]) || c.profile || DEFAULT_PROFILE_BY_PATH[c.path];
 const statLabel = s => s.startsWith('dmg_') ? t('dmg_boost', { el: t('el_' + s.slice(4)) }) : t('stat_' + s);
 const opt = (val, label, sel) => `<option value="${esc(val)}" ${String(val) === String(sel) ? 'selected' : ''}>${esc(label)}</option>`;
 const elChip = e => `<span class="el-chip ${G.elements[e] ? 'has-ico' : ''}" style="--el:${EL_COLORS[e]}">${elIcon(e)}${t('el_' + e)}</span>`;

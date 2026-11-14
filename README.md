@@ -45,7 +45,8 @@ You don't have to enter everything by hand:
   its chances update right away, with a verdict: worth continuing, or no longer worth it.
 - **During the Relic Recon event**: the Relics tab of a character's sheet (owned or not) says which sets to pick in the event,
   how much a guaranteed opening would improve each slot, and how many guarantees are useful for this character.
-  With the live import, each piece obtained from a chest shows up there right away, with a verdict: equip it, or not better.
+  With the live import, each piece obtained from a chest (or swapped with "Replace with the new Relic") shows up there right away, with a verdict: equip it, or not better.
+  When Prydwen has no advice for the character yet, the sets are taken from the pieces obtained, and the relic profile can be chosen at the top of the Relics tab, even for a character you don't own.
 - **Your warp history**: open the warp history in the game, then click "Auto-detect" in the Warps tab.
   The app finds the link by itself in the game's cache.
 
@@ -141,7 +142,8 @@ Inutile de tout saisir à la main :
   ses chances se mettent à jour aussitôt, avec un verdict : ça vaut le coup de continuer, ou plus le coup.
 - **Pendant l'événement Aléas et reliques (Relic Recon)** : l'onglet Reliques de la fiche d'un perso (possédé ou non) indique les sets à choisir
   dans l'événement, ce qu'une ouverture Garantie apporterait à chaque emplacement et combien de Garanties sont utiles pour ce perso.
-  Avec l'import en direct, chaque pièce tirée d'un coffre y apparaît aussitôt, avec un verdict : à équiper, ou pas meilleure.
+  Avec l'import en direct, chaque pièce tirée d'un coffre (ou échangée avec « Remplacer par la nouvelle relique ») y apparaît aussitôt, avec un verdict : à équiper, ou pas meilleure.
+  Quand Prydwen n'a pas encore de conseil pour le perso, les sets sont déduits des pièces reçues, et le profil de reliques se choisit en haut de l'onglet Reliques, même pour un perso non possédé.
 - **L'historique des vœux** : ouvrir l'historique des vœux dans le jeu, puis cliquer sur « Détection auto » dans l'onglet Vœux.
   L'app retrouve le lien toute seule dans le cache du jeu.
 

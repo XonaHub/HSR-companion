@@ -238,6 +238,7 @@ function sheetRelics(c) {
   const equippedCount = SLOTS.length - empty.length;
   const trying = Object.keys(trialOf()).length > 0;
   return `${trying ? `<p class="sim-banner">${t('sim_banner')} <button class="btn sm" data-action="resetTrial">${t('sim_reset')}</button></p>` : ''}
+    <label class="rl-profile">${t('relic_profile')} <select data-action="setProfile" data-id="${esc(c.id)}">${PROFILE_IDS.map(p => opt(p, t('prof_' + p), prof)).join('')}</select></label>
     <h3>${t('rl_review')}</h3>
     ${equippedCount ? '' : `<p class="hint small">${t('rl_none_equipped')}</p>`}
     <ul class="rl-check">
@@ -339,19 +340,23 @@ function eventBlock(c, advice, prof) {
   if (!relicEventActive(new Date()) || !S.relics.length) return '';
   const tr = relicArrivals;
   const relics = trialRelics(c.id);
+  const arrived = sets => pulledRelics(relics, tr.first, sets);
+  // sans conseil Prydwen : sets déduits des pièces reçues pendant le suivi (ceux choisis dans l'événement)
+  const inferred = advice ? null : inferredAdvice(inferEventSets(arrived({ cavern: null, planar: null })));
+  const evAdvice = advice || inferred;
   const value = x => relicScore(x, prof).useful;
   const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
   const relevant = Object.entries(PROFILES[prof].weights).filter(([, w]) => w >= RELIC_RELEVANT_WEIGHT).map(([id]) => id);
-  const current = advice ? loadoutFor(c, advice, prof, relics).lo.combo : null;
+  const current = advice ? loadoutFor(c, advice, prof, relics).lo.combo : null;   // pas d'écart à signaler pour des sets déduits
   if (upgradeCache.size > UPGRADE_CACHE_MAX) upgradeCache.clear();
-  const plan = relicEventPlan(advice, relics, c.id, { ...opts, relevant, cache: upgradeCache, cacheTag: prof, currentCombo: current });
-  const pulls = tr.base == null ? [] : pulledRelics(relics, tr.base, id => tr.first.get(id), plan.sets);
-  const verdicts = pullVerdicts(advice, relics, pulls, c.id, opts);
+  const plan = relicEventPlan(evAdvice, relics, c.id, { ...opts, relevant, cache: upgradeCache, cacheTag: prof, currentCombo: current });
+  const pulls = arrived(plan.sets);
+  const verdicts = pullVerdicts(evAdvice, relics, pulls, c.id, opts);
 
   const sets = plan.sets;
-  const setsHtml = !advice || !sets.cavern ? `<p>${t('ev_no_advice')}</p>`
-    : `<p class="lo-sum"><span>${esc(t('ev_sets', { cavern: `${sets.cavern} (${sets.fourPiece ? 4 : 2})`, planar: sets.planar ? `${sets.planar} (2)` : '—' }))}</span></p>
-       <p class="hint small">${t('ev_custom')}${sets.fourPiece ? '' : ' ' + t('ev_two_plus_two')}${plan.differs ? ' ' + t('ev_differs') : ''}</p>`;
+  const setsHtml = !evAdvice || (!sets.cavern && !sets.planar) ? `<p>${t('ev_no_advice')}</p>`
+    : `<p class="lo-sum"><span>${esc(t(inferred ? 'ev_sets_inferred' : 'ev_sets', { cavern: sets.cavern ? `${sets.cavern} (${sets.fourPiece ? 4 : 2})` : '—', planar: sets.planar ? `${sets.planar} (2)` : '—' }))}</span></p>
+       <p class="hint small">${inferred ? t('ev_inferred_hint') : t('ev_custom')}${!sets.cavern || sets.fourPiece ? '' : ' ' + t('ev_two_plus_two')}${plan.differs ? ' ' + t('ev_differs') : ''}</p>`;
   const pct = x => Math.round(x * 100);
   const vClass = { sure: 'lo-go', likely: 'lo-go', gamble: 'ev-gamble', useless: 'lo-stop' };
   const rows = SLOTS.map(slot => {
@@ -479,5 +484,11 @@ Object.assign(actions, {
     save(); toast(t('plan_added'));
   },
   setEidolon: el => { S.owned[el.dataset.id].e = +el.value; save(); },
-  setProfile: el => { S.owned[el.dataset.id].profile = el.value; save(); },
+  // perso possédé : dans owned ; sinon à part (profiles), pour juger ses reliques (fiche, Aléas et reliques)
+  setProfile: el => {
+    const id = el.dataset.id;
+    if (S.owned[id]) S.owned[id].profile = el.value; else S.profiles[id] = el.value;
+    save();
+    if (sheet && sheet.id === id) renderSheet();
+  },
 });

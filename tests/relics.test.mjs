@@ -460,29 +460,30 @@ test('event_verdict_thresholds', () => {
 const A = (num, slot, set, main, q, level = 15) => ({ id: 'a' + num, slot, set, main, owner: null, q, level });
 test('pulls_newer_ids_at_15_in_event_sets', () => {
   const rs = [A(10, 'body', PIO, 'cr', 1), A(11, 'body', PIO, 'cr', 1), A(12, 'sphere', IZU, 'dmg_lightning', 1), A(13, 'body', SCH, 'cr', 1)];
-  const got = ev(`pulledRelics(${JSON.stringify(rs)}, 10, () => 15, { cavern: '${PIO}', planar: '${IZU}' }).map(r => r.id)`);
+  // ordre d'arrivée a11, a12, a13 (a10 était là avant) : la plus récente d'abord, a13 hors des sets visés
+  const got = ev(`pulledRelics(${JSON.stringify(rs)}, new Map([['a11', 15], ['a12', 15], ['a13', 15]]), { cavern: '${PIO}', planar: '${IZU}' }).map(r => r.id)`);
   assert.deepEqual(got, ['a12', 'a11']);
 });
 test('pulls_skip_piece_first_seen_below_15', () => {
-  const got = ev(`pulledRelics(${JSON.stringify([A(11, 'body', PIO, 'cr', 1)])}, 10, () => 0, { cavern: '${PIO}', planar: '${IZU}' })`);
+  const got = ev(`pulledRelics(${JSON.stringify([A(11, 'body', PIO, 'cr', 1)])}, new Map([['a11', 0]]), { cavern: '${PIO}', planar: '${IZU}' })`);
   assert.deepEqual(got, []);
 });
 test('pulls_ignore_non_archive_ids', () => {
   assert.equal(ev(`Number.isNaN(relicNum('r5'))`), true);
   assert.equal(ev(`relicNum('a7203')`), 7203);
-  const got = ev(`pulledRelics(${JSON.stringify([{ ...A(0, 'body', PIO, 'cr', 1), id: 'u99' }])}, 0, () => 15, { cavern: null, planar: null })`);
+  const got = ev(`pulledRelics(${JSON.stringify([{ ...A(0, 'body', PIO, 'cr', 1), id: 'u99' }])}, new Map(), { cavern: null, planar: null })`);
   assert.deepEqual(got, []);
 });
 test('pull_verdict_better_worse_bad_main', () => {
   const rs = [A(1, 'body', PIO, 'cr', 0.5), A(2, 'body', PIO, 'cr', 0.9), A(3, 'feet', PIO, 'atk_pct', 0.1), A(4, 'feet', PIO, 'atk_pct', 0.05), A(5, 'body', PIO, 'def_pct', 2)];
-  const pulls = rs.filter(r => r.id !== 'a1' && r.id !== 'a3');
+  const pulls = rs.filter(r => r.id !== 'a1' && r.id !== 'a3').reverse();   // la plus récente d'abord
   const v = ev(`pullVerdicts(${JSON.stringify(ADVICE)}, ${JSON.stringify(rs)}, ${JSON.stringify(pulls)}, 'acheron', ${LO_OPTS})`);
   assert.deepEqual(v, { a2: 'better', a4: 'worse', a5: 'bad_main' });
 });
 test('pull_verdict_second_pull_beats_first', () => {
   const rs = [A(1, 'body', PIO, 'cr', 0.5), A(2, 'body', PIO, 'cr', 0.7)];
-  const v = ev(`pullVerdicts(${JSON.stringify(ADVICE)}, ${JSON.stringify(rs)}, ${JSON.stringify(rs)}, 'acheron', ${LO_OPTS})`);
-  assert.deepEqual(v, { a1: 'better', a2: 'better' });   // a1 jugée sans a2 (emplacement vide), a2 contre a1
+  const v = ev(`pullVerdicts(${JSON.stringify(ADVICE)}, ${JSON.stringify(rs)}, ${JSON.stringify([...rs].reverse())}, 'acheron', ${LO_OPTS})`);
+  assert.deepEqual(v, { a2: 'better', a1: 'better' });   // a1 jugée sans a2 (emplacement vide), a2 contre a1
 });
 
 /* suivi des arrivées (revue finale) : point de départ au premier import en direct, niveau noté seulement pour
@@ -508,4 +509,36 @@ test('arrivals_full_scan_pieces_are_never_pulls', () => {
 test('arrivals_level_kept_after_upgrade', () => {
   const r = arrivals([[[A(9, 'body', PIO, 'cr', 1)], 'full'], [[A(10, 'feet', PIO, 'spd', 1, 0)], 'update'], [[A(10, 'feet', PIO, 'spd', 1, 15)], 'update']]);
   assert.deepEqual(r.first, [['a10', 0]]);
+});
+
+/* sans conseil Prydwen : sets de l'événement déduits des pièces reçues pendant le suivi */
+test('infer_event_sets_from_pulls', () => {
+  const pulls = [A(3, 'body', SCH, 'cr', 1), A(4, 'hands', PIO, 'atk', 1), A(5, 'feet', PIO, 'spd', 1), A(6, 'sphere', IZU, 'dmg_fire', 1)];
+  assert.deepEqual(ev(`inferEventSets(${JSON.stringify(pulls)})`), { cavern: PIO, planar: IZU, fourPiece: true });
+  assert.deepEqual(ev(`inferEventSets([])`), { cavern: null, planar: null, fourPiece: false });
+});
+test('inferred_advice_feeds_event_plan', () => {
+  const adv = ev(`inferredAdvice({ cavern: '${PIO}', planar: null, fourPiece: true })`);
+  assert.deepEqual(adv, { sets: [[{ name: PIO, pieces: 4 }]], flex: [], planars: [], main: {} });
+  assert.equal(ev(`inferredAdvice({ cavern: null, planar: null, fourPiece: false })`), null);
+  // la pièce SCH (autre set) n'est plus la pièce à battre : emplacement vide pour le set déduit
+  const p = evPlan(cav(SCH, 50), adv);
+  assert.equal(p.slots.body.verdict, 'sure');
+});
+
+/* « Remplacer par la nouvelle relique » (jeu) : même identifiant, contenu changé, pièce déjà +15 */
+test('arrivals_replaced_piece_counts_as_pulled_again', () => {
+  const fire = { ...A(9, 'sphere', IZU, 'dmg_fire', 1), subs: [{ stat: 'atk', val: 21 }] };
+  const quantum = { ...fire, main: 'dmg_quantum', subs: [{ stat: 'hp', val: 71 }] };
+  const r = arrivals([[[fire, A(5, 'body', PIO, 'cr', 1)], 'full'], [[A(10, 'feet', PIO, 'spd', 1)], 'update'], [[quantum], 'update']]);
+  assert.deepEqual(r.first, [['a10', 15], ['a9', 15]]);   // a9 remplacée : comptée, et la plus récente
+});
+test('arrivals_upgrade_to_15_is_not_a_replacement', () => {
+  const low = { ...A(9, 'feet', PIO, 'spd', 1, 12), subs: [{ stat: 'cr', val: 3 }] };
+  const done = { ...low, level: 15, subs: [{ stat: 'cr', val: 6 }] };
+  assert.deepEqual(arrivals([[[low], 'full'], [[done], 'update']]).first, []);
+});
+test('arrivals_change_in_full_scan_is_not_counted', () => {
+  const fire = { ...A(9, 'sphere', IZU, 'dmg_fire', 1), subs: [{ stat: 'atk', val: 21 }] };
+  assert.deepEqual(arrivals([[[fire], 'full'], [[{ ...fire, main: 'dmg_ice' }], 'full']]).first, []);
 });

@@ -96,3 +96,9 @@ test('faiblesses par cycle : éléments inconnus retirés, ancien choix global s
   assert.deepEqual(s.cycleWeak, { moc: { start: 123, sides: [['fire'], ['ice']] } });
   assert.deepEqual(clean({ cycleWeak: { as: { start: XSS, sides: XSS } } }).cycleWeak, { as: { start: null, sides: [[], []] } });
 });
+
+test('profiles_of_unowned_characters_are_cleaned', () => {
+  const s = clean({ profiles: { aha: 'crit_hp', bad: 'nope', '../x': 'support', ok2: 'healer' } });
+  assert.deepEqual(s.profiles, { aha: 'crit_hp', x: 'support', ok2: 'healer' });   // clés nettoyées comme pour les persos possédés
+  assert.deepEqual(clean({}).profiles, {});
+});

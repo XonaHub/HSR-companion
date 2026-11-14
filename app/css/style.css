@@ -871,3 +871,5 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .today-rl-row small { margin-left: auto; color: var(--warn); }
 .today-rl-row.ok small { color: var(--ok); }
 .today-card-static > .btn { align-self: flex-start; }
+.rl-profile { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+.rl-profile select { margin-left: 6px; }
