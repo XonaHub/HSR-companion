@@ -371,6 +371,39 @@ function noteArrivals(track, relics, how) {
   return track;
 }
 
+/** Pièces de l'événement retenues dans la sauvegarde (S.eventRelicIds, de la plus ancienne à la plus récente) :
+    ajoute celles que le suivi a vues arriver ou remplacer (niveau 15 dans `first`, dans l'ordre d'arrivée) ; une
+    pièce remplacée repasse en dernier. */
+function rememberEventIds(ids, first) {
+  const seen = [...first].filter(([, lvl]) => lvl === 15).map(([id]) => id);
+  return (ids || []).filter(id => !seen.includes(id)).concat(seen);
+}
+/** Pièces retenues encore dans l'inventaire et +15, de la plus récente à la plus ancienne */
+function knownEventPieces(relics, ids) {
+  const byId = new Map((relics || []).map(r => [r.id, r]));
+  return [...(ids || [])].reverse().map(id => byId.get(id)).filter(r => r && (r.level || 0) >= 15);
+}
+
+/** Repli quand une pièce de l'événement n'est pas encore retenue : par emplacement, la pièce +15 verrouillée la plus
+    récente (numéro le plus grand) des sets de l'événement (tout set si aucun n'est connu) — une pièce de coffre arrive
+    +15, verrouillée et avec le numéro le plus récent. */
+function guessEventPieces(relics, sets) {
+  const inSets = r => (!sets.cavern && !sets.planar) || [sets.cavern, sets.planar].some(x => x && normName(x) === normName(r.set));
+  const out = {};
+  for (const r of relics || []) {
+    if ((r.level || 0) < 15 || !r.lock || Number.isNaN(relicNum(r.id)) || !inSets(r)) continue;
+    if (!out[r.slot] || relicNum(r.id) > relicNum(out[r.slot].id)) out[r.slot] = r;
+  }
+  return out;
+}
+
+/** Pièce que l'événement garde pour chaque emplacement : la plus récente des pièces retenues (`ids`) dans les sets,
+    sinon le repli guessEventPieces. C'est elle que l'écran « Remplacer » propose de garder. */
+function eventSlotPieces(relics, ids, sets) {
+  const inSets = r => (!sets.cavern && !sets.planar) || [sets.cavern, sets.planar].some(x => x && normName(x) === normName(r.set));
+  return { ...guessEventPieces(relics, sets), ...eventPieces(knownEventPieces(relics, ids).filter(inSets)) };
+}
+
 /** Pièces tirées dans l'événement : pièces de `first` (Map id -> niveau à l'arrivée, dans l'ordre d'arrivée, tenue
     par noteArrivals) déjà +15 à leur arrivée — une pièce farmée puis montée n'en est pas une — et d'un des sets
     visés (tout set si aucun). De la plus récente à la plus ancienne. */

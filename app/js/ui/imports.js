@@ -153,6 +153,7 @@ function importArchiveData(ex, isLive) {
   // pièces arrivées pendant la session (Aléas et reliques) : envoi complet ou simple mise à jour en direct
   noteArrivals(relicArrivals, S.relics, !isLive ? 'file' : live && live.full ? 'full' : 'update');
   if (live) live.full = false;
+  S.eventRelicIds = rememberEventIds(S.eventRelicIds, relicArrivals.first);   // gardées après un redémarrage
   save();
   if (!sheet) render();
   else if (sheet.tab === 'relics') renderSheet();   // suivi en direct des pièces « à monter » (fiche, onglet Reliques)

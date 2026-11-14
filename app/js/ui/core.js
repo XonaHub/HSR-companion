@@ -26,7 +26,8 @@ const defaultState = () => ({
   server: '',           // serveur du jeu pour les heures de reset : '' = d'après l'UID (endgame.js)
   history: [],
   relics: [],
-  profiles: {},         // profil de reliques choisi pour un perso non possédé : { charId: profil }
+  profiles: {},
+  eventRelicIds: [],    // pièces reçues de l'événement Aléas et reliques (ids, de la plus ancienne à la plus récente)         // profil de reliques choisi pour un perso non possédé : { charId: profil }
   cones: [],            // cônes de lumière importés : { uid, id, name, level, asc, sup, owner }
   builds: {},           // builds gardés du simulateur : id de perso -> { emplacement: id de relique }
   relicOwnerFilter: '',

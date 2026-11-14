@@ -102,3 +102,8 @@ test('profiles_of_unowned_characters_are_cleaned', () => {
   assert.deepEqual(s.profiles, { aha: 'crit_hp', x: 'support', ok2: 'healer' });   // clés nettoyées comme pour les persos possédés
   assert.deepEqual(clean({}).profiles, {});
 });
+
+test('event_relic_ids_are_cleaned', () => {
+  assert.deepEqual(clean({ eventRelicIds: ['a7202', 'a7202', '<x>', 5, 'a7203'] }).eventRelicIds, ['a7202', 'x', '5', 'a7203']);
+  assert.deepEqual(clean({}).eventRelicIds, []);
+});

@@ -342,7 +342,9 @@ function eventBlock(c, advice, prof) {
   const relics = trialRelics(c.id);
   const arrived = sets => pulledRelics(relics, tr.first, sets);
   // sans conseil Prydwen : sets déduits des pièces reçues pendant le suivi (ceux choisis dans l'événement)
-  const inferred = advice ? null : inferredAdvice(inferEventSets(arrived({ cavern: null, planar: null })));
+  // (pièces retenues dans la sauvegarde, sinon les plus récentes +15 verrouillées : utile après un redémarrage)
+  const known = knownEventPieces(relics, S.eventRelicIds);
+  const inferred = advice ? null : inferredAdvice(inferEventSets(known.length ? known : Object.values(guessEventPieces(relics, { cavern: null, planar: null }))));
   const evAdvice = advice || inferred;
   const value = x => relicScore(x, prof).useful;
   const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
@@ -359,7 +361,7 @@ function eventBlock(c, advice, prof) {
        <p class="hint small">${inferred ? t('ev_inferred_hint') : t('ev_custom')}${!sets.cavern || sets.fourPiece ? '' : ' ' + t('ev_two_plus_two')}${plan.differs ? ' ' + t('ev_differs') : ''}</p>`;
   const pct = x => Math.round(x * 100);
   const vClass = { sure: 'lo-go', likely: 'lo-go', gamble: 'ev-gamble', useless: 'lo-stop' };
-  const kept = eventPieces(pulls);   // pièce que l'événement garde pour chaque emplacement
+  const kept = eventSlotPieces(relics, S.eventRelicIds, plan.sets);   // pièce que l'événement garde pour chaque emplacement
   const rows = SLOTS.map(slot => {
     const s = plan.slots[slot];
     const rival = s.rival ? loadoutPiece(s.rival, prof) : `<small class="hint">${t('rl_empty')}</small>`;

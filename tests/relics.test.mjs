@@ -572,3 +572,29 @@ test('event_pieces_latest_per_slot', () => {
   const pulls = [A(9, 'sphere', IZU, 'hp_pct', 1), A(8, 'head', PIO, 'hp', 1), A(7, 'sphere', IZU, 'dmg_fire', 1)];
   assert.deepEqual(ev(`Object.fromEntries(Object.entries(eventPieces(${JSON.stringify(pulls)})).map(([k, v]) => [k, v.id]))`), { sphere: 'a9', head: 'a8' });
 });
+
+/* pièces de l'événement retenues dans la sauvegarde (un redémarrage de l'app ne doit pas les oublier) */
+test('remember_event_ids_appends_new_and_moves_replaced', () => {
+  const first = `new Map([['a10', 15], ['a7', 15], ['a11', 0], ['a12', -1]])`;   // a7 remplacée, a11 farmée, a12 inconnue
+  assert.deepEqual(ev(`rememberEventIds(['a5', 'a7', 'a9'], ${first})`), ['a5', 'a9', 'a10', 'a7']);
+  assert.deepEqual(ev(`rememberEventIds(rememberEventIds([], ${first}), ${first})`), ['a10', 'a7']);   // idempotent
+});
+test('known_event_pieces_most_recent_first', () => {
+  const rs = [A(5, 'head', PIO, 'hp', 1), A(7, 'head', PIO, 'hp', 1), A(9, 'feet', PIO, 'spd', 1), { ...A(10, 'rope', IZU, 'hp_pct', 1), level: 3 }];
+  const got = ev(`knownEventPieces(${JSON.stringify(rs)}, ['a5', 'a9', 'a7', 'a10', 'a99']).map(r => r.id)`);
+  assert.deepEqual(got, ['a7', 'a9', 'a5']);   // a10 pas +15, a99 absente de l'inventaire
+});
+
+/* repli : pièce de l'événement pas encore retenue (vue avant cette version, ou suivi pas encore lancé) */
+test('guess_event_pieces_newest_locked_15_per_slot', () => {
+  const rs = [{ ...A(5, 'head', PIO, 'hp', 1), lock: true }, { ...A(9, 'head', PIO, 'hp', 1), lock: true }, { ...A(12, 'head', PIO, 'hp', 1), lock: false },
+    { ...A(13, 'head', SCH, 'hp', 1), lock: true }, { ...A(11, 'feet', PIO, 'spd', 1, 3), lock: true }, { ...A(8, 'sphere', IZU, 'hp_pct', 1), lock: true }];
+  const ids = sets => ev(`Object.fromEntries(Object.entries(guessEventPieces(${JSON.stringify(rs)}, ${JSON.stringify(sets)})).map(([k, v]) => [k, v.id]))`);
+  assert.deepEqual(ids({ cavern: PIO, planar: IZU }), { head: 'a9', sphere: 'a8' });   // a12 pas verrouillée, a13 autre set, a11 pas +15
+  assert.deepEqual(ids({ cavern: null, planar: null }), { head: 'a13', sphere: 'a8' }); // sans set connu : la plus récente
+});
+test('event_slot_pieces_prefers_remembered_then_guess', () => {
+  const rs = [{ ...A(5, 'head', PIO, 'hp', 1), lock: true }, { ...A(9, 'head', PIO, 'hp', 1), lock: true }, { ...A(8, 'sphere', IZU, 'hp_pct', 1), lock: true }];
+  const got = ev(`Object.fromEntries(Object.entries(eventSlotPieces(${JSON.stringify(rs)}, ['a5'], { cavern: '${PIO}', planar: '${IZU}' })).map(([k, v]) => [k, v.id]))`);
+  assert.deepEqual(got, { head: 'a5', sphere: 'a8' });   // a5 retenue l'emporte sur a9 plus récente ; sphère devinée
+});
