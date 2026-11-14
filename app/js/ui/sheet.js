@@ -333,20 +333,11 @@ function liveNoteHtml(onKey, offKey, step3Key) {
 
 /* ---- Aléas et reliques (Relic Recon) : sets à choisir, apport d'une Garantie, pièces tirées en direct ----
    (relicEventPlan, pulledRelics, pullVerdicts : relics.js ; spec 2026-11-14-aleas-reliques) */
-/* Suivi des coffres, par perso, pour toute la session de l'app (pas remis à zéro à la fermeture de la fiche, pas
-   sauvegardé) : base = plus grand numéro de pièce connu au premier affichage, first = niveau de chaque nouvelle
-   pièce à sa première apparition (une pièce arrivée sous +15 a été farmée, pas tirée). */
-const eventTrack = new Map();   // charId -> { base, first: Map id -> niveau }
+/* Pièces tirées : d'après relicArrivals (imports.js), tenu à chaque import pour toute l'app ; rien avant le premier
+   import en direct de la session. */
 function eventBlock(c, advice, prof) {
   if (!relicEventActive(new Date()) || !S.relics.length) return '';
-  let tr = eventTrack.get(c.id);
-  if (!tr) {
-    const nums = S.relics.map(r => relicNum(r.id)).filter(n => !Number.isNaN(n));
-    tr = { base: nums.length ? Math.max(...nums) : 0, first: new Map() };
-    eventTrack.set(c.id, tr);
-  }
-  for (const r of S.relics) if (relicNum(r.id) > tr.base && !tr.first.has(r.id)) tr.first.set(r.id, r.level || 0);
-
+  const tr = relicArrivals;
   const relics = trialRelics(c.id);
   const value = x => relicScore(x, prof).useful;
   const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
@@ -354,7 +345,7 @@ function eventBlock(c, advice, prof) {
   const current = advice ? loadoutFor(c, advice, prof, relics).lo.combo : null;
   if (upgradeCache.size > UPGRADE_CACHE_MAX) upgradeCache.clear();
   const plan = relicEventPlan(advice, relics, c.id, { ...opts, relevant, cache: upgradeCache, cacheTag: prof, currentCombo: current });
-  const pulls = pulledRelics(relics, tr.base, id => tr.first.get(id), plan.sets);
+  const pulls = tr.base == null ? [] : pulledRelics(relics, tr.base, id => tr.first.get(id), plan.sets);
   const verdicts = pullVerdicts(advice, relics, pulls, c.id, opts);
 
   const sets = plan.sets;

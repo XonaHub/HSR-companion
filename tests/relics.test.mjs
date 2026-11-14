@@ -484,3 +484,28 @@ test('pull_verdict_second_pull_beats_first', () => {
   const v = ev(`pullVerdicts(${JSON.stringify(ADVICE)}, ${JSON.stringify(rs)}, ${JSON.stringify(rs)}, 'acheron', ${LO_OPTS})`);
   assert.deepEqual(v, { a1: 'better', a2: 'better' });   // a1 jugée sans a2 (emplacement vide), a2 contre a1
 });
+
+/* suivi des arrivées (revue finale) : point de départ au premier import en direct, niveau noté seulement pour
+   une pièce reçue par une mise à jour en direct ; une pièce découverte dans un envoi complet n'est jamais « tirée » */
+const arrivals = steps => ev(`(() => { const tr = { base: null, first: new Map() };
+  for (const [relics, how] of ${JSON.stringify(steps)}) noteArrivals(tr, relics, how);
+  return { base: tr.base, first: [...tr.first] }; })()`);
+test('arrivals_base_waits_for_live_import', () => {
+  const r = arrivals([[[A(5, 'body', PIO, 'cr', 1)], 'file'], [[A(5, 'body', PIO, 'cr', 1), A(9, 'body', PIO, 'cr', 1)], 'full']]);
+  assert.equal(r.base, 9);                 // un import par fichier ne fixe pas la base, le premier envoi en direct oui
+  assert.deepEqual(r.first, []);
+});
+test('arrivals_live_update_notes_level', () => {
+  const r = arrivals([[[A(9, 'body', PIO, 'cr', 1)], 'full'], [[A(9, 'body', PIO, 'cr', 1), A(10, 'feet', PIO, 'spd', 1, 15), A(11, 'feet', PIO, 'spd', 1, 0)], 'update']]);
+  assert.deepEqual(r.first, [['a10', 15], ['a11', 0]]);
+});
+test('arrivals_full_scan_pieces_are_never_pulls', () => {
+  // pièces gagnées pendant une déconnexion, découvertes dans un nouvel envoi complet ou un import par fichier
+  const r = arrivals([[[A(9, 'body', PIO, 'cr', 1)], 'full'], [[A(9, 'body', PIO, 'cr', 1), A(12, 'feet', PIO, 'spd', 1)], 'full'],
+    [[A(13, 'feet', PIO, 'spd', 1)], 'file']]);
+  assert.deepEqual(r.first, [['a12', -1], ['a13', -1]]);
+});
+test('arrivals_level_kept_after_upgrade', () => {
+  const r = arrivals([[[A(9, 'body', PIO, 'cr', 1)], 'full'], [[A(10, 'feet', PIO, 'spd', 1, 0)], 'update'], [[A(10, 'feet', PIO, 'spd', 1, 15)], 'update']]);
+  assert.deepEqual(r.first, [['a10', 0]]);
+});

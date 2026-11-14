@@ -324,6 +324,22 @@ function relicNum(id) {
   return m ? +m[1] : NaN;
 }
 
+/** Suivi des pièces arrivées pendant la session (track = { base: null | numéro, first: Map id -> niveau }), appelé
+    à chaque import. `how` : 'file' (fichier), 'full' (envoi complet en direct, InitialScan), 'update' (mise à jour en
+    direct). La base est fixée au premier import en direct (avant, les données peuvent dater). Ensuite, une nouvelle
+    pièce reçue par 'update' garde son niveau d'arrivée ; découverte dans un envoi complet ou un fichier, son origine
+    est inconnue (gagnée pendant une déconnexion, farmée…) : -1, jamais comptée comme tirée. */
+function noteArrivals(track, relics, how) {
+  const nums = (relics || []).map(r => relicNum(r.id)).filter(n => !Number.isNaN(n));
+  if (track.base == null) {
+    if (how !== 'file') track.base = nums.length ? Math.max(...nums) : 0;
+    return track;
+  }
+  for (const r of relics || [])
+    if (relicNum(r.id) > track.base && !track.first.has(r.id)) track.first.set(r.id, how === 'update' ? (r.level || 0) : -1);
+  return track;
+}
+
 /** Pièces tirées dans l'événement : numéro au-delà de `base` (plus grand numéro connu au début du suivi),
     déjà +15 à leur première apparition (`firstLevel(id)`) — une pièce farmée puis montée n'en est pas une —
     et d'un des sets visés (tout set si aucun). Triées de la plus récente à la plus ancienne. */
