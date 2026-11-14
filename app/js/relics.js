@@ -400,6 +400,15 @@ function pullVerdicts(advice, relics, pulls, charId, opts) {
   }
   return out;
 }
+
+/** Tri des pièces tirées pour l'affichage (`pulls` de la plus récente à la plus ancienne) : une pièce déjà équipée
+    sur ce perso est retirée (elle est dans l'équipement) ; la plus récente restante en entier (`latest`) ; parmi
+    les autres, celles « à équiper » restent visibles (`todo`), les autres sont repliées (`folded`). */
+function pullGroups(pulls, verdicts, charId) {
+  const left = pulls.filter(r => r.owner !== charId);
+  const rest = left.slice(1);
+  return { latest: left[0] || null, todo: rest.filter(r => verdicts[r.id] === 'better'), folded: rest.filter(r => verdicts[r.id] !== 'better') };
+}
 /** L'événement est-il en cours ? (RELIC_EVENT.end, heure locale) */
 function relicEventActive(now) {
   return now <= new Date(RELIC_EVENT.end);

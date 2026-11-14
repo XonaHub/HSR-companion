@@ -367,8 +367,13 @@ function eventBlock(c, advice, prof) {
     return `<tr><th>${t('slot_' + slot)}</th><td>${rival}</td><td>${odds}<b class="lo-verdict ${vClass[s.verdict]}">${t('ev_v_' + s.verdict)}</b></td></tr>`;
   }).join('');
   const pClass = { better: 'lo-go', worse: 'lo-stop', bad_main: 'lo-stop' };
-  const pullRows = pulls.map(r => `<div class="lo-up"><span class="lo-st lo-upg">${t('slot_' + r.slot)}</span> ${loadoutPiece(r, prof)}
-      <b class="lo-verdict ${pClass[verdicts[r.id]]}">${t('ev_p_' + verdicts[r.id])}</b></div>`).join('');
+  const pullRow = r => `<div class="lo-up"><span class="lo-st lo-upg">${t('slot_' + r.slot)}</span> ${loadoutPiece(r, prof)}
+      <b class="lo-verdict ${pClass[verdicts[r.id]]}">${t('ev_p_' + verdicts[r.id])}</b></div>`;
+  // nettoyée au fil des coffres : dernière pièce, puis celles encore à équiper ; le reste replié
+  const groups = pullGroups(pulls, verdicts, c.id);
+  const pullRows = (groups.latest ? `<p class="hint small">${t('ev_pull_last')}</p>${pullRow(groups.latest)}` : '')
+    + (groups.todo.length ? `<p class="hint small">${t('ev_pull_todo')}</p>${groups.todo.map(pullRow).join('')}` : '')
+    + (groups.folded.length ? `<details class="ev-folded"><summary>${groups.folded.length === 1 ? t('ev_pull_folded_one') : t('ev_pull_folded', { n: groups.folded.length })}</summary>${groups.folded.map(pullRow).join('')}</details>` : '');
   return `<h3>${t('ev_title')}</h3>
     ${setsHtml}
     <table class="lo-table"><thead><tr><th></th><th>${t('ev_now')}</th><th>${t('ev_guarantee')}</th></tr></thead><tbody>${rows}</tbody></table>

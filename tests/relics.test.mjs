@@ -542,3 +542,19 @@ test('arrivals_change_in_full_scan_is_not_counted', () => {
   const fire = { ...A(9, 'sphere', IZU, 'dmg_fire', 1), subs: [{ stat: 'atk', val: 21 }] };
   assert.deepEqual(arrivals([[[fire], 'full'], [[{ ...fire, main: 'dmg_ice' }], 'full']]).first, []);
 });
+
+/* tri des pièces tirées : la dernière en entier, les anciennes « à équiper » visibles, les équipées sur le perso
+   retirées, les anciennes sans intérêt repliées */
+test('pull_groups_keep_latest_and_todo_fold_the_rest', () => {
+  const pulls = [A(9, 'feet', PIO, 'def_pct', 1), A(8, 'rope', IZU, 'hp_pct', 1), { ...A(7, 'head', PIO, 'hp', 1), owner: 'acheron' },
+    A(6, 'hands', PIO, 'atk', 1), A(5, 'body', PIO, 'atk_pct', 1)];
+  const verdicts = { a9: 'bad_main', a8: 'better', a7: 'better', a6: 'worse', a5: 'bad_main' };
+  const g = ev(`pullGroups(${JSON.stringify(pulls)}, ${JSON.stringify(verdicts)}, 'acheron')`);
+  assert.equal(g.latest.id, 'a9');                       // la plus récente, même sans intérêt
+  assert.deepEqual(g.todo.map(r => r.id), ['a8']);       // a7 équipée sur le perso : retirée
+  assert.deepEqual(g.folded.map(r => r.id), ['a6', 'a5']);
+});
+test('pull_groups_latest_equipped_is_dropped', () => {
+  const g = ev(`pullGroups([${JSON.stringify({ ...A(9, 'feet', PIO, 'spd', 1), owner: 'acheron' })}], { a9: 'better' }, 'acheron')`);
+  assert.deepEqual(g, { latest: null, todo: [], folded: [] });
+});
