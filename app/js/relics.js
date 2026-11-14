@@ -317,6 +317,39 @@ function relicEventPlan(advice, relics, charId, opts) {
     || (sets.planar && normName(cur.planar || '') !== normName(sets.planar))));
   return { sets, differs, slots, useful };
 }
+
+/** Numéro d'une pièce importée de Reliquary Archiver (`a<_uid>`), NaN pour toute autre source */
+function relicNum(id) {
+  const m = /^a(\d+)$/.exec(String(id));
+  return m ? +m[1] : NaN;
+}
+
+/** Pièces tirées dans l'événement : numéro au-delà de `base` (plus grand numéro connu au début du suivi),
+    déjà +15 à leur première apparition (`firstLevel(id)`) — une pièce farmée puis montée n'en est pas une —
+    et d'un des sets visés (tout set si aucun). Triées de la plus récente à la plus ancienne. */
+function pulledRelics(relics, base, firstLevel, sets) {
+  const inSets = r => (!sets.cavern && !sets.planar)
+    || [sets.cavern, sets.planar].some(s => s && normName(s) === normName(r.set));
+  return (relics || []).filter(r => relicNum(r.id) > base && firstLevel(r.id) === 15 && (r.level || 0) >= 15 && inSets(r))
+    .sort((a, b) => relicNum(b.id) - relicNum(a.id));
+}
+
+/** Verdict de chaque pièce tirée : 'bad_main' (stat principale non admise), sinon 'better' si elle bat la
+    meilleure pièce de son emplacement dans l'équipement de l'événement calculé sans elle ni les pièces tirées
+    après elle (emplacement vide compris), sinon 'worse'. opts = options de relicLoadout. */
+function pullVerdicts(advice, relics, pulls, charId, opts) {
+  const sets = eventSets(advice), adv = eventAdvice(advice, sets);
+  const allowed = slot => (advice && advice.main && advice.main[slot] && advice.main[slot].length ? advice.main[slot] : null)
+    || (opts.profileMain && opts.profileMain[slot]) || null;
+  const out = {};
+  for (const p of pulls) {
+    if (!relicMainOk(p.slot, p.main, allowed(p.slot), opts.element)) { out[p.id] = 'bad_main'; continue; }
+    const before = relics.filter(r => r.id !== p.id && !(relicNum(r.id) > relicNum(p.id) && pulls.some(q => q.id === r.id)));
+    const pick = relicLoadout(adv, before, charId, opts).slots[p.slot].pick;
+    out[p.id] = !pick || opts.value(p) > opts.value(pick) ? 'better' : 'worse';
+  }
+  return out;
+}
 /** L'événement est-il en cours ? (RELIC_EVENT.end, heure locale) */
 function relicEventActive(now) {
   return now <= new Date(RELIC_EVENT.end);

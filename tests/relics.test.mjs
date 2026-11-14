@@ -455,3 +455,32 @@ test('event_verdict_thresholds', () => {
   assert.deepEqual(ev(`[eventVerdict(0, false), eventVerdict(0.5, true), eventVerdict(0.15, true), eventVerdict(0.149, true)]`),
     ['sure', 'likely', 'gamble', 'useless']);
 });
+
+/* pièces tirées pendant l'événement (identifiants « a<_uid> » de l'import Reliquary Archiver) */
+const A = (num, slot, set, main, q, level = 15) => ({ id: 'a' + num, slot, set, main, owner: null, q, level });
+test('pulls_newer_ids_at_15_in_event_sets', () => {
+  const rs = [A(10, 'body', PIO, 'cr', 1), A(11, 'body', PIO, 'cr', 1), A(12, 'sphere', IZU, 'dmg_lightning', 1), A(13, 'body', SCH, 'cr', 1)];
+  const got = ev(`pulledRelics(${JSON.stringify(rs)}, 10, () => 15, { cavern: '${PIO}', planar: '${IZU}' }).map(r => r.id)`);
+  assert.deepEqual(got, ['a12', 'a11']);
+});
+test('pulls_skip_piece_first_seen_below_15', () => {
+  const got = ev(`pulledRelics(${JSON.stringify([A(11, 'body', PIO, 'cr', 1)])}, 10, () => 0, { cavern: '${PIO}', planar: '${IZU}' })`);
+  assert.deepEqual(got, []);
+});
+test('pulls_ignore_non_archive_ids', () => {
+  assert.equal(ev(`Number.isNaN(relicNum('r5'))`), true);
+  assert.equal(ev(`relicNum('a7203')`), 7203);
+  const got = ev(`pulledRelics(${JSON.stringify([{ ...A(0, 'body', PIO, 'cr', 1), id: 'u99' }])}, 0, () => 15, { cavern: null, planar: null })`);
+  assert.deepEqual(got, []);
+});
+test('pull_verdict_better_worse_bad_main', () => {
+  const rs = [A(1, 'body', PIO, 'cr', 0.5), A(2, 'body', PIO, 'cr', 0.9), A(3, 'feet', PIO, 'atk_pct', 0.1), A(4, 'feet', PIO, 'atk_pct', 0.05), A(5, 'body', PIO, 'def_pct', 2)];
+  const pulls = rs.filter(r => r.id !== 'a1' && r.id !== 'a3');
+  const v = ev(`pullVerdicts(${JSON.stringify(ADVICE)}, ${JSON.stringify(rs)}, ${JSON.stringify(pulls)}, 'acheron', ${LO_OPTS})`);
+  assert.deepEqual(v, { a2: 'better', a4: 'worse', a5: 'bad_main' });
+});
+test('pull_verdict_second_pull_beats_first', () => {
+  const rs = [A(1, 'body', PIO, 'cr', 0.5), A(2, 'body', PIO, 'cr', 0.7)];
+  const v = ev(`pullVerdicts(${JSON.stringify(ADVICE)}, ${JSON.stringify(rs)}, ${JSON.stringify(rs)}, 'acheron', ${LO_OPTS})`);
+  assert.deepEqual(v, { a1: 'better', a2: 'better' });   // a1 jugée sans a2 (emplacement vide), a2 contre a1
+});
