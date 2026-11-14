@@ -43,6 +43,9 @@ You don't have to enter everything by hand:
 - **Following a relic upgrade live**: start Reliquary Archiver before the game, click "Live import" and wait for the "connected" state,
   then keep the character's sheet open on the Relics tab. Each time a piece listed under "To level" is upgraded in game,
   its chances update right away, with a verdict: worth continuing, or no longer worth it.
+- **During the Relic Recon event**: the Relics tab of a character's sheet (owned or not) says which sets to pick in the event,
+  how much a guaranteed opening would improve each slot, and how many guarantees are useful for this character.
+  With the live import, each piece obtained from a chest shows up there right away, with a verdict: equip it, or not better.
 - **Your warp history**: open the warp history in the game, then click "Auto-detect" in the Warps tab.
   The app finds the link by itself in the game's cache.
 
@@ -136,6 +139,9 @@ Inutile de tout saisir à la main :
 - **Suivre l'amélioration d'une relique en direct** : lancer Reliquary Archiver avant le jeu, cliquer sur « Import en direct » et attendre l'état « connecté »,
   puis garder la fiche du perso ouverte sur l'onglet Reliques. À chaque amélioration en jeu d'une pièce listée dans « À monter »,
   ses chances se mettent à jour aussitôt, avec un verdict : ça vaut le coup de continuer, ou plus le coup.
+- **Pendant l'événement Aléas et reliques (Relic Recon)** : l'onglet Reliques de la fiche d'un perso (possédé ou non) indique les sets à choisir
+  dans l'événement, ce qu'une ouverture Garantie apporterait à chaque emplacement et combien de Garanties sont utiles pour ce perso.
+  Avec l'import en direct, chaque pièce tirée d'un coffre y apparaît aussitôt, avec un verdict : à équiper, ou pas meilleure.
 - **L'historique des vœux** : ouvrir l'historique des vœux dans le jeu, puis cliquer sur « Détection auto » dans l'onglet Vœux.
   L'app retrouve le lien toute seule dans le cache du jeu.
 
