@@ -246,6 +246,7 @@ function sheetRelics(c) {
     </ul>
     <h4>${t('rl_main')}</h4><ul class="rl-check">${mains}</ul>
     ${loadoutBlock(c, advice, prof)}
+    ${eventBlock(c, advice, prof)}
     ${simulator(c, advice)}
     <h3>${t('rl_pieces')}</h3><div class="relic-grid">${pieces}</div>
     <p class="lc-src">${advice ? esc(t('rl_source', { date: prydwenDate(r) })) + (r.stale ? ' · ' + esc(t('cones_offline')) : '') : esc(t('rl_no_advice', { profile: t('prof_' + prof) }))}</p>`;
@@ -314,15 +315,72 @@ function loadoutBlock(c, advice, prof) {
       <b class="lo-verdict ${good ? 'lo-go' : 'lo-stop'}">${verdict}</b>
       ${done ? '' : `<div class="lo-bar" role="img" aria-label="${pct(u.chance)} %"><i style="width:${pct(u.chance)}%"></i></div>`}</div>`;
   }).join('');
-  // état du suivi en direct : actif, ou comment l'activer (flux live de Reliquary Archiver, imports.js)
-  const liveOn = typeof live !== 'undefined' && live && live.state === 'connected';
-  const liveNote = liveOn ? `<p class="lo-live on">● ${t('rl_lo_live_on')}</p>`
-    : `<div class="lo-live"><p>${t('rl_lo_live_off')}</p><ol class="steps"><li>${t('rl_lo_live_step1')}</li><li>${t('rl_lo_live_step2')}</li><li>${t('rl_lo_live_step3')}</li></ol>
-      <button class="btn sm" data-action="archLive">${t('arch_live')}</button></div>`;
+  const liveNote = liveNoteHtml('rl_lo_live_on', 'rl_lo_live_off', 'rl_lo_live_step3');
   return `<h3>${t('rl_loadout')}</h3>
     <p class="lo-sum"><span>${esc(comboText)}</span> <small>${t('rl_lo_counts', { swap: lo.counts.swap, farm: lo.counts.farm, up: ups.length })}</small></p>
     <table class="lo-table"><thead><tr><th></th><th>${t('rl_lo_worn')}</th><th>${t('rl_lo_pick')}</th></tr></thead><tbody>${rows}</tbody></table>
     ${upRows ? `<h4>${t('rl_lo_upgrade')}</h4>${upRows}<p class="hint small">${t('rl_lo_up_hint')}</p>${liveNote}` : ''}`;
+}
+
+/* État du suivi en direct (flux live de Reliquary Archiver, imports.js) : actif, ou comment l'activer.
+   Les clés de texte changent selon ce qui est suivi (pièces à monter, coffres d'Aléas et reliques). */
+function liveNoteHtml(onKey, offKey, step3Key) {
+  const liveOn = typeof live !== 'undefined' && live && live.state === 'connected';
+  return liveOn ? `<p class="lo-live on">● ${t(onKey)}</p>`
+    : `<div class="lo-live"><p>${t(offKey)}</p><ol class="steps"><li>${t('rl_lo_live_step1')}</li><li>${t('rl_lo_live_step2')}</li><li>${t(step3Key)}</li></ol>
+      <button class="btn sm" data-action="archLive">${t('arch_live')}</button></div>`;
+}
+
+/* ---- Aléas et reliques (Relic Recon) : sets à choisir, apport d'une Garantie, pièces tirées en direct ----
+   (relicEventPlan, pulledRelics, pullVerdicts : relics.js ; spec 2026-11-14-aleas-reliques) */
+/* Suivi des coffres, par perso, pour toute la session de l'app (pas remis à zéro à la fermeture de la fiche, pas
+   sauvegardé) : base = plus grand numéro de pièce connu au premier affichage, first = niveau de chaque nouvelle
+   pièce à sa première apparition (une pièce arrivée sous +15 a été farmée, pas tirée). */
+const eventTrack = new Map();   // charId -> { base, first: Map id -> niveau }
+function eventBlock(c, advice, prof) {
+  if (!relicEventActive(new Date()) || !S.relics.length) return '';
+  let tr = eventTrack.get(c.id);
+  if (!tr) {
+    const nums = S.relics.map(r => relicNum(r.id)).filter(n => !Number.isNaN(n));
+    tr = { base: nums.length ? Math.max(...nums) : 0, first: new Map() };
+    eventTrack.set(c.id, tr);
+  }
+  for (const r of S.relics) if (relicNum(r.id) > tr.base && !tr.first.has(r.id)) tr.first.set(r.id, r.level || 0);
+
+  const relics = trialRelics(c.id);
+  const value = x => relicScore(x, prof).useful;
+  const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
+  const relevant = Object.entries(PROFILES[prof].weights).filter(([, w]) => w >= RELIC_RELEVANT_WEIGHT).map(([id]) => id);
+  const current = advice ? loadoutFor(c, advice, prof, relics).lo.combo : null;
+  if (upgradeCache.size > UPGRADE_CACHE_MAX) upgradeCache.clear();
+  const plan = relicEventPlan(advice, relics, c.id, { ...opts, relevant, cache: upgradeCache, cacheTag: prof, currentCombo: current });
+  const pulls = pulledRelics(relics, tr.base, id => tr.first.get(id), plan.sets);
+  const verdicts = pullVerdicts(advice, relics, pulls, c.id, opts);
+
+  const sets = plan.sets;
+  const setsHtml = !advice || !sets.cavern ? `<p>${t('ev_no_advice')}</p>`
+    : `<p class="lo-sum"><span>${esc(t('ev_sets', { cavern: `${sets.cavern} (${sets.fourPiece ? 4 : 2})`, planar: sets.planar ? `${sets.planar} (2)` : '—' }))}</span></p>
+       <p class="hint small">${t('ev_custom')}${sets.fourPiece ? '' : ' ' + t('ev_two_plus_two')}${plan.differs ? ' ' + t('ev_differs') : ''}</p>`;
+  const pct = x => Math.round(x * 100);
+  const vClass = { sure: 'lo-go', likely: 'lo-go', gamble: 'ev-gamble', useless: 'lo-stop' };
+  const rows = SLOTS.map(slot => {
+    const s = plan.slots[slot];
+    const rival = s.rival ? loadoutPiece(s.rival, prof) : `<small class="hint">${t('rl_empty')}</small>`;
+    const odds = s.rival ? `<small>${t('ev_chance', { n: pct(s.chance) })}</small>
+      <div class="lo-bar" role="img" aria-label="${pct(s.chance)} %"><i style="width:${pct(s.chance)}%"></i></div>` : '';
+    return `<tr><th>${t('slot_' + slot)}</th><td>${rival}</td><td>${odds}<b class="lo-verdict ${vClass[s.verdict]}">${t('ev_v_' + s.verdict)}</b></td></tr>`;
+  }).join('');
+  const pClass = { better: 'lo-go', worse: 'lo-stop', bad_main: 'lo-stop' };
+  const pullRows = pulls.map(r => `<div class="lo-up"><span class="lo-st lo-upg">${t('slot_' + r.slot)}</span> ${loadoutPiece(r, prof)}
+      <b class="lo-verdict ${pClass[verdicts[r.id]]}">${t('ev_p_' + verdicts[r.id])}</b></div>`).join('');
+  return `<h3>${t('ev_title')}</h3>
+    ${setsHtml}
+    <table class="lo-table"><thead><tr><th></th><th>${t('ev_now')}</th><th>${t('ev_guarantee')}</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="lo-sum"><span>${t('ev_useful', { n: plan.useful })}</span></p>
+    <p class="hint small">${t('ev_main_hint')}</p>
+    <h4>${t('ev_pulls')}</h4>
+    ${pullRows || `<p class="hint small">${t('ev_pulls_empty')}</p>`}
+    ${liveNoteHtml('ev_live_on', 'ev_live_off', 'ev_live_step3')}`;
 }
 
 /* Bandeau sous le portrait : cône équipé et, s'il y a mieux dans l'inventaire, un lien vers l'onglet Cônes */

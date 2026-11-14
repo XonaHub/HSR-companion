@@ -854,6 +854,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .lo-verdict { display: block; font-size: 12px; margin-top: 3px; }
 .lo-go { color: var(--ok); }
 .lo-stop { color: var(--warn); }
+.ev-gamble { color: var(--gold); }
 .lo-up-moved { animation: lo-flash 1.6s ease-out; }
 @keyframes lo-flash { from { box-shadow: 0 0 0 1px var(--gold), 0 0 14px rgba(230, 192, 122, .45); } to { box-shadow: none; } }
 @media (prefers-reduced-motion: reduce) { .lo-up-moved { animation: none; border-color: var(--gold); } }
