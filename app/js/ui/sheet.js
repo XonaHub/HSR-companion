@@ -247,7 +247,6 @@ function sheetRelics(c) {
     </ul>
     <h4>${t('rl_main')}</h4><ul class="rl-check">${mains}</ul>
     ${loadoutBlock(c, advice, prof)}
-    ${eventBlock(c, advice, prof)}
     ${simulator(c, advice)}
     <h3>${t('rl_pieces')}</h3><div class="relic-grid">${pieces}</div>
     <p class="lc-src">${advice ? esc(t('rl_source', { date: prydwenDate(r) })) + (r.stale ? ' · ' + esc(t('cones_offline')) : '') : esc(t('rl_no_advice', { profile: t('prof_' + prof) }))}</p>`;
@@ -324,71 +323,12 @@ function loadoutBlock(c, advice, prof) {
 }
 
 /* État du suivi en direct (flux live de Reliquary Archiver, imports.js) : actif, ou comment l'activer.
-   Les clés de texte changent selon ce qui est suivi (pièces à monter, coffres d'Aléas et reliques). */
+   Les clés de texte permettent un autre texte pour un autre suivi. */
 function liveNoteHtml(onKey, offKey, step3Key) {
   const liveOn = typeof live !== 'undefined' && live && live.state === 'connected';
   return liveOn ? `<p class="lo-live on">● ${t(onKey)}</p>`
     : `<div class="lo-live"><p>${t(offKey)}</p><ol class="steps"><li>${t('rl_lo_live_step1')}</li><li>${t('rl_lo_live_step2')}</li><li>${t(step3Key)}</li></ol>
       <button class="btn sm" data-action="archLive">${t('arch_live')}</button></div>`;
-}
-
-/* ---- Aléas et reliques (Relic Recon) : sets à choisir, apport d'une Garantie, pièces tirées en direct ----
-   (relicEventPlan, pulledRelics, pullVerdicts : relics.js ; spec 2026-11-14-aleas-reliques) */
-/* Pièces tirées : d'après relicArrivals (imports.js), tenu à chaque import pour toute l'app ; rien avant le premier
-   import en direct de la session. */
-function eventBlock(c, advice, prof) {
-  if (!relicEventActive(new Date()) || !S.relics.length) return '';
-  const tr = relicArrivals;
-  const relics = trialRelics(c.id);
-  const arrived = sets => pulledRelics(relics, tr.first, sets);
-  // sans conseil Prydwen : sets déduits des pièces reçues pendant le suivi (ceux choisis dans l'événement)
-  // (pièces retenues dans la sauvegarde, sinon les plus récentes +15 verrouillées : utile après un redémarrage)
-  const known = knownEventPieces(relics, S.eventRelicIds);
-  const inferred = advice ? null : inferredAdvice(inferEventSets(known.length ? known : Object.values(guessEventPieces(relics, { cavern: null, planar: null }))));
-  const evAdvice = advice || inferred;
-  const value = x => relicScore(x, prof).useful;
-  const opts = { element: c.element, profileMain: PROFILES[prof].main, value, grade: x => gradeOf(relicScore(x, prof).ratio) };
-  const relevant = Object.entries(PROFILES[prof].weights).filter(([, w]) => w >= RELIC_RELEVANT_WEIGHT).map(([id]) => id);
-  const current = advice ? loadoutFor(c, advice, prof, relics).lo.combo : null;   // pas d'écart à signaler pour des sets déduits
-  if (upgradeCache.size > UPGRADE_CACHE_MAX) upgradeCache.clear();
-  const plan = relicEventPlan(evAdvice, relics, c.id, { ...opts, relevant, cache: upgradeCache, cacheTag: prof, currentCombo: current });
-  const pulls = arrived(plan.sets);
-  const verdicts = pullVerdicts(evAdvice, relics, pulls, c.id, opts);
-
-  const sets = plan.sets;
-  const setsHtml = !evAdvice || (!sets.cavern && !sets.planar) ? `<p>${t('ev_no_advice')}</p>`
-    : `<p class="lo-sum"><span>${esc(t(inferred ? 'ev_sets_inferred' : 'ev_sets', { cavern: sets.cavern ? `${sets.cavern} (${sets.fourPiece ? 4 : 2})` : '—', planar: sets.planar ? `${sets.planar} (2)` : '—' }))}</span></p>
-       <p class="hint small">${inferred ? t('ev_inferred_hint') : t('ev_custom')}${!sets.cavern || sets.fourPiece ? '' : ' ' + t('ev_two_plus_two')}${plan.differs ? ' ' + t('ev_differs') : ''}</p>`;
-  const pct = x => Math.round(x * 100);
-  const vClass = { sure: 'lo-go', likely: 'lo-go', gamble: 'ev-gamble', useless: 'lo-stop' };
-  const kept = eventSlotPieces(relics, S.eventRelicIds, plan.sets);   // pièce que l'événement garde pour chaque emplacement
-  const rows = SLOTS.map(slot => {
-    const s = plan.slots[slot];
-    const rival = s.rival ? loadoutPiece(s.rival, prof) : `<small class="hint">${t('rl_empty')}</small>`;
-    // écran « Remplacer » du jeu : la nouvelle pièce n'arrive qu'après le choix, on donne la valeur à battre
-    const ep = kept[slot], ur = ep && usefulRolls(ep, relevant);
-    const choice = ep ? `<small class="ev-choice">${esc(t(ur.total === 1 ? 'ev_choice_one' : 'ev_choice', { n: ur.total, parts: ur.parts.map(x => `${statLabel(x.stat)} ×${x.n}`).join(' · ') || '—' }))}</small>` : '';
-    const odds = s.rival ? `<small>${t('ev_chance', { n: pct(s.chance) })}</small>
-      <div class="lo-bar" role="img" aria-label="${pct(s.chance)} %"><i style="width:${pct(s.chance)}%"></i></div>` : '';
-    return `<tr><th>${t('slot_' + slot)}</th><td>${rival}${choice}</td><td>${odds}<b class="lo-verdict ${vClass[s.verdict]}">${t('ev_v_' + s.verdict)}</b></td></tr>`;
-  }).join('');
-  const pClass = { better: 'lo-go', worse: 'lo-stop', bad_main: 'lo-stop' };
-  const pullRow = r => `<div class="lo-up"><span class="lo-st lo-upg">${t('slot_' + r.slot)}</span> ${loadoutPiece(r, prof)}
-      <b class="lo-verdict ${pClass[verdicts[r.id]]}">${t('ev_p_' + verdicts[r.id])}</b></div>`;
-  // nettoyée au fil des coffres : dernière pièce, puis celles encore à équiper ; le reste replié
-  const groups = pullGroups(pulls, verdicts, c.id);
-  const pullRows = (groups.latest ? `<p class="hint small">${t('ev_pull_last')}</p>${pullRow(groups.latest)}` : '')
-    + (groups.todo.length ? `<p class="hint small">${t('ev_pull_todo')}</p>${groups.todo.map(pullRow).join('')}` : '')
-    + (groups.folded.length ? `<details class="ev-folded"><summary>${groups.folded.length === 1 ? t('ev_pull_folded_one') : t('ev_pull_folded', { n: groups.folded.length })}</summary>${groups.folded.map(pullRow).join('')}</details>` : '');
-  return `<h3>${t('ev_title')}</h3>
-    ${setsHtml}
-    <table class="lo-table"><thead><tr><th></th><th>${t('ev_now')}</th><th>${t('ev_guarantee')}</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="lo-sum"><span>${t('ev_useful', { n: plan.useful })}</span></p>
-    <p class="hint small">${t('ev_main_hint')}</p>
-    ${Object.keys(kept).length ? `<p class="hint small">${esc(t('ev_choice_hint', { stats: relevant.map(statLabel).join(', ') }))}</p>` : ''}
-    <h4>${t('ev_pulls')}</h4>
-    ${pullRows || `<p class="hint small">${t('ev_pulls_empty')}</p>`}
-    ${liveNoteHtml('ev_live_on', 'ev_live_off', 'ev_live_step3')}`;
 }
 
 /* Bandeau sous le portrait : cône équipé et, s'il y a mieux dans l'inventaire, un lien vers l'onglet Cônes */
@@ -496,7 +436,7 @@ Object.assign(actions, {
     save(); toast(t('plan_added'));
   },
   setEidolon: el => { S.owned[el.dataset.id].e = +el.value; save(); },
-  // perso possédé : dans owned ; sinon à part (profiles), pour juger ses reliques (fiche, Aléas et reliques)
+  // perso possédé : dans owned ; sinon à part (profiles), pour juger ses reliques dans sa fiche
   setProfile: el => {
     const id = el.dataset.id;
     if (S.owned[id]) S.owned[id].profile = el.value; else S.profiles[id] = el.value;

@@ -854,7 +854,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .lo-verdict { display: block; font-size: 12px; margin-top: 3px; }
 .lo-go { color: var(--ok); }
 .lo-stop { color: var(--warn); }
-.ev-gamble { color: var(--gold); }
 .lo-up-moved { animation: lo-flash 1.6s ease-out; }
 @keyframes lo-flash { from { box-shadow: 0 0 0 1px var(--gold), 0 0 14px rgba(230, 192, 122, .45); } to { box-shadow: none; } }
 @media (prefers-reduced-motion: reduce) { .lo-up-moved { animation: none; border-color: var(--gold); } }
@@ -873,6 +872,3 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .today-card-static > .btn { align-self: flex-start; }
 .rl-profile { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
 .rl-profile select { margin-left: 6px; }
-.ev-folded { margin-top: 8px; font-size: 13px; color: var(--muted); }
-.ev-folded summary { cursor: pointer; }
-.ev-choice { display: block; margin-top: 4px; color: var(--gold); }

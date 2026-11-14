@@ -142,18 +142,12 @@ function archiveSummary(s) {
     <p class="hint small">${t('arch_after')}</p>
   </div>`;
 }
-/* Pièces arrivées pendant la session de l'app, pour toute l'app (noteArrivals, relics.js) : pas sauvegardé */
-const relicArrivals = { base: null, first: new Map() };
 function importArchiveData(ex, isLive) {
   // fichier : une copie à chaque import ; flux live : une seule par connexion (il envoie des mises à jour en continu)
   if (!isLive) backup('archive');
   else if (live && !live.backedUp) { live.backedUp = true; backup('archive'); }
   S.lastArchive = { ...applyArchive(ex), live: !!isLive };
   S = sanitizeState(S, defaultState());   // fichier ou flux live : forme garantie (js/sanitize.js)
-  // pièces arrivées pendant la session (Aléas et reliques) : envoi complet ou simple mise à jour en direct
-  noteArrivals(relicArrivals, S.relics, !isLive ? 'file' : live && live.full ? 'full' : 'update');
-  if (live) live.full = false;
-  S.eventRelicIds = rememberEventIds(S.eventRelicIds, relicArrivals.first);   // gardées après un redémarrage
   save();
   if (!sheet) render();
   else if (sheet.tab === 'relics') renderSheet();   // suivi en direct des pièces « à monter » (fiche, onglet Reliques)
@@ -206,7 +200,7 @@ function onLiveEvent(msg) {
   if (!live) return;
   const d = live.data;
   switch (msg.event) {
-    case 'InitialScan': live.data = msg.data; live.full = true; break;
+    case 'InitialScan': live.data = msg.data; break;
     case 'UpdateRelics': if (d) upsertBy(d.relics, msg.data, '_uid'); break;
     case 'DeleteRelics': if (d) { const del = new Set(msg.data.map(String)); d.relics = d.relics.filter(r => !del.has(String(r._uid))); } break;
     case 'UpdateLightCones': if (d) upsertBy(d.light_cones || (d.light_cones = []), msg.data, '_uid'); break;

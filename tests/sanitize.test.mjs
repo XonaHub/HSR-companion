@@ -103,7 +103,6 @@ test('profiles_of_unowned_characters_are_cleaned', () => {
   assert.deepEqual(clean({}).profiles, {});
 });
 
-test('event_relic_ids_are_cleaned', () => {
-  assert.deepEqual(clean({ eventRelicIds: ['a7202', 'a7202', '<x>', 5, 'a7203'] }).eventRelicIds, ['a7202', 'x', '5', 'a7203']);
-  assert.deepEqual(clean({}).eventRelicIds, []);
+test('old_event_relic_ids_are_dropped', () => {
+  assert.equal('eventRelicIds' in clean({ eventRelicIds: ['a7202'] }), false);   // fonction Aléas et reliques retirée
 });

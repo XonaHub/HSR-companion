@@ -102,8 +102,7 @@ function sanitizeState(s, base) {
   out.plans = keep(s.plans, cleanPlan);
   out.myTeams = keep(s.myTeams, x => cleanTeam(x, o.teamTypes));
   out.owned = cleanOwned(s.owned);
-  // pièces de l'événement Aléas et reliques retenues (ids, sans doublon, les 300 dernières)
-  out.eventRelicIds = [...new Set(arrOf(s.eventRelicIds).map(safeId).filter(Boolean))].slice(-300);
+  delete out.eventRelicIds;   // pièces de l'événement Aléas et reliques (fonction retirée le 14/11)
   // profil de reliques choisi pour un perso non possédé (celui d'un perso possédé est dans owned[id].profile)
   out.profiles = {};
   for (const k in isObj(s.profiles) ? s.profiles : {}) if (safeId(k) && PROFILE_IDS.includes(s.profiles[k])) out.profiles[safeId(k)] = s.profiles[k];

@@ -277,12 +277,6 @@ const SUBSTATS = {
 };
 const SUBSTAT_IDS = Object.keys(SUBSTATS);
 /* Chance relative qu'une sous-stat soit tirée quand une pièce en gagne une nouvelle (poids connus du jeu) */
-/* Événement « Aléas et reliques » (Relic Recon, version 4.7) : fin en heure locale ; à changer pour une prochaine édition.
-   Pièces de l'événement : 4 sous-stats de départ (pièce reçue le 2026-11-14 : 4 + 5 améliorations ; lootbar.gg).
-   Sous-stat « pertinente » pour une ouverture Garantie : poids ≥ 0,5 dans le profil de reliques du perso. */
-const RELIC_EVENT = { end: '2026-12-22T23:59:59' };
-const RELIC_EVENT_START_SUBS = 4;
-const RELIC_RELEVANT_WEIGHT = 0.5;
 const SUBSTAT_WEIGHTS = { hp: 10, atk: 10, def: 10, hp_pct: 10, atk_pct: 10, def_pct: 10, spd: 4, cr: 6, cd: 6, ehr: 8, res: 8, be: 8 };
 
 const RELIC_SETS = [

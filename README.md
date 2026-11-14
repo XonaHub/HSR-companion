@@ -25,7 +25,7 @@ The app has 8 tabs:
 | Tab | What it's for |
 |---|---|
 | **Today** | Opens on every launch: the character you're farming and the time left, your available warps, the current banner, the next version, the next endgame mode to start a new cycle and the latest news. The "Relics to review" card lists the characters of the teams marked ★ in My teams (Teams tab) with what their relics need (pieces to change, to farm, to level); mark a team with a ★ to see its characters there. |
-| **Characters** | Every character in the game, the ones you own, and your light cones. Click a character to open their sheet: abilities, traces, eidolons, recommended light cones, relic review, materials. The Relics tab of the sheet suggests the best gear you can put together from your free relics (side by side with what the character wears), says what to farm when nothing fits, and gives the chances of low-level pieces turning out better once levelled. The ‹ › buttons (or the ← → keys) go to the previous or next character. The + button in the corner adds them to your characters (− removes them). |
+| **Characters** | Every character in the game, the ones you own, and your light cones. Click a character to open their sheet: abilities, traces, eidolons, recommended light cones, relic review, materials. The Relics tab of the sheet suggests the best gear you can put together from your free relics (side by side with what the character wears), says what to farm when nothing fits, and gives the chances of low-level pieces turning out better once levelled. The relic profile used to judge pieces (crit, HP, break…) can be changed at the top of that tab, even for a character you don't own. The ‹ › buttons (or the ← → keys) go to the previous or next character. The + button in the corner adds them to your characters (− removes them). |
 | **Farming** | Pick a character and a target level; the app tells you what you're missing (taking your inventory into account) and how many days of energy it takes. |
 | **Warps** | Your Stellar Jade, your passes and your pity. A simulator gives your odds of getting a character or a light cone with what you have. The estimate of your upcoming warps counts the jades from new endgame cycles, based on what you usually earn in each mode. You can import your warp history. |
 | **Relics** | All your relics, graded from S to D based on the character type (crit, break, healer…). Each character's review is on their sheet. |
@@ -43,10 +43,6 @@ You don't have to enter everything by hand:
 - **Following a relic upgrade live**: start Reliquary Archiver before the game, click "Live import" and wait for the "connected" state,
   then keep the character's sheet open on the Relics tab. Each time a piece listed under "To level" is upgraded in game,
   its chances update right away, with a verdict: worth continuing, or no longer worth it.
-- **During the Relic Recon event**: the Relics tab of a character's sheet (owned or not) says which sets to pick in the event,
-  how much a guaranteed opening would improve each slot, how many guarantees are useful for this character, and for each slot the value to beat on the game's "Replace" screen (count the useful substats and their green badges).
-  With the live import, each piece obtained from a chest (or swapped with "Replace with the new Relic") shows up there right away, with a verdict: equip it, or not better.
-  When Prydwen has no advice for the character yet, the sets are taken from the pieces obtained, and the relic profile can be chosen at the top of the Relics tab, even for a character you don't own.
 - **Your warp history**: open the warp history in the game, then click "Auto-detect" in the Warps tab.
   The app finds the link by itself in the game's cache.
 
@@ -122,7 +118,7 @@ L'app a 8 onglets :
 | Onglet | À quoi il sert |
 |---|---|
 | **Aujourd'hui** | Ouvert à chaque lancement : le perso en cours de farm et le temps restant, les vœux disponibles, la bannière en cours, la prochaine version, le prochain mode d'endgame qui change de cycle et la dernière actu. La carte « Reliques à revoir » liste les persos des équipes marquées ★ dans Mes équipes (onglet Équipes) avec ce que demandent leurs reliques (pièces à changer, à farmer, à monter) ; marquer une équipe d'une ★ pour y voir ses persos. |
-| **Personnages** | Tous les persos du jeu, les persos possédés et les cônes de lumière. Un clic sur un perso ouvre sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. L'onglet Reliques de la fiche propose le meilleur équipement possible avec les reliques libres (à côté de ce que porte le perso), indique quoi farmer quand rien ne convient, et donne les chances qu'une pièce encore basse devienne meilleure une fois montée. Les boutons ‹ › (ou les touches ← →) passent au perso précédent ou suivant. Le bouton + en coin l'ajoute aux persos possédés (− pour le retirer). |
+| **Personnages** | Tous les persos du jeu, les persos possédés et les cônes de lumière. Un clic sur un perso ouvre sa fiche : compétences, traces, eidolons, cônes conseillés, bilan des reliques, matériaux. L'onglet Reliques de la fiche propose le meilleur équipement possible avec les reliques libres (à côté de ce que porte le perso), indique quoi farmer quand rien ne convient, et donne les chances qu'une pièce encore basse devienne meilleure une fois montée. Le profil de reliques qui sert à juger les pièces (critique, PV, rupture…) se change en haut de cet onglet, même pour un perso non possédé. Les boutons ‹ › (ou les touches ← →) passent au perso précédent ou suivant. Le bouton + en coin l'ajoute aux persos possédés (− pour le retirer). |
 | **Farm** | Choix d'un perso et du niveau visé ; l'app indique ce qui manque (en tenant compte de l'inventaire) et combien de jours d'énergie il faut. |
 | **Vœux** | Jades, passes et pity. Un simulateur calcule les chances d'obtenir un perso ou un cône avec les tirages disponibles. L'estimation des vœux à venir compte les jades des nouveaux cycles d'endgame, selon ce qui est obtenu d'habitude dans chaque mode. L'historique des vœux peut être importé. |
 | **Reliques** | Toutes les reliques avec une note de S à D selon le type de perso (critique, rupture, soigneur…). Le bilan par perso est dans sa fiche. |
@@ -140,10 +136,6 @@ Inutile de tout saisir à la main :
 - **Suivre l'amélioration d'une relique en direct** : lancer Reliquary Archiver avant le jeu, cliquer sur « Import en direct » et attendre l'état « connecté »,
   puis garder la fiche du perso ouverte sur l'onglet Reliques. À chaque amélioration en jeu d'une pièce listée dans « À monter »,
   ses chances se mettent à jour aussitôt, avec un verdict : ça vaut le coup de continuer, ou plus le coup.
-- **Pendant l'événement Aléas et reliques (Relic Recon)** : l'onglet Reliques de la fiche d'un perso (possédé ou non) indique les sets à choisir
-  dans l'événement, ce qu'une ouverture Garantie apporterait à chaque emplacement combien de Garanties sont utiles pour ce perso et, pour chaque emplacement, la valeur à battre sur l'écran « Remplacer » du jeu (compter les sous-stats utiles et leurs pastilles vertes).
-  Avec l'import en direct, chaque pièce tirée d'un coffre (ou échangée avec « Remplacer par la nouvelle relique ») y apparaît aussitôt, avec un verdict : à équiper, ou pas meilleure.
-  Quand Prydwen n'a pas encore de conseil pour le perso, les sets sont déduits des pièces reçues, et le profil de reliques se choisit en haut de l'onglet Reliques, même pour un perso non possédé.
 - **L'historique des vœux** : ouvrir l'historique des vœux dans le jeu, puis cliquer sur « Détection auto » dans l'onglet Vœux.
   L'app retrouve le lien toute seule dans le cache du jeu.
 
