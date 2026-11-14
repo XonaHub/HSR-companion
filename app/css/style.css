@@ -875,3 +875,4 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .rl-profile select { margin-left: 6px; }
 .ev-folded { margin-top: 8px; font-size: 13px; color: var(--muted); }
 .ev-folded summary { cursor: pointer; }
+.ev-choice { display: block; margin-top: 4px; color: var(--gold); }

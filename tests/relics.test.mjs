@@ -558,3 +558,17 @@ test('pull_groups_latest_equipped_is_dropped', () => {
   const g = ev(`pullGroups([${JSON.stringify({ ...A(9, 'feet', PIO, 'spd', 1), owner: 'acheron' })}], { a9: 'better' }, 'acheron')`);
   assert.deepEqual(g, { latest: null, todo: [], folded: [] });
 });
+
+/* écran « Remplacer » du jeu : la nouvelle pièce n'arrive qu'après le choix ; l'app donne la valeur de la pièce de
+   l'événement en rolls utiles (1 par sous-stat + ses améliorations, les pastilles vertes du jeu) */
+test('useful_rolls_match_game_badges', () => {
+  // sphère gardée en jeu : DÉF 57 (pastille 2), Taux CRIT 2,9 %, DGT CRIT 17,4 % (pastille 2), Chances d'effet 7,7 % (pastille 1)
+  const sphere = { slot: 'sphere', main: 'hp_pct', level: 15, subs: [{ stat: 'def', val: 57.15 }, { stat: 'cr', val: 2.916 }, { stat: 'cd', val: 17.496 }, { stat: 'ehr', val: 7.776 }] };
+  const r = ev(`usefulRolls(${JSON.stringify(sphere)}, ['cr', 'cd', 'hp_pct', 'spd'])`);
+  assert.deepEqual(r, { total: 4, parts: [{ stat: 'cd', n: 3 }, { stat: 'cr', n: 1 }] });
+  assert.deepEqual(ev(`usefulRolls(${JSON.stringify(sphere)}, ['def', 'ehr'])`), { total: 5, parts: [{ stat: 'def', n: 3 }, { stat: 'ehr', n: 2 }] });
+});
+test('event_pieces_latest_per_slot', () => {
+  const pulls = [A(9, 'sphere', IZU, 'hp_pct', 1), A(8, 'head', PIO, 'hp', 1), A(7, 'sphere', IZU, 'dmg_fire', 1)];
+  assert.deepEqual(ev(`Object.fromEntries(Object.entries(eventPieces(${JSON.stringify(pulls)})).map(([k, v]) => [k, v.id]))`), { sphere: 'a9', head: 'a8' });
+});

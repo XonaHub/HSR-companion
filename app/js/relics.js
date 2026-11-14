@@ -401,6 +401,24 @@ function pullVerdicts(advice, relics, pulls, charId, opts) {
   return out;
 }
 
+/** Valeur d'une pièce en « rolls utiles », comme le jeu les montre sur l'écran « Remplacer » : pour chaque sous-stat
+    de `relevant`, 1 + ses améliorations (pastille verte), soit le plus petit nombre de rolls qui atteint sa valeur.
+    Renvoie { total, parts: [{ stat, n }] } (le plus de rolls d'abord). */
+function usefulRolls(relic, relevant) {
+  const parts = (relic.subs || []).filter(s => relevant.includes(s.stat) && SUBSTATS[s.stat] && s.val > 0)
+    .map(s => ({ stat: s.stat, n: Math.max(1, Math.ceil(s.val / SUBSTATS[s.stat].roll[2] - 1e-6)) }))
+    .sort((a, b) => b.n - a.n);
+  return { total: parts.reduce((t, p) => t + p.n, 0), parts };
+}
+
+/** Pièce que l'événement garde pour chaque emplacement : la plus récente des pièces tirées (`pulls` de la plus
+    récente à la plus ancienne). C'est elle que l'écran « Remplacer » propose de garder. */
+function eventPieces(pulls) {
+  const out = {};
+  for (const r of pulls || []) if (!out[r.slot]) out[r.slot] = r;
+  return out;
+}
+
 /** Tri des pièces tirées pour l'affichage (`pulls` de la plus récente à la plus ancienne) : une pièce déjà équipée
     sur ce perso est retirée (elle est dans l'équipement) ; la plus récente restante en entier (`latest`) ; parmi
     les autres, celles « à équiper » restent visibles (`todo`), les autres sont repliées (`folded`). */

@@ -359,12 +359,16 @@ function eventBlock(c, advice, prof) {
        <p class="hint small">${inferred ? t('ev_inferred_hint') : t('ev_custom')}${!sets.cavern || sets.fourPiece ? '' : ' ' + t('ev_two_plus_two')}${plan.differs ? ' ' + t('ev_differs') : ''}</p>`;
   const pct = x => Math.round(x * 100);
   const vClass = { sure: 'lo-go', likely: 'lo-go', gamble: 'ev-gamble', useless: 'lo-stop' };
+  const kept = eventPieces(pulls);   // pièce que l'événement garde pour chaque emplacement
   const rows = SLOTS.map(slot => {
     const s = plan.slots[slot];
     const rival = s.rival ? loadoutPiece(s.rival, prof) : `<small class="hint">${t('rl_empty')}</small>`;
+    // écran « Remplacer » du jeu : la nouvelle pièce n'arrive qu'après le choix, on donne la valeur à battre
+    const ep = kept[slot], ur = ep && usefulRolls(ep, relevant);
+    const choice = ep ? `<small class="ev-choice">${esc(t(ur.total === 1 ? 'ev_choice_one' : 'ev_choice', { n: ur.total, parts: ur.parts.map(x => `${statLabel(x.stat)} ×${x.n}`).join(' · ') || '—' }))}</small>` : '';
     const odds = s.rival ? `<small>${t('ev_chance', { n: pct(s.chance) })}</small>
       <div class="lo-bar" role="img" aria-label="${pct(s.chance)} %"><i style="width:${pct(s.chance)}%"></i></div>` : '';
-    return `<tr><th>${t('slot_' + slot)}</th><td>${rival}</td><td>${odds}<b class="lo-verdict ${vClass[s.verdict]}">${t('ev_v_' + s.verdict)}</b></td></tr>`;
+    return `<tr><th>${t('slot_' + slot)}</th><td>${rival}${choice}</td><td>${odds}<b class="lo-verdict ${vClass[s.verdict]}">${t('ev_v_' + s.verdict)}</b></td></tr>`;
   }).join('');
   const pClass = { better: 'lo-go', worse: 'lo-stop', bad_main: 'lo-stop' };
   const pullRow = r => `<div class="lo-up"><span class="lo-st lo-upg">${t('slot_' + r.slot)}</span> ${loadoutPiece(r, prof)}
@@ -379,6 +383,7 @@ function eventBlock(c, advice, prof) {
     <table class="lo-table"><thead><tr><th></th><th>${t('ev_now')}</th><th>${t('ev_guarantee')}</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="lo-sum"><span>${t('ev_useful', { n: plan.useful })}</span></p>
     <p class="hint small">${t('ev_main_hint')}</p>
+    ${Object.keys(kept).length ? `<p class="hint small">${esc(t('ev_choice_hint', { stats: relevant.map(statLabel).join(', ') }))}</p>` : ''}
     <h4>${t('ev_pulls')}</h4>
     ${pullRows || `<p class="hint small">${t('ev_pulls_empty')}</p>`}
     ${liveNoteHtml('ev_live_on', 'ev_live_off', 'ev_live_step3')}`;
