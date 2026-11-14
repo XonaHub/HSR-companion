@@ -409,3 +409,49 @@ test('relic_event_active_until_end', () => {
   assert.equal(ev(`relicEventActive(new Date('2026-12-22T20:00:00'))`), true);
   assert.equal(ev(`relicEventActive(new Date('2026-12-23T00:00:01'))`), false);
 });
+
+const EV_OPTS = LO_OPTS.replace(/}$/, `, relevant: ['cr', 'cd'], cacheTag: 't', currentCombo: null }`);
+const evPlan = (relics, advice = ADVICE) => ev(`relicEventPlan(${JSON.stringify(advice)}, ${JSON.stringify(relics)}, 'acheron', ${EV_OPTS})`);
+
+test('event_sets_first_four_piece_entry', () => {
+  assert.deepEqual(ev(`eventSets(${JSON.stringify(ADVICE)})`), { cavern: PIO, planar: IZU, fourPiece: true });
+});
+test('event_sets_two_plus_two', () => {
+  const a = { ...ADVICE, sets: [[{ name: SCH, pieces: 2 }, { name: MUS, pieces: 2 }]] };
+  assert.deepEqual(ev(`eventSets(${JSON.stringify(a)})`), { cavern: SCH, planar: IZU, fourPiece: false });
+});
+test('event_plan_empty_slot_is_sure_gain', () => {
+  const p = evPlan(planar(0.6));                 // aucune pièce de caverne
+  assert.equal(p.slots.body.rival, null);
+  assert.equal(p.slots.body.verdict, 'sure');
+});
+test('event_plan_strong_piece_is_useless', () => {
+  const p = evPlan([...cav(PIO, 50), ...planar(50)]);   // valeur q = 50 : imbattable
+  assert.equal(p.useful, 0);
+  assert.ok(Object.values(p.slots).every(s => s.verdict === 'useless'));
+});
+test('event_plan_free_piece_counts_as_rival', () => {
+  // pièce libre +15 du bon set : c'est la pièce à battre, l'emplacement n'est pas vide
+  const p = evPlan([R('body', PIO, 'cr', 50, null)]);
+  assert.equal(p.slots.body.rival.owner, null);
+  assert.equal(p.slots.body.verdict, 'useless');
+});
+test('event_plan_other_set_is_not_a_rival', () => {
+  const p = evPlan(cav(SCH, 50));                // set différent du set visé
+  assert.equal(p.slots.body.verdict, 'sure');
+});
+test('event_plan_without_advice', () => {
+  const p = evPlan(cav(SCH, 50), null);
+  assert.deepEqual(p.sets, { cavern: null, planar: null, fourPiece: false });
+  assert.equal(p.slots.body.verdict, 'useless');  // sans set imposé, la pièce SCH est la pièce à battre
+});
+test('event_plan_differs_from_current_combo', () => {
+  const same = ev(`relicEventPlan(${JSON.stringify(ADVICE)}, [], 'acheron', ${EV_OPTS.replace('currentCombo: null', `currentCombo: { cavern: [{ name: '${PIO}', pieces: 4 }], planar: '${IZU}' }`)}).differs`);
+  const other = ev(`relicEventPlan(${JSON.stringify(ADVICE)}, [], 'acheron', ${EV_OPTS.replace('currentCombo: null', `currentCombo: { cavern: [{ name: '${SCH}', pieces: 4 }], planar: '${IZU}' }`)}).differs`);
+  assert.equal(same, false);
+  assert.equal(other, true);
+});
+test('event_verdict_thresholds', () => {
+  assert.deepEqual(ev(`[eventVerdict(0, false), eventVerdict(0.5, true), eventVerdict(0.15, true), eventVerdict(0.149, true)]`),
+    ['sure', 'likely', 'gamble', 'useless']);
+});

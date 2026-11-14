@@ -253,7 +253,65 @@ function rollUpgrades(subs, steps, main, rng) {
   return subs;
 }
 
+const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup » (pièces à monter) ou « inutile » (Garantie)
+
 /* ---------- Aléas et reliques (Relic Recon, spec 2026-11-14-aleas-reliques) ---------- */
+const EVENT_LIKELY = 0.5;   // à partir de ces chances, une Garantie est un « gain probable »
+
+/** Sets à choisir dans l'événement : premier choix Prydwen avec un set de 4 pièces (sinon premier set de la
+    première entrée, sans bonus 4 pièces) et premier set planaire. Sans conseil : rien d'imposé. */
+function eventSets(advice) {
+  const entries = (advice && advice.sets) || [];
+  const four = entries.map(e => e.find(p => p.pieces >= 4)).find(Boolean);
+  const first = entries[0] && entries[0][0];
+  const planars = (advice && advice.planars) || [];
+  return { cavern: four ? four.name : first ? first.name : null, planar: planars[0] || null, fourPiece: !!four };
+}
+
+/** Conseil réduit aux sets de l'événement, pour relicLoadout ; null sans conseil */
+function eventAdvice(advice, sets) {
+  if (!advice) return null;
+  return { sets: sets.cavern ? [[{ name: sets.cavern, pieces: sets.fourPiece ? 4 : 2 }]] : [], flex: [],
+    planars: sets.planar ? [sets.planar] : [], main: advice.main };
+}
+
+/** Verdict d'une Garantie sur un emplacement */
+function eventVerdict(chance, hasRival) {
+  if (!hasRival) return 'sure';
+  return chance >= EVENT_LIKELY ? 'likely' : chance >= UPGRADE_STOP ? 'gamble' : 'useless';
+}
+
+/** Ce qu'apporterait une ouverture Garantie, emplacement par emplacement.
+    opts = options de relicLoadout + { relevant: ids de sous-stats pertinentes, cache?: Map, cacheTag, currentCombo }.
+    Renvoie { sets, differs, slots: { [slot]: { rival, main, chance, verdict } }, useful }. */
+function relicEventPlan(advice, relics, charId, opts) {
+  const sets = eventSets(advice);
+  const lo = relicLoadout(eventAdvice(advice, sets), relics, charId, opts);
+  const FIXED = { head: 'hp', hands: 'atk' };
+  const slots = {};
+  let useful = 0;
+  SLOTS.forEach((slot, i) => {
+    const sl = lo.slots[slot];
+    const main = FIXED[slot] || sl.target.mains[0] || 'atk_pct';
+    const rival = sl.pick || null;
+    const rivalValue = rival ? opts.value(rival) : RELIC_CORRECT_AT_15;
+    // graine propre à l'emplacement : les chances ne dépendent ni de l'ordre de calcul ni du cache
+    const key = opts.cache && JSON.stringify(['g', opts.cacheTag, slot, main, rivalValue, opts.relevant]);
+    let chance = key && opts.cache.has(key) ? opts.cache.get(key) : null;
+    if (chance === null) {
+      chance = guaranteedChance(main, rivalValue, opts.value, opts.relevant, seededRng(1 + i));
+      if (key) opts.cache.set(key, chance);
+    }
+    const verdict = eventVerdict(chance, !!rival);
+    if (verdict === 'sure' || verdict === 'likely') useful++;
+    slots[slot] = { rival, main, chance, verdict };
+  });
+  const cur = opts.currentCombo;
+  const need = sets.fourPiece ? 4 : 2;
+  const differs = !!(cur && sets.cavern && (!(cur.cavern || []).some(p => normName(p.name) === normName(sets.cavern) && p.pieces >= need)
+    || (sets.planar && normName(cur.planar || '') !== normName(sets.planar))));
+  return { sets, differs, slots, useful };
+}
 /** L'événement est-il en cours ? (RELIC_EVENT.end, heure locale) */
 function relicEventActive(now) {
   return now <= new Date(RELIC_EVENT.end);

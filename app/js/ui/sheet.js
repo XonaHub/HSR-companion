@@ -272,7 +272,6 @@ const UPGRADE_CACHE_MAX = 3000;   // au-delà (longue session en direct) : vidé
 /* Suivi en direct des pièces « à monter » de la fiche ouverte : niveau et chances au rendu précédent, par id.
    Une pièce déjà affichée reste suivie (keep) tant que la fiche de ce perso est ouverte, même sous le seuil ou à +15. */
 let upgradeTrack = null;   // { charId, seen: Map id -> { level, chance, from } } (from : chances avant la dernière amélioration)
-const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup »
 /** Équipement conseillé et pièces à monter d'un perso : partagé par la fiche et la carte « Reliques à revoir »
     d'Aujourd'hui (mêmes chiffres partout). keep : ids suivis en direct (fiche seulement). */
 function loadoutFor(c, advice, prof, relics, keep) {
