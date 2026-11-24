@@ -514,3 +514,14 @@ test('craftPlan_empty_slot_ranks_first', () => {
   assert.equal(p.steps[0].rival, null);
   assert.equal(p.steps.find(s => s.slot === 'rope').rival, 1);
 });
+
+test('relicSetName_translates_by_english_name', () => {
+  const sets = { passerbyofwanderingcloud: ['icon/relic/101.png', '101', 'Vagabond foulenuage'] };
+  const r = ev(`[relicSetName(${JSON.stringify(sets)}, 'Passerby of Wandering Cloud', 'fr'),
+    relicSetName(${JSON.stringify(sets)}, 'Passerby of Wandering Cloud', 'en'),
+    relicSetName(${JSON.stringify(sets)}, 'Unknown Set', 'fr'),
+    relicSetName({ a: ['i', '1'] }, 'A', 'fr'),
+    relicSetName(${JSON.stringify(sets)}, '', 'fr')]`);
+  // anglais : nom tel quel ; set inconnu ou données sans nom français : nom anglais
+  assert.deepEqual(r, ['Vagabond foulenuage', 'Passerby of Wandering Cloud', 'Unknown Set', 'A', '']);
+});

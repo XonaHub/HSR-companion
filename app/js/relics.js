@@ -262,6 +262,14 @@ function rollUpgrades(subs, steps, main, rng) {
 
 /** Les `n` sous-stats à cocher dans l'écran du jeu : poids le plus haut pour ce perso, hors stat principale et poids nul ;
     à égalité, la plus rare au hasard (SUBSTAT_WEIGHTS plus bas) d'abord */
+/** Nom d'un set à afficher : les pièces et les conseils Prydwen gardent le nom anglais (clé des données) ;
+    en français, le nom du jeu vient de GAME.relicSets[nom normalisé][2] (StarRailRes), sinon l'anglais. */
+function relicSetName(sets, name, lang) {
+  if (lang !== 'fr' || !name) return name;
+  const s = sets && sets[normName(name)];
+  return (s && s[2]) || name;
+}
+
 function craftSubsFor(main, weights, n) {
   return Object.keys(SUBSTAT_WEIGHTS).filter(s => s !== main && (weights[s] || 0) > 0)
     .sort((a, b) => weights[b] - weights[a] || SUBSTAT_WEIGHTS[a] - SUBSTAT_WEIGHTS[b]).slice(0, n);

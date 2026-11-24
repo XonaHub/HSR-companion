@@ -86,7 +86,7 @@ function relicCard(r, o = {}) {   // o.readOnly : sans bouton de suppression (fi
   const w = PROFILES[prof].weights;
   return `<div class="relic-card grade-${s.grade}">
     <div class="rc-head"><span class="slot-ico">${relicPieceImg(r) || esc(t('slot_' + r.slot).slice(0, 2).toUpperCase())}</span>
-      <div><b>${t('slot_' + r.slot)} +${r.level}</b><small>${esc(r.set || t('unknown_set'))}</small></div>
+      <div><b>${t('slot_' + r.slot)} +${r.level}</b><small>${esc(setName(r.set) || t('unknown_set'))}</small></div>
       <span class="grade">${s.grade}</span></div>
     <div class="rc-main ${s.mainOk ? '' : 'bad'}">${statIcon(r.main)}${statLabel(r.main)} ${s.mainOk ? '' : `<small>${t('main_bad')}</small>`}</div>
     <ul class="rc-subs">${r.subs.filter(x => x.stat).map(x => `<li class="${(w[x.stat] || 0) >= 0.75 ? 'good' : (w[x.stat] || 0) > 0 ? 'mid' : 'dead'}">${statIcon(x.stat)}<span>${statLabel(x.stat)}</span><b>${fmtStat(x.stat, x.val)}</b></li>`).join('')}</ul>
@@ -97,7 +97,7 @@ function relicCard(r, o = {}) {   // o.readOnly : sans bouton de suppression (fi
 }
 /* Icône de la pièce : icon/relic/{set}_{index} (tête/sphère 0, mains/corde 1, torse 2, pieds 3) */
 const PIECE_INDEX = { head: 0, hands: 1, body: 2, feet: 3, sphere: 0, rope: 1 };
-const relicPieceImg = r => { const s = G.relicSets[norm(r.set)]; return s ? img(`icon/relic/${s[1]}_${PIECE_INDEX[r.slot]}.png`, 'set-ico', r.set) : ''; };
+const relicPieceImg = r => { const s = G.relicSets[norm(r.set)]; return s ? img(`icon/relic/${s[1]}_${PIECE_INDEX[r.slot]}.png`, 'set-ico', setName(r.set)) : ''; };
 const statIcon = s => G.stats && G.stats[s] ? img(G.stats[s], 'stat-ico') : '';
 
 function updateRelicPreview() {

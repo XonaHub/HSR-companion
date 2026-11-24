@@ -16,7 +16,7 @@ const SRR_FILES = [
   ...['characters', 'items', 'character_promotions', 'character_skill_trees', 'elements', 'paths',
     'relic_sets', 'properties', 'character_skills', 'character_ranks', 'light_cones', 'light_cone_promotions',
     'relic_main_affixes', 'light_cone_ranks'].map(n => ['en', n]),
-  ...['characters', 'items', 'character_skills', 'character_ranks', 'character_skill_trees', 'properties', 'light_cones'].map(n => ['fr', n]),
+  ...['characters', 'items', 'character_skills', 'character_ranks', 'character_skill_trees', 'properties', 'light_cones', 'relic_sets'].map(n => ['fr', n]),
 ];
 
 const POSTS = [

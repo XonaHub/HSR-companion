@@ -181,7 +181,7 @@ function simulator(c, advice) {
   const picks = SLOTS.map(slot => {
     const list = S.relics.filter(r => r.slot === slot).sort((a, b) => score(b) - score(a)).slice(0, 40);
     const eq = S.relics.find(r => r.owner === c.id && r.slot === slot);
-    const label = r => `${r.set || t('unknown_set')} · ${statLabel(r.main)} +${r.level} · ${gradeOf(score(r))}${r.owner && r.owner !== c.id ? ' · ' + t('cone_carried', { name: charName(charById(r.owner)) }) : r.owner === c.id ? ' · ' + t('cone_tag_equipped') : ''}`;
+    const label = r => `${setName(r.set) || t('unknown_set')} · ${statLabel(r.main)} +${r.level} · ${gradeOf(score(r))}${r.owner && r.owner !== c.id ? ' · ' + t('cone_carried', { name: charName(charById(r.owner)) }) : r.owner === c.id ? ' · ' + t('cone_tag_equipped') : ''}`;
     return `<label class="field">${t('slot_' + slot)}<select data-action="trySlot" data-slot="${slot}">
       ${opt('', eq ? label(eq) : t('rl_empty'), tr[slot] || '')}
       ${list.filter(r => r !== eq).map(r => opt(r.id, label(r), tr[slot] || '')).join('')}</select></label>`;
@@ -191,7 +191,7 @@ function simulator(c, advice) {
     const r = S.relics.find(x => x.id === build[slot]);
     if (!r) return '';
     const where = r.owner === c.id ? t('cone_tag_equipped') : r.owner ? t('sim_now_on', { name: charName(charById(r.owner)) }) : t('cone_free');
-    return `<li class="${r.owner === c.id ? 'ok' : ''}"><span>${t('slot_' + slot)}</span><b>${esc(r.set)} · ${statLabel(r.main)} +${r.level}</b><small>${esc(where)}</small></li>`;
+    return `<li class="${r.owner === c.id ? 'ok' : ''}"><span>${t('slot_' + slot)}</span><b>${esc(setName(r.set))} · ${statLabel(r.main)} +${r.level}</b><small>${esc(where)}</small></li>`;
   }).join('') : '';
   return `<h3>${t('sim_title')}</h3>
     ${warn.map(w => `<p class="warn-txt small">${esc(w)}</p>`).join('')}
@@ -225,9 +225,9 @@ function sheetRelics(c) {
   const score = x => relicScore(x, prof).ratio;
   const rev = relicReview(advice, trialRelics(c.id), c.id, { element: c.element, profileMain: PROFILES[prof].main, score, grade: x => gradeOf(score(x)) });
   const line = (ok, label, text) => `<li class="${ok === true ? 'ok' : ok === false ? 'bad' : ''}"><span>${label}</span><b>${esc(text)}</b></li>`;
-  const setText = st => st.kind === 'rec' ? t('rl_set_rec', { rank: st.rank, set: st.target.join(' + ') })
-    : st.kind === 'mix' ? t('rl_set_mix', { a: st.target[0], b: st.target[1] })
-    : st.kind === 'unknown' ? t('rl_set_unknown') : t('rl_set_' + st.kind, { set: st.target.join(' + ') });
+  const setText = st => st.kind === 'rec' ? t('rl_set_rec', { rank: st.rank, set: st.target.map(setName).join(' + ') })
+    : st.kind === 'mix' ? t('rl_set_mix', { a: setName(st.target[0]), b: setName(st.target[1]) })
+    : st.kind === 'unknown' ? t('rl_set_unknown') : t('rl_set_' + st.kind, { set: st.target.map(setName).join(' + ') });
   const setOk = st => st.kind === 'rec' || st.kind === 'mix' ? true : st.kind === 'unknown' ? null : false;
   const mains = rev.mains.map(m => !m.relic ? line(false, '', t('rl_main_empty', { slot: t('slot_' + m.slot) }))
     : m.ok ? line(true, '', t('rl_main_ok', { slot: t('slot_' + m.slot), stat: statLabel(m.relic.main) }))
@@ -265,7 +265,7 @@ function topSubs(relic, prof, n = 2) {
 function loadoutPiece(r, prof) {
   const top = topSubs(r, prof);
   const subs = (r.subs || []).filter(s => s.stat && s.val > 0 && SUBSTATS[s.stat]);
-  return `<details class="lo-piece"><summary>${esc(r.set || t('unknown_set'))} · ${esc(statLabel(r.main))} · +${r.level}
+  return `<details class="lo-piece"><summary>${esc(setName(r.set) || t('unknown_set'))} · ${esc(statLabel(r.main))} · +${r.level}
       ${top.map(s => `· <b>${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}</b>`).join(' ')}</summary>
     <small>${subs.map(s => `${esc(statLabel(s.stat))} ${esc(fmtStat(s.stat, s.val))}`).join(' · ') || esc(t('rl_lo_no_subs'))}</small></details>`;
 }
@@ -290,8 +290,8 @@ function loadoutBlock(c, advice, prof) {
   const seen = upgradeTrack.seen;
   const { lo, ups } = loadoutFor(c, advice, prof, trialRelics(c.id), new Set(seen.keys()));
   const comboText = !advice ? t('rl_lo_no_sets')
-    : [lo.combo.cavern.map(p => `${p.name} (${p.pieces})`).join(' + '), lo.combo.planar ? `${lo.combo.planar} (2)` : ''].filter(Boolean).join(' + ');
-  const farmText = f => t('rl_lo_farm', { what: [f.set, f.mains.map(statLabel).join(' / ')].filter(Boolean).join(' · ') || t('rl_lo_farm_any') });
+    : [lo.combo.cavern.map(p => `${setName(p.name)} (${p.pieces})`).join(' + '), lo.combo.planar ? `${setName(lo.combo.planar)} (2)` : ''].filter(Boolean).join(' + ');
+  const farmText = f => t('rl_lo_farm', { what: [setName(f.set), f.mains.map(statLabel).join(' / ')].filter(Boolean).join(' · ') || t('rl_lo_farm_any') });
   const rows = SLOTS.map(slot => {
     const s = lo.slots[slot], gone = s.state === 'swap' || s.state === 'swap_farm';
     const worn = s.worn ? `<span class="${gone ? 'lo-old' : ''}">${loadoutPiece(s.worn, prof)}</span>` : `<small class="hint">${t('rl_empty')}</small>`;
@@ -337,7 +337,7 @@ function craftBlock(c, advice, prof) {
   if (!advice) return head + `<p class="hint small">${t('rl_craft_no_sets')}</p>`;
   if (!plan.steps.length) return head + `<p class="hint small">${t(plan.short === 'remains' ? 'rl_craft_short_remains' : 'rl_craft_none')}</p>`;
   const pct = x => Math.round(x * 100);
-  const rows = plan.steps.map((s, i) => `<div class="lo-up"><span class="lo-st lo-upg">${i + 1}. ${t('slot_' + s.slot)} · ${esc(s.set)}</span>
+  const rows = plan.steps.map((s, i) => `<div class="lo-up"><span class="lo-st lo-upg">${i + 1}. ${t('slot_' + s.slot)} · ${esc(setName(s.set))}</span>
       <b>${esc(s.option === 'simple' ? t('rl_craft_simple') : t('rl_craft_resin', { n: s.resin }))}</b>
       ${s.main ? `<small>${esc(t('rl_craft_main', { stat: statLabel(s.main) }))}${s.subs.length ? ' · ' + esc(t('rl_craft_subs', { subs: s.subs.map(statLabel).join(', ') })) : ''}</small>` : ''}
       <small>${s.rival != null ? t('rl_craft_chance', { n: pct(s.chance) })

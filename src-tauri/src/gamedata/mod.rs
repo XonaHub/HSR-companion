@@ -20,7 +20,7 @@ pub const SOURCE_FILES: &[(&str, &str)] = &[
     ("en", "light_cones"), ("en", "light_cone_promotions"), ("fr", "light_cones"),
     ("en", "relic_main_affixes"), ("en", "light_cone_ranks"),
     ("fr", "characters"), ("fr", "items"), ("fr", "character_skills"), ("fr", "character_ranks"),
-    ("fr", "character_skill_trees"), ("fr", "properties"),
+    ("fr", "character_skill_trees"), ("fr", "properties"), ("fr", "relic_sets"),
 ];
 
 /// Images : chargées depuis le CDN, jamais téléchargées par l'app.
@@ -167,6 +167,7 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
     let elements = get("en", "elements")?;
     let paths = get("en", "paths")?;
     let sets_en = get("en", "relic_sets")?;
+    let sets_fr = get("fr", "relic_sets")?;
     let props = get("en", "properties")?;
     let cones_en = get("en", "light_cones")?;
     let cones_fr = get("fr", "light_cones")?;
@@ -307,7 +308,9 @@ pub fn build(get: impl Fn(&str, &str) -> Result<Value, String>) -> Result<GameBu
     let mut relic_set_names = Map::new();
     let mut relic_set_bonus = Map::new();
     for v in obj(&sets_en, "relic_sets")?.values() {
-        relic_sets.insert(norm(v["name"].as_str().unwrap_or_default()), json!([v["icon"], v["id"]]));
+        // [icône, id, nom français] (nom anglais si la traduction manque)
+        let fr = sets_fr.get(id_str(&v["id"])).map(|f| f["name"].clone()).unwrap_or_else(|| v["name"].clone());
+        relic_sets.insert(norm(v["name"].as_str().unwrap_or_default()), json!([v["icon"], v["id"], fr]));
         relic_set_names.insert(id_str(&v["id"]), v["name"].clone());
         // [bonus 2 pièces, bonus 4 pièces] : bonus fixes seulement
         let props = arr(v.get("properties"));
@@ -505,6 +508,15 @@ pub(crate) mod tests {
         let sha = js_value("assets.js", "const GAME_SHA = ");
         let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("app").join("js");
         write_js(&b, sha.as_str().unwrap(), &out).unwrap();
+    }
+
+    #[test]
+    fn build_includes_french_set_names() {
+        let b = build(fixture_getter()).unwrap();
+        // relicSets[nom anglais normalisé] = [icône, id, nom français]
+        let s = &b.game["relicSets"][norm("Passerby of Wandering Cloud")];
+        assert_eq!(s[1], "101");
+        assert_eq!(s[2], "Vagabond foulenuage");
     }
 
     #[test]

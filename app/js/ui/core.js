@@ -256,6 +256,7 @@ const img = (p, cls, alt = '') => p ? `<img class="${cls}" src="${esc(imgUrl(p))
 // image introuvable : retirée (écouteur global plutôt qu'un onerror en ligne, que la CSP interdit)
 document.addEventListener('error', e => { if (e.target instanceof HTMLImageElement) e.target.remove(); }, true);
 const itemName = id => G.items[id] ? G.items[id][S.lang === 'fr' ? 1 : 0] : '';
+const setName = name => relicSetName(G.relicSets, name, S.lang);   // nom anglais (clé) → nom dans la langue de l'app
 const itemImg = id => G.items[id] ? img(G.items[id][2], 'item-ico', itemName(id)) : '';
 const elIcon = e => img(G.elements[e], 'ico');
 const pathIcon = p => img(G.paths[p], 'ico path-ico');
