@@ -382,3 +382,18 @@ test('loadout_worn_low_level_piece_is_not_kept_as_good', () => {
   assert.equal(lo.slots.head.state, 'farm');
   assert.equal(lo.slots.body.state, 'keep');
 });
+
+/* ---------- Synthèse de reliques (spec 2026-11-24-reliques-craft) ---------- */
+test('craft_tables_are_consistent', () => {
+  const t = ev(`({ ch: MAIN_STAT_CHANCES, ms: MAIN_STATS, four: CRAFT_SUB_COUNT_4, opt: CRAFT_OPTIONS, rem: CRAFT_REMAINS,
+    ids: [ITEM_RELIC_REMAINS, ITEM_SELF_MODELING_RESIN] })`);
+  for (const slot of ['body', 'feet', 'sphere', 'rope']) {
+    assert.deepEqual(Object.keys(t.ch[slot]).sort(), [...t.ms[slot]].sort(), slot);
+    for (const p of Object.values(t.ch[slot])) assert.ok(p > 0, slot);
+  }
+  assert.ok(t.four >= 0 && t.four <= 1);
+  assert.deepEqual([t.opt.simple.resin, t.opt.r1.resin, t.opt.r2.resin, t.opt.r5.resin], [0, 1, 2, 5]);
+  assert.deepEqual([t.opt.r1.subs, t.opt.r2.subs, t.opt.r5.subs], [0, 1, 2]);
+  assert.equal(t.rem, 100);
+  assert.deepEqual(t.ids, ['235', '236']);
+});

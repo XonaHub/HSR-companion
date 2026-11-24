@@ -279,6 +279,27 @@ const SUBSTAT_IDS = Object.keys(SUBSTATS);
 /* Chance relative qu'une sous-stat soit tirée quand une pièce en gagne une nouvelle (poids connus du jeu) */
 const SUBSTAT_WEIGHTS = { hp: 10, atk: 10, def: 10, hp_pct: 10, atk_pct: 10, def_pct: 10, spd: 4, cr: 6, cd: 6, ehr: 8, res: 8, be: 8 };
 
+/* ---------- Synthèse de reliques (Relic Remains, Self-Modeling Resin) ----------
+   Chances relatives de chaque stat principale tirée au hasard, en % (relevés de la communauté) :
+   https://honkai-star-rail.fandom.com/wiki/Relic/Stats, relevé le 24/11/2026. La corde fait 98 au total (arrondis) :
+   les tirages divisent par la somme. Tête et mains : stat principale fixe (MAIN_STATS). */
+const MAIN_STAT_CHANCES = {
+  body: { hp_pct: 20, atk_pct: 20, def_pct: 20, cr: 10, cd: 10, heal: 10, ehr: 10 },
+  feet: { hp_pct: 28, atk_pct: 30, def_pct: 30, spd: 12 },
+  sphere: { hp_pct: 12, atk_pct: 13, def_pct: 12, ...Object.fromEntries(ELEMENTS.map(e => ['dmg_' + e, 9])) },
+  rope: { hp_pct: 26, atk_pct: 27, def_pct: 24, be: 16, err: 5 }
+};
+/* Part des pièces 5★ qui démarrent avec 4 sous-stats (sinon 3). À CONFIRMER : aucune source publique trouvée pour les
+   pièces issues d'une synthèse ; ~18 % observés sur des pièces +0 farmées (24/11/2026). */
+const CRAFT_SUB_COUNT_4 = 0.2;
+/* Options d'une synthèse : résine dépensée et sous-stats choisies. `simple` = Relic Remains seules, stat principale au
+   hasard ; la résine choisit la stat principale (+1 sous-stat : 2 résines, +2 : 5). Résine impossible sur tête et mains.
+   Source : écran « Synthèse personnalisée » du jeu et https://honkai-star-rail.fandom.com/wiki/Self-Modeling_Resin */
+const CRAFT_OPTIONS = { simple: { resin: 0, subs: 0 }, r1: { resin: 1, subs: 0 }, r2: { resin: 2, subs: 1 }, r5: { resin: 5, subs: 2 } };
+const CRAFT_REMAINS = 100;   // Relic Remains par synthèse (+ 1 000 crédits, non comptés)
+/* ids d'objets : https://raw.githubusercontent.com/Mar-7th/StarRailRes/master/index_new/en/items.json (24/11/2026) */
+const ITEM_RELIC_REMAINS = '235', ITEM_SELF_MODELING_RESIN = '236';
+
 const RELIC_SETS = [
   'Passerby of Wandering Cloud', 'Musketeer of Wild Wheat', 'Knight of Purity Palace', 'Hunter of Glacial Forest',
   'Champion of Streetwise Boxing', 'Guard of Wuthering Snow', 'Firesmith of Lava-Forging', 'Genius of Brilliant Stars',
