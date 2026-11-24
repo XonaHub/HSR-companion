@@ -397,3 +397,31 @@ test('craft_tables_are_consistent', () => {
   assert.equal(t.rem, 100);
   assert.deepEqual(t.ids, ['235', '236']);
 });
+
+test('craftSubsFor_skips_main_and_prefers_rarer', () => {
+  assert.deepEqual(ev(`craftSubsFor('cd', { cr: 1, cd: 1, atk_pct: 0.75, spd: 0.75 }, 2)`), ['cr', 'spd']);
+  assert.deepEqual(ev(`craftSubsFor('spd', { spd: 1 }, 2)`), []);
+  assert.deepEqual(ev(`craftSubsFor('hp', { cr: 1, cd: 1 }, 0)`), []);
+});
+
+test('craftRelic_keeps_choices', () => {
+  const pieces = ev(`(() => { const rng = seededRng(7); return Array.from({ length: 500 }, () => craftRelic('body', 'X', 'cd', ['cr', 'spd'], rng)); })()`);
+  for (const p of pieces) {
+    assert.equal(p.main, 'cd'); assert.equal(p.level, 0); assert.equal(p.set, 'X'); assert.equal(p.slot, 'body');
+    const stats = p.subs.map(s => s.stat);
+    assert.ok(stats.includes('cr') && stats.includes('spd'));
+    assert.ok(!stats.includes('cd'));
+    assert.equal(new Set(stats).size, stats.length);
+    assert.ok(stats.length === 3 || stats.length === 4);
+    for (const s of p.subs) assert.ok(s.val > 0);
+  }
+  assert.ok(pieces.some(p => p.subs.length === 4) && pieces.some(p => p.subs.length === 3));
+});
+
+test('craftRelic_draws_main_by_chance', () => {
+  const r = ev(`(() => { const rng = seededRng(7); let err = 0; for (let i = 0; i < 4000; i++) if (craftRelic('rope', 'X', null, [], rng).main === 'err') err++;
+    const tot = Object.values(MAIN_STAT_CHANCES.rope).reduce((a, b) => a + b, 0);
+    return { got: err / 4000, want: MAIN_STAT_CHANCES.rope.err / tot, head: craftRelic('head', 'X', null, [], rng).main }; })()`);
+  assert.ok(Math.abs(r.got - r.want) < 0.03, JSON.stringify(r));
+  assert.equal(r.head, 'hp');
+});

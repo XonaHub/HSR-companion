@@ -258,6 +258,34 @@ function rollUpgrades(subs, steps, main, rng) {
   return subs;
 }
 
+/* ---------- Synthèse de reliques (spec 2026-11-24-reliques-craft) ---------- */
+
+/** Les `n` sous-stats à cocher dans l'écran du jeu : poids le plus haut pour ce perso, hors stat principale et poids nul ;
+    à égalité, la plus rare au hasard (SUBSTAT_WEIGHTS plus bas) d'abord */
+function craftSubsFor(main, weights, n) {
+  return Object.keys(SUBSTAT_WEIGHTS).filter(s => s !== main && (weights[s] || 0) > 0)
+    .sort((a, b) => weights[b] - weights[a] || SUBSTAT_WEIGHTS[a] - SUBSTAT_WEIGHTS[b]).slice(0, n);
+}
+
+/** Pièce +0 issue d'une synthèse. main null : tirée selon MAIN_STAT_CHANCES (tête, mains : fixe). Sous-stats de départ :
+    les `chosen`, complétées au hasard jusqu'à 3, ou 4 avec la probabilité CRAFT_SUB_COUNT_4. */
+function craftRelic(slot, set, main, chosen, rng) {
+  if (main == null) {
+    const ch = MAIN_STAT_CHANCES[slot];
+    if (!ch) main = MAIN_STATS[slot][0];
+    else {
+      const ids = Object.keys(ch);
+      let r = rng() * ids.reduce((s, k) => s + ch[k], 0);
+      main = ids[ids.length - 1];
+      for (const k of ids) { r -= ch[k]; if (r < 0) { main = k; break; } }
+    }
+  }
+  const subs = chosen.map(s => ({ stat: s, val: rngPick(SUBSTATS[s].roll, rng) }));
+  const count = rng() < CRAFT_SUB_COUNT_4 ? 4 : 3;
+  while (subs.length < count) subs.push(drawSubstat(subs, main, rng));
+  return { slot, set, main, level: 0, subs };
+}
+
 const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup » (pièces à monter)
 
 /** Pièces libres encore basses qui pourraient battre la pièce conseillée de leur emplacement (ou, sans pièce
