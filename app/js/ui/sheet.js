@@ -247,6 +247,7 @@ function sheetRelics(c) {
     </ul>
     <h4>${t('rl_main')}</h4><ul class="rl-check">${mains}</ul>
     ${loadoutBlock(c, advice, prof)}
+    ${craftBlock(c, advice, prof)}
     ${simulator(c, advice)}
     <h3>${t('rl_pieces')}</h3><div class="relic-grid">${pieces}</div>
     <p class="lc-src">${advice ? esc(t('rl_source', { date: prydwenDate(r) })) + (r.stale ? ' · ' + esc(t('cones_offline')) : '') : esc(t('rl_no_advice', { profile: t('prof_' + prof) }))}</p>`;
@@ -320,6 +321,29 @@ function loadoutBlock(c, advice, prof) {
     <p class="lo-sum"><span>${esc(comboText)}</span> <small>${t('rl_lo_counts', { swap: lo.counts.swap, farm: lo.counts.farm, up: ups.length })}</small></p>
     <table class="lo-table"><thead><tr><th></th><th>${t('rl_lo_worn')}</th><th>${t('rl_lo_pick')}</th></tr></thead><tbody>${rows}</tbody></table>
     ${upRows ? `<h4>${t('rl_lo_upgrade')}</h4>${upRows}<p class="hint small">${t('rl_lo_up_hint')}</p>${liveNote}` : ''}`;
+}
+
+/* ---- À crafter (craftPlan : relics.js) : synthèses conseillées, dans l'ordre, avec la résine en stock ---- */
+const craftCache = new Map();   // craftPlan : gains déjà calculés (emplacement, cible, option, pièce à battre)
+function craftBlock(c, advice, prof) {
+  const { lo } = loadoutFor(c, advice, prof, trialRelics(c.id), new Set());
+  if (craftCache.size > UPGRADE_CACHE_MAX) craftCache.clear();
+  const inv = S.inventory;
+  const resin = inv ? inv[ITEM_SELF_MODELING_RESIN] || 0 : null, remains = inv ? inv[ITEM_RELIC_REMAINS] || 0 : null;
+  const value = x => relicScore(x, prof).useful;
+  const plan = craftPlan(lo, { value, weights: PROFILES[prof].weights, resin, remains, cache: craftCache });
+  const head = `<h3>${t('rl_craft')}</h3><p class="lo-sum"><small>${plan.stock
+    ? t('rl_craft_stock', { resin, crafts: Math.floor(remains / CRAFT_REMAINS) }) : t('rl_craft_no_inv')}</small></p>`;
+  if (!advice) return head + `<p class="hint small">${t('rl_craft_no_sets')}</p>`;
+  if (!plan.steps.length) return head + `<p class="hint small">${t(plan.short === 'remains' ? 'rl_craft_short_remains' : 'rl_craft_none')}</p>`;
+  const pct = x => Math.round(x * 100);
+  const rows = plan.steps.map((s, i) => `<div class="lo-up"><span class="lo-st lo-upg">${i + 1}. ${t('slot_' + s.slot)} · ${esc(s.set)}</span>
+      <b>${esc(s.option === 'simple' ? t('rl_craft_simple') : t('rl_craft_resin', { n: s.resin }))}</b>
+      ${s.main ? `<small>${esc(t('rl_craft_main', { stat: statLabel(s.main) }))}${s.subs.length ? ' · ' + esc(t('rl_craft_subs', { subs: s.subs.map(statLabel).join(', ') })) : ''}</small>` : ''}
+      <small>${s.rival != null ? t('rl_craft_chance', { n: pct(s.chance) })
+        : t('rl_craft_empty') + (s.option === 'simple' && !CRAFT_FIXED_MAIN.includes(s.slot) ? ' ' + t('rl_craft_chance_main', { n: pct(s.chance) }) : '')}</small>
+      <div class="lo-bar" role="img" aria-label="${pct(s.chance)} %"><i style="width:${pct(s.chance)}%"></i></div></div>`).join('');
+  return head + rows + `<p class="hint small">${t('rl_craft_hint')}</p>`;
 }
 
 /* État du suivi en direct (flux live de Reliquary Archiver, imports.js) : actif, ou comment l'activer.

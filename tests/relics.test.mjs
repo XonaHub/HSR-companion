@@ -507,3 +507,10 @@ test('craftPlan_sorted_by_gain', () => {
   const g = craftPlanOf(craftLoadout({ sphere: { q: null } }), 9, 10000).steps.map(s => s.gain);
   assert.deepEqual(g, [...g].sort((a, b) => b - a));
 });
+
+test('craftPlan_empty_slot_ranks_first', () => {
+  const p = craftPlanOf(craftLoadout({ sphere: { q: null } }), 9, 10000);
+  assert.equal(p.steps[0].slot, 'sphere');
+  assert.equal(p.steps[0].rival, null);
+  assert.equal(p.steps.find(s => s.slot === 'rope').rival, 1);
+});
