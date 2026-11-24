@@ -286,6 +286,27 @@ function craftRelic(slot, set, main, chosen, rng) {
   return { slot, set, main, level: 0, subs };
 }
 
+const CRAFT_FIXED_MAIN = ['head', 'hands'];   // stat principale fixe : la résine ne s'y utilise pas
+
+/** Gain moyen d'une synthèse face à la pièce actuelle (valeur `rival`) : `n` pièces tirées puis montées à +15.
+    Une pièce dont la stat principale n'est pas visée (target.mains non vide) vaut 0. Renvoie { gain, chance, main, subs }
+    (main null : au hasard), ou null pour une option à résine sur tête ou mains. */
+function craftOption(target, option, rival, opts, rng, n = 5000) {
+  const fixed = CRAFT_FIXED_MAIN.includes(target.slot);
+  if (fixed && option !== 'simple') return null;
+  const main = option === 'simple' ? null : target.mains[0];
+  const subs = main ? craftSubsFor(main, opts.weights, CRAFT_OPTIONS[option].subs) : [];
+  let total = 0, wins = 0;
+  for (let i = 0; i < n; i++) {
+    const p = craftRelic(target.slot, target.set, main, subs, rng);
+    if (!fixed && target.mains.length && !target.mains.includes(p.main)) continue;
+    rollUpgrades(p.subs, 5, p.main, rng);
+    const v = opts.valueOf({ ...p, level: 15 });
+    if (v > rival) { total += v - rival; wins++; }
+  }
+  return { gain: total / n, chance: wins / n, main, subs };
+}
+
 const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup » (pièces à monter)
 
 /** Pièces libres encore basses qui pourraient battre la pièce conseillée de leur emplacement (ou, sans pièce

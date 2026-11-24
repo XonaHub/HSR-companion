@@ -425,3 +425,38 @@ test('craftRelic_draws_main_by_chance', () => {
   assert.ok(Math.abs(r.got - r.want) < 0.03, JSON.stringify(r));
   assert.equal(r.head, 'hp');
 });
+
+const CRAFT_W = `PROFILES.crit_atk.weights`;
+const CRAFT_VAL = `(r => r.subs.reduce((s, x) => s + x.val / SUBSTATS[x.stat].roll[2] * (${CRAFT_W}[x.stat] || 0), 0))`;
+const craftOpt = (target, option, rival, n = 3000) =>
+  ev(`craftOption(${JSON.stringify(target)}, '${option}', ${rival}, { valueOf: ${CRAFT_VAL}, weights: ${CRAFT_W} }, seededRng(1), ${n})`);
+const ROPE_ERR = { slot: 'rope', set: 'X', mains: ['err'] };
+
+test('craftOption_resin_beats_less_resin', () => {
+  const g = ['simple', 'r1', 'r2', 'r5'].map(o => craftOpt(ROPE_ERR, o, 0).gain);
+  assert.ok(g[3] > g[2] && g[2] > g[1] && g[1] > g[0] && g[0] > 0, JSON.stringify(g));
+});
+
+test('craftOption_simple_pays_main_rarity', () => {
+  assert.ok(craftOpt(ROPE_ERR, 'simple', 0).gain < 0.3 * craftOpt(ROPE_ERR, 'r1', 0).gain);
+});
+
+test('craftOption_sphere_uses_resolved_elem', () => {
+  const o = craftOpt({ slot: 'sphere', set: 'X', mains: ['dmg_lightning', 'atk_pct'] }, 'r2', 0);
+  assert.equal(o.main, 'dmg_lightning');
+  assert.deepEqual(o.subs, ['cr']);
+});
+
+test('craftOption_unbeatable_rival', () => {
+  const o = craftOpt(ROPE_ERR, 'r5', 1000);
+  assert.equal(o.gain, 0); assert.equal(o.chance, 0);
+});
+
+test('craftOption_no_resin_on_head_and_hands', () => {
+  assert.equal(craftOpt({ slot: 'head', set: 'X', mains: [] }, 'r1', 0), null);
+  assert.ok(craftOpt({ slot: 'hands', set: 'X', mains: [] }, 'simple', 0).gain > 0);
+});
+
+test('craftOption_deterministic', () => {
+  assert.deepEqual(craftOpt(ROPE_ERR, 'r2', 3), craftOpt(ROPE_ERR, 'r2', 3));
+});
