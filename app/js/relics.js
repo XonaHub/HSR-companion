@@ -307,6 +307,50 @@ function craftOption(target, option, rival, opts, rng, n = 5000) {
   return { gain: total / n, chance: wins / n, main, subs };
 }
 
+const CRAFT_MIN_GAIN = 0.25;   // en rolls utiles : en dessous, la synthèse ne vaut pas la peine d'être proposée
+
+/** Synthèses conseillées pour un perso : au plus une par emplacement, le plus grand gain total sous le stock.
+    opts = { value: r -> nombre (pièce conseillée et pièce simulée), weights, resin, remains (null : stock inconnu),
+    n?, seed?, cache?: Map }. Chaque option a son propre tirage (graine fixe) : résultat identique avec ou sans cache.
+    Renvoie { steps: [{ slot, set, option, resin, main, subs, gain, chance }] (gain décroissant), resinUsed, stock,
+    short: 'remains' | null }. */
+function craftPlan(loadout, opts) {
+  const stock = opts.resin != null && opts.remains != null;
+  const resinMax = stock ? opts.resin : Infinity;
+  const craftsMax = stock ? Math.floor(opts.remains / CRAFT_REMAINS) : Infinity;
+  const choices = [];   // par emplacement : options utiles
+  for (const slot of RELIC_CAVERN.concat(RELIC_PLANAR)) {
+    const sl = loadout.slots[slot];
+    if (!sl || sl.target.set == null) continue;
+    const rival = sl.pick ? opts.value(sl.pick) : RELIC_CORRECT_AT_15;
+    const list = [];
+    for (const option of Object.keys(CRAFT_OPTIONS)) {
+      const key = opts.cache && JSON.stringify([slot, sl.target.set, sl.target.mains, option, rival, opts.weights, opts.n]);
+      let res = key && opts.cache.has(key) ? opts.cache.get(key) : undefined;
+      if (res === undefined) {
+        res = craftOption({ slot, ...sl.target }, option, rival, { valueOf: opts.value, weights: opts.weights }, seededRng(opts.seed || 1), opts.n || 5000);
+        if (key) opts.cache.set(key, res);
+      }
+      if (res && res.gain >= CRAFT_MIN_GAIN) list.push({ slot, set: sl.target.set, option, resin: CRAFT_OPTIONS[option].resin, ...res });
+    }
+    if (list.length) choices.push(list);
+  }
+  // toutes les combinaisons (une option ou rien par emplacement) : au plus 5⁶
+  let best = { gain: 0, resin: 0, picks: [] };
+  const walk = (i, picks, gain, resin) => {
+    if (gain > best.gain || (gain === best.gain && resin < best.resin)) best = { gain, resin, picks: picks.slice() };
+    if (i === choices.length) return;
+    walk(i + 1, picks, gain, resin);
+    if (picks.length >= craftsMax) return;
+    for (const c of choices[i]) if (resin + c.resin <= resinMax) {
+      picks.push(c); walk(i + 1, picks, gain + c.gain, resin + c.resin); picks.pop();
+    }
+  };
+  walk(0, [], 0, 0);
+  const steps = best.picks.sort((a, b) => b.gain - a.gain);
+  return { steps, resinUsed: best.resin, stock, short: stock && choices.length && craftsMax < 1 ? 'remains' : null };
+}
+
 const UPGRADE_STOP = 0.15;  // sous ce seuil : « ne vaut plus le coup » (pièces à monter)
 
 /** Pièces libres encore basses qui pourraient battre la pièce conseillée de leur emplacement (ou, sans pièce

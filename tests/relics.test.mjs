@@ -460,3 +460,50 @@ test('craftOption_no_resin_on_head_and_hands', () => {
 test('craftOption_deterministic', () => {
   assert.deepEqual(craftOpt(ROPE_ERR, 'r2', 3), craftOpt(ROPE_ERR, 'r2', 3));
 });
+
+/** Équipement conseillé minimal : pièce conseillée de valeur `q` (null = aucune), set visé, stats principales visées */
+function craftLoadout(over = {}) {
+  const base = { head: [2, []], hands: [2, []], body: [1, ['cd']], feet: [1, ['spd']], sphere: [1, ['dmg_lightning']], rope: [1, ['atk_pct']] };
+  const slots = {};
+  for (const [slot, [q, mains]] of Object.entries(base)) {
+    const o = over[slot] || {};
+    const pq = 'q' in o ? o.q : q;
+    slots[slot] = { pick: pq == null ? null : { id: slot, q: pq }, target: { set: 'set' in o ? o.set : 'X', mains } };
+  }
+  return { slots };
+}
+const craftPlanOf = (lo, resin, remains) => ev(`craftPlan(${JSON.stringify(lo)}, { value: r => r.q != null ? r.q : ${CRAFT_VAL}(r),
+  weights: ${CRAFT_W}, rng: seededRng(1), resin: ${resin}, remains: ${remains}, n: 1500 })`);
+
+test('craftPlan_respects_resin', () => {
+  const p = craftPlanOf(craftLoadout(), 9, 10000);
+  assert.ok(p.resinUsed <= 9 && p.resinUsed > 0);
+  assert.equal(p.steps.reduce((s, x) => s + x.resin, 0), p.resinUsed);
+  assert.equal(p.stock, true);
+  const p0 = craftPlanOf(craftLoadout(), 0, 10000);
+  assert.ok(p0.steps.length > 0 && p0.steps.every(s => s.option === 'simple'));
+});
+
+test('craftPlan_respects_remains', () => {
+  assert.ok(craftPlanOf(craftLoadout(), 9, 250).steps.length <= 2);
+  const p = craftPlanOf(craftLoadout(), 9, 50);
+  assert.deepEqual(p.steps, []); assert.equal(p.short, 'remains');
+});
+
+test('craftPlan_no_stock_means_best_each', () => {
+  const p = craftPlanOf(craftLoadout(), 'null', 'null');
+  assert.equal(p.stock, false);
+  for (const s of p.steps) assert.equal(s.option, ['head', 'hands'].includes(s.slot) ? 'simple' : 'r5', s.slot);
+});
+
+test('craftPlan_skips_good_and_unset', () => {
+  const p = craftPlanOf(craftLoadout({ body: { q: 100 }, feet: { set: null } }), 'null', 'null');
+  const slots = p.steps.map(s => s.slot);
+  assert.ok(!slots.includes('body') && !slots.includes('feet'));
+  assert.ok(slots.includes('rope'));
+});
+
+test('craftPlan_sorted_by_gain', () => {
+  const g = craftPlanOf(craftLoadout({ sphere: { q: null } }), 9, 10000).steps.map(s => s.gain);
+  assert.deepEqual(g, [...g].sort((a, b) => b - a));
+});
